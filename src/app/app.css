@@ -119,7 +119,8 @@ textarea {
 .menu-button,
 .chat-action,
 .chat-send,
-.menu-close {
+.menu-close,
+.secondary-button {
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -135,7 +136,8 @@ textarea {
 .menu-button:hover,
 .chat-action:hover,
 .chat-send:hover,
-.menu-close:hover {
+.menu-close:hover,
+.secondary-button:hover {
   transform: translateY(-1px);
   border-color: var(--line-strong);
   background: rgba(255, 255, 255, 0.09);
@@ -364,7 +366,8 @@ textarea {
 .chat-transcript,
 .text-compose,
 .mode-switch,
-.settings-grid {
+.settings-grid,
+.settings-form-grid {
   display: grid;
   gap: 10px;
 }
@@ -391,6 +394,67 @@ textarea {
 
 .mode-switch-triple {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settings-form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settings-field {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-field label {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.settings-input:focus {
+  outline: 1px solid rgba(215, 149, 91, 0.55);
+  border-color: rgba(215, 149, 91, 0.55);
+}
+
+.secret-row,
+.settings-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.secret-row .settings-input {
+  flex: 1;
+}
+
+.field-status,
+.settings-feedback span {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.settings-feedback {
+  display: grid;
+  gap: 2px;
+}
+
+.settings-feedback strong {
+  font-size: 0.88rem;
+}
+
+.settings-toolbar {
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-top: 4px;
 }
 
 .preview-button {
@@ -614,9 +678,16 @@ textarea {
 
   .mode-switch,
   .mode-switch-triple,
+  .settings-form-grid,
   .metrics-grid,
   .chat-composer {
     grid-template-columns: 1fr;
+  }
+
+  .secret-row,
+  .settings-toolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .window-backdrop {

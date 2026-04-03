@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import type { SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
 import type { BackendConfigSummary } from "../shared/backend-config";
 import type { TextBackendProvider } from "../shared/backend-provider";
 import type { InteractionMode } from "../shared/interaction-mode";
@@ -7,6 +9,11 @@ import type { VoiceBackendProvider } from "../shared/voice-backend";
 type SettingsPanelProps = {
   backendConfig: BackendConfigSummary;
   mode: InteractionMode;
+  onSaveSettings: (update: Omit<SettingsUpdate, "preferences">) => Promise<void>;
+  settingsFeedback: string;
+  settingsLoaded: boolean;
+  settingsSaveState: "idle" | "saving" | "saved" | "error";
+  settingsSnapshot: SettingsSnapshot | null;
   textBackend: TextBackendProvider;
   ttsProvider: TtsProvider;
   voiceBackend: VoiceBackendProvider;
@@ -19,6 +26,11 @@ type SettingsPanelProps = {
 export function SettingsPanel({
   backendConfig,
   mode,
+  onSaveSettings,
+  settingsFeedback,
+  settingsLoaded,
+  settingsSaveState,
+  settingsSnapshot,
   textBackend,
   ttsProvider,
   voiceBackend,
@@ -27,6 +39,36 @@ export function SettingsPanel({
   setTtsProvider,
   setVoiceBackend
 }: SettingsPanelProps) {
+  const [openAiApiKey, setOpenAiApiKey] = useState("");
+  const [clearOpenAiApiKey, setClearOpenAiApiKey] = useState(false);
+  const [openAiTtsVoice, setOpenAiTtsVoice] = useState("");
+  const [elevenLabsApiKey, setElevenLabsApiKey] = useState("");
+  const [clearElevenLabsApiKey, setClearElevenLabsApiKey] = useState(false);
+  const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState("");
+  const [kindroidApiKey, setKindroidApiKey] = useState("");
+  const [clearKindroidApiKey, setClearKindroidApiKey] = useState(false);
+  const [kindroidAiId, setKindroidAiId] = useState("");
+  const [kindroidBaseUrl, setKindroidBaseUrl] = useState("");
+
+  useEffect(() => {
+    if (!settingsSnapshot) {
+      return;
+    }
+
+    setOpenAiApiKey("");
+    setClearOpenAiApiKey(false);
+    setOpenAiTtsVoice(settingsSnapshot.openAiTtsVoice);
+    setElevenLabsApiKey("");
+    setClearElevenLabsApiKey(false);
+    setElevenLabsVoiceId(settingsSnapshot.elevenLabsVoiceId);
+    setKindroidApiKey("");
+    setClearKindroidApiKey(false);
+    setKindroidAiId(settingsSnapshot.kindroidAiId);
+    setKindroidBaseUrl(settingsSnapshot.kindroidBaseUrl);
+  }, [settingsSnapshot]);
+
+  const saveDisabled = !settingsLoaded || settingsSaveState === "saving";
+
   return (
     <div className="menu-stack">
       <section className="menu-section">
@@ -150,6 +192,229 @@ export function SettingsPanel({
           </div>
         </section>
       ) : null}
+
+      <section className="menu-section">
+        <div className="menu-section-header">
+          <div>
+            <p className="eyebrow">Credentials</p>
+            <h3 className="panel-title">Store keys and IDs in your local profile</h3>
+          </div>
+        </div>
+
+        <div className="settings-form-grid">
+          <article className="setting-card">
+            <strong>OpenAI</strong>
+            <div className="settings-field">
+              <label htmlFor="openai-api-key">API key</label>
+              <div className="secret-row">
+                <input
+                  id="openai-api-key"
+                  className="settings-input"
+                  type="password"
+                  autoComplete="off"
+                  value={openAiApiKey}
+                  placeholder={
+                    clearOpenAiApiKey
+                      ? "Key will be cleared on save"
+                      : settingsSnapshot?.hasOpenAiApiKey
+                        ? "Stored locally"
+                        : "Paste a new key"
+                  }
+                  onChange={(event) => {
+                    setOpenAiApiKey(event.target.value);
+                    setClearOpenAiApiKey(false);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={!settingsSnapshot?.hasOpenAiApiKey && !clearOpenAiApiKey}
+                  onClick={() => {
+                    setOpenAiApiKey("");
+                    setClearOpenAiApiKey(true);
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+              <p className="field-status">
+                {clearOpenAiApiKey
+                  ? "Saved OpenAI key will be removed."
+                  : settingsSnapshot?.hasOpenAiApiKey
+                    ? "OpenAI key is stored locally."
+                    : "No OpenAI key is stored."}
+              </p>
+            </div>
+            <div className="settings-field">
+              <label htmlFor="openai-tts-voice">TTS voice</label>
+              <input
+                id="openai-tts-voice"
+                className="settings-input"
+                type="text"
+                value={openAiTtsVoice}
+                onChange={(event) => setOpenAiTtsVoice(event.target.value)}
+                placeholder="alloy"
+              />
+            </div>
+          </article>
+
+          <article className="setting-card">
+            <strong>ElevenLabs</strong>
+            <div className="settings-field">
+              <label htmlFor="elevenlabs-api-key">API key</label>
+              <div className="secret-row">
+                <input
+                  id="elevenlabs-api-key"
+                  className="settings-input"
+                  type="password"
+                  autoComplete="off"
+                  value={elevenLabsApiKey}
+                  placeholder={
+                    clearElevenLabsApiKey
+                      ? "Key will be cleared on save"
+                      : settingsSnapshot?.hasElevenLabsApiKey
+                        ? "Stored locally"
+                        : "Paste a new key"
+                  }
+                  onChange={(event) => {
+                    setElevenLabsApiKey(event.target.value);
+                    setClearElevenLabsApiKey(false);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={!settingsSnapshot?.hasElevenLabsApiKey && !clearElevenLabsApiKey}
+                  onClick={() => {
+                    setElevenLabsApiKey("");
+                    setClearElevenLabsApiKey(true);
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+              <p className="field-status">
+                {clearElevenLabsApiKey
+                  ? "Saved ElevenLabs key will be removed."
+                  : settingsSnapshot?.hasElevenLabsApiKey
+                    ? "ElevenLabs key is stored locally."
+                    : "No ElevenLabs key is stored."}
+              </p>
+            </div>
+            <div className="settings-field">
+              <label htmlFor="elevenlabs-voice-id">Voice ID</label>
+              <input
+                id="elevenlabs-voice-id"
+                className="settings-input"
+                type="text"
+                value={elevenLabsVoiceId}
+                onChange={(event) => setElevenLabsVoiceId(event.target.value)}
+                placeholder="Voice ID"
+              />
+            </div>
+          </article>
+
+          <article className="setting-card">
+            <strong>Kindroid</strong>
+            <div className="settings-field">
+              <label htmlFor="kindroid-api-key">API key</label>
+              <div className="secret-row">
+                <input
+                  id="kindroid-api-key"
+                  className="settings-input"
+                  type="password"
+                  autoComplete="off"
+                  value={kindroidApiKey}
+                  placeholder={
+                    clearKindroidApiKey
+                      ? "Key will be cleared on save"
+                      : settingsSnapshot?.hasKindroidApiKey
+                        ? "Stored locally"
+                        : "Paste a new key"
+                  }
+                  onChange={(event) => {
+                    setKindroidApiKey(event.target.value);
+                    setClearKindroidApiKey(false);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={!settingsSnapshot?.hasKindroidApiKey && !clearKindroidApiKey}
+                  onClick={() => {
+                    setKindroidApiKey("");
+                    setClearKindroidApiKey(true);
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+              <p className="field-status">
+                {clearKindroidApiKey
+                  ? "Saved Kindroid key will be removed."
+                  : settingsSnapshot?.hasKindroidApiKey
+                    ? "Kindroid key is stored locally."
+                    : "No Kindroid key is stored."}
+              </p>
+            </div>
+            <div className="settings-field">
+              <label htmlFor="kindroid-ai-id">AI ID</label>
+              <input
+                id="kindroid-ai-id"
+                className="settings-input"
+                type="text"
+                value={kindroidAiId}
+                onChange={(event) => setKindroidAiId(event.target.value)}
+                placeholder="AI ID"
+              />
+            </div>
+            <div className="settings-field">
+              <label htmlFor="kindroid-base-url">Base URL</label>
+              <input
+                id="kindroid-base-url"
+                className="settings-input"
+                type="text"
+                value={kindroidBaseUrl}
+                onChange={(event) => setKindroidBaseUrl(event.target.value)}
+                placeholder="https://api.kindroid.ai/v1"
+              />
+            </div>
+          </article>
+        </div>
+
+        <div className="settings-toolbar">
+          <div className="settings-feedback">
+            <strong>{settingsSaveState === "error" ? "Save failed" : "Settings"}</strong>
+            <span>
+              {settingsFeedback ||
+                (settingsSnapshot
+                  ? `Secrets are stored using ${settingsSnapshot.secretStorage === "encrypted" ? "OS encryption" : "plain local storage"}.`
+                  : "Loading settings...")}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="menu-button"
+            disabled={saveDisabled}
+            onClick={() =>
+              void onSaveSettings({
+                openAiApiKey: openAiApiKey.trim() || undefined,
+                openAiTtsVoice,
+                elevenLabsApiKey: elevenLabsApiKey.trim() || undefined,
+                elevenLabsVoiceId,
+                kindroidAiId,
+                kindroidApiKey: kindroidApiKey.trim() || undefined,
+                kindroidBaseUrl,
+                clearOpenAiApiKey,
+                clearElevenLabsApiKey,
+                clearKindroidApiKey
+              })
+            }
+          >
+            {settingsSaveState === "saving" ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
+      </section>
 
       <section className="menu-section">
         <div className="menu-section-header">

@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { getSettingsService } from "./SettingsService";
+
 const DEFAULT_MODEL = "gpt-5-mini";
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
 
@@ -29,7 +31,7 @@ function extractOutputText(result: ResponsesApiResult): string {
 
 export class OpenAIResponsesClient {
   isConfigured(): boolean {
-    return Boolean(process.env.OPENAI_API_KEY);
+    return Boolean(getSettingsService().getOpenAiApiKey());
   }
 
   getState(): { configured: boolean; apiKeyPresent: boolean; model: string } {
@@ -44,12 +46,13 @@ export class OpenAIResponsesClient {
     if (!this.isConfigured()) {
       throw new Error("OPENAI_API_KEY is not configured.");
     }
+    const apiKey = getSettingsService().getOpenAiApiKey();
 
     const response = await fetch(RESPONSES_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: options?.model ?? DEFAULT_MODEL,

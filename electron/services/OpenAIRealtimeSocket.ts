@@ -5,6 +5,7 @@ import WebSocket from "ws";
 import type { BrowserWindow } from "electron";
 import type { TransportConfig } from "../../src/services/contracts";
 import type { CadenceEvent } from "../../src/shared/voice-events";
+import { getSettingsService } from "./SettingsService";
 
 const DEFAULT_CONFIG: TransportConfig = {
   model: "gpt-realtime-mini",
@@ -27,7 +28,7 @@ export class OpenAIRealtimeSocket {
   constructor(private readonly getWindow: () => BrowserWindow | null) {}
 
   isConfigured(): boolean {
-    return Boolean(process.env.OPENAI_API_KEY);
+    return Boolean(getSettingsService().getOpenAiApiKey());
   }
 
   getState(): {
@@ -72,9 +73,10 @@ export class OpenAIRealtimeSocket {
 
     await new Promise<void>((resolve, reject) => {
       const url = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(this.config.model)}`;
+      const apiKey = getSettingsService().getOpenAiApiKey();
       const socket = new WebSocket(url, {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+          Authorization: `Bearer ${apiKey}`
         }
       });
 

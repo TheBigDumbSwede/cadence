@@ -3,6 +3,7 @@ import type { KindroidBridge } from "../shared/kindroid-control";
 import type { OpenAiAudioBridge } from "../shared/openai-audio-control";
 import type { OpenAiSpeechBridge } from "../shared/openai-speech-control";
 import type { RealtimeBridge } from "../shared/realtime-control";
+import type { SettingsBridge } from "../shared/settings-control";
 import type { TextBridge } from "../shared/text-control";
 
 type CadenceBridge = {
@@ -12,6 +13,7 @@ type CadenceBridge = {
   openaiAudio: OpenAiAudioBridge;
   openaiSpeech: OpenAiSpeechBridge;
   realtime: RealtimeBridge;
+  settings: SettingsBridge;
   text: TextBridge;
 };
 

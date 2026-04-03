@@ -4,6 +4,8 @@ import type { KindroidBridge, KindroidControlState } from "../src/shared/kindroi
 import type { OpenAiAudioBridge, OpenAiAudioControlState } from "../src/shared/openai-audio-control";
 import type { OpenAiSpeechBridge, OpenAiSpeechControlState } from "../src/shared/openai-speech-control";
 import type { RealtimeBridge, RealtimeControlState } from "../src/shared/realtime-control";
+import type { SettingsSnapshot, SettingsUpdate } from "../src/shared/app-settings";
+import type { SettingsBridge } from "../src/shared/settings-control";
 import type { TextBridge, TextControlState } from "../src/shared/text-control";
 import type { RuntimeInfo } from "../src/shared/runtime-info";
 import type { CadenceEvent } from "../src/shared/voice-events";
@@ -52,6 +54,11 @@ const cadenceBridge = {
         voice: string;
       }>
   } satisfies OpenAiSpeechBridge,
+  settings: {
+    get: () => ipcRenderer.invoke("settings:get") as Promise<SettingsSnapshot>,
+    update: (update: SettingsUpdate) =>
+      ipcRenderer.invoke("settings:update", update) as Promise<SettingsSnapshot>
+  } satisfies SettingsBridge,
   realtime: {
     connect: () => ipcRenderer.invoke("realtime:connect") as Promise<void>,
     disconnect: () => ipcRenderer.invoke("realtime:disconnect") as Promise<void>,

@@ -8,6 +8,7 @@ import { registerKindroidIpc } from "./ipc/kindroid";
 import { registerOpenAiAudioIpc } from "./ipc/openai-audio";
 import { registerOpenAiSpeechIpc } from "./ipc/openai-speech";
 import { registerRealtimeIpc } from "./ipc/realtime";
+import { registerSettingsIpc } from "./ipc/settings";
 import { registerTextIpc } from "./ipc/text";
 
 const DEFAULT_WINDOW = {
@@ -67,6 +68,7 @@ app.whenReady().then(() => {
   registerOpenAiAudioIpc();
   registerOpenAiSpeechIpc();
   registerRealtimeIpc(() => mainWindow);
+  registerSettingsIpc();
   registerTextIpc();
   mainWindow = createMainWindow();
 

@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { getSettingsService } from "./SettingsService";
+
 const DEFAULT_MODEL = "gpt-4o-mini-transcribe";
 const TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions";
 
@@ -34,7 +36,7 @@ function pcm16ToWav(pcm: ArrayBuffer, sampleRate: number): ArrayBuffer {
 
 export class OpenAIAudioClient {
   isConfigured(): boolean {
-    return Boolean(process.env.OPENAI_API_KEY);
+    return Boolean(getSettingsService().getOpenAiApiKey());
   }
 
   getState() {
@@ -49,6 +51,7 @@ export class OpenAIAudioClient {
     if (!this.isConfigured()) {
       throw new Error("OPENAI_API_KEY is not configured.");
     }
+    const apiKey = getSettingsService().getOpenAiApiKey();
 
     const form = new FormData();
     const wav = pcm16ToWav(audio, 24000);
@@ -58,7 +61,7 @@ export class OpenAIAudioClient {
     const response = await fetch(TRANSCRIPTIONS_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${apiKey}`
       },
       body: form
     });

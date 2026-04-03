@@ -1,16 +1,18 @@
 import "dotenv/config";
 
+import { getSettingsService } from "./SettingsService";
+
 const DEFAULT_MODEL = "gpt-4o-mini-tts";
 const DEFAULT_VOICE = "alloy";
 const SPEECH_URL = "https://api.openai.com/v1/audio/speech";
 
 export class OpenAISpeechClient {
   private getVoice(): string {
-    return process.env.OPENAI_TTS_VOICE ?? DEFAULT_VOICE;
+    return getSettingsService().getOpenAiTtsVoice() ?? DEFAULT_VOICE;
   }
 
   isConfigured(): boolean {
-    return Boolean(process.env.OPENAI_API_KEY);
+    return Boolean(getSettingsService().getOpenAiApiKey());
   }
 
   getState() {
@@ -29,12 +31,13 @@ export class OpenAISpeechClient {
     if (!this.isConfigured()) {
       throw new Error("OPENAI_API_KEY is not configured.");
     }
+    const apiKey = getSettingsService().getOpenAiApiKey();
 
     const voice = options?.voice || this.getVoice();
     const response = await fetch(SPEECH_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({

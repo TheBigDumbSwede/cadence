@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { getSettingsService } from "./SettingsService";
+
 type KindroidResponse = {
   response?: string;
   error?: string;
@@ -14,19 +16,18 @@ function tryParseJson<T>(value: string): T | null {
 }
 
 export class KindroidClient {
-  private readonly baseUrl =
-    process.env.KINDROID_BASE_URL ?? "https://api.kindroid.ai/v1";
-
   isConfigured(): boolean {
-    return Boolean(process.env.KINDROID_API_KEY && process.env.KINDROID_AI_ID);
+    const settings = getSettingsService();
+    return Boolean(settings.getKindroidApiKey() && settings.getKindroidAiId());
   }
 
   getState() {
+    const settings = getSettingsService();
     return {
-      apiKeyPresent: Boolean(process.env.KINDROID_API_KEY),
+      apiKeyPresent: Boolean(settings.getKindroidApiKey()),
       configured: this.isConfigured(),
-      aiIdPresent: Boolean(process.env.KINDROID_AI_ID),
-      baseUrl: this.baseUrl
+      aiIdPresent: Boolean(settings.getKindroidAiId()),
+      baseUrl: settings.getKindroidBaseUrl()
     };
   }
 
@@ -36,15 +37,19 @@ export class KindroidClient {
         "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID."
       );
     }
+    const settings = getSettingsService();
+    const apiKey = settings.getKindroidApiKey();
+    const aiId = settings.getKindroidAiId();
+    const baseUrl = settings.getKindroidBaseUrl();
 
-    const response = await fetch(`${this.baseUrl}/send-message`, {
+    const response = await fetch(`${baseUrl}/send-message`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.KINDROID_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        ai_id: process.env.KINDROID_AI_ID,
+        ai_id: aiId,
         message
       })
     });
@@ -84,15 +89,19 @@ export class KindroidClient {
         "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID."
       );
     }
+    const settings = getSettingsService();
+    const apiKey = settings.getKindroidApiKey();
+    const aiId = settings.getKindroidAiId();
+    const baseUrl = settings.getKindroidBaseUrl();
 
-    const response = await fetch(`${this.baseUrl}/chat-break`, {
+    const response = await fetch(`${baseUrl}/chat-break`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.KINDROID_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        ai_id: process.env.KINDROID_AI_ID,
+        ai_id: aiId,
         greeting
       })
     });

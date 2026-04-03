@@ -1,21 +1,23 @@
 import "dotenv/config";
 
+import { getSettingsService } from "./SettingsService";
+
 const DEFAULT_MODEL = "eleven_flash_v2_5";
 const DEFAULT_OUTPUT_FORMAT = "mp3_44100_128";
 
 export class ElevenLabsClient {
   private getVoiceId(): string | null {
-    return process.env.ELEVENLABS_VOICE_ID ?? process.env.CADENCE_VOICE_ID ?? null;
+    return getSettingsService().getElevenLabsVoiceId();
   }
 
   isConfigured(): boolean {
-    return Boolean(process.env.ELEVENLABS_API_KEY && this.getVoiceId());
+    return Boolean(getSettingsService().getElevenLabsApiKey() && this.getVoiceId());
   }
 
   getState() {
     return {
       configured: this.isConfigured(),
-      apiKeyPresent: Boolean(process.env.ELEVENLABS_API_KEY),
+      apiKeyPresent: Boolean(getSettingsService().getElevenLabsApiKey()),
       voiceIdPresent: Boolean(this.getVoiceId()),
       voiceId: this.getVoiceId(),
       model: DEFAULT_MODEL
@@ -26,8 +28,9 @@ export class ElevenLabsClient {
     text: string,
     options?: { voiceId?: string }
   ): Promise<{ audio: ArrayBuffer; format: "mp3"; model: string; voiceId: string }> {
+    const apiKey = getSettingsService().getElevenLabsApiKey();
     const voiceId = options?.voiceId ?? this.getVoiceId();
-    if (!process.env.ELEVENLABS_API_KEY || !voiceId) {
+    if (!apiKey || !voiceId) {
       throw new Error(
         "ElevenLabs is not configured. Add ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID."
       );
@@ -39,7 +42,7 @@ export class ElevenLabsClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "xi-api-key": process.env.ELEVENLABS_API_KEY
+          "xi-api-key": apiKey
         },
         body: JSON.stringify({
           text,

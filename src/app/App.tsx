@@ -7,6 +7,7 @@ import { SystemPanel } from "../components/SystemPanel";
 import { useCadenceController } from "../hooks/useCadenceController";
 import type { TextBackendProvider } from "../shared/backend-provider";
 import type { RuntimeInfo } from "../shared/runtime-info";
+import type { SettingsUpdate } from "../shared/app-settings";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
@@ -23,6 +24,11 @@ export function App() {
     isRecording,
     metrics,
     mode,
+    saveSettings,
+    settingsFeedback,
+    settingsLoaded,
+    settingsSaveState,
+    settingsSnapshot,
     textBackend,
     ttsProvider,
     voiceBackend,
@@ -129,6 +135,11 @@ export function App() {
           <SettingsPanel
             backendConfig={backendConfig}
             mode={mode}
+            onSaveSettings={saveSettings as (update: Omit<SettingsUpdate, "preferences">) => Promise<void>}
+            settingsFeedback={settingsFeedback}
+            settingsLoaded={settingsLoaded}
+            settingsSaveState={settingsSaveState}
+            settingsSnapshot={settingsSnapshot}
             textBackend={textBackend}
             ttsProvider={ttsProvider}
             voiceBackend={voiceBackend}

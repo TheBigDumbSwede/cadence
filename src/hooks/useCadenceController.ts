@@ -7,6 +7,7 @@ import {
 import type { ConversationMetrics, ConversationTurn } from "../shared/conversation-types";
 import type { BackendConfigSummary } from "../shared/backend-config";
 import type { TextBackendProvider } from "../shared/backend-provider";
+import type { SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
 import type { InteractionMode } from "../shared/interaction-mode";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
@@ -67,6 +68,13 @@ export function useCadenceController() {
   const [voiceBackend, setVoiceBackend] = useState<VoiceBackendProvider>("openai");
   const [textBackend, setTextBackend] = useState<TextBackendProvider>("openai");
   const [ttsProvider, setTtsProvider] = useState<TtsProvider>("elevenlabs");
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsRevision, setSettingsRevision] = useState(0);
+  const [settingsSnapshot, setSettingsSnapshot] = useState<SettingsSnapshot | null>(null);
+  const [settingsSaveState, setSettingsSaveState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle"
+  );
+  const [settingsFeedback, setSettingsFeedback] = useState("");
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [activeStateId, setActiveStateId] = useState<PreviewAssistantStateId>("idle");
   const [statusCopy, setStatusCopy] = useState("Connect to OpenAI to begin.");
@@ -111,6 +119,33 @@ export function useCadenceController() {
   }, []);
 
   useEffect(() => {
+    const bridge = getCadenceBridge();
+
+    void bridge.settings
+      .get()
+      .then((snapshot) => {
+        setSettingsSnapshot(snapshot);
+        setMode(snapshot.preferences.mode);
+        setTextBackend(snapshot.preferences.textBackend);
+        setTtsProvider(snapshot.preferences.ttsProvider);
+        setVoiceBackend(snapshot.preferences.voiceBackend);
+        setSettingsLoaded(true);
+      })
+      .catch((error: Error) => {
+        setSettingsFeedback(error.message);
+        setSettingsSaveState("error");
+        setSettingsLoaded(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!settingsLoaded) {
+      setConnectionReady(false);
+      setConfigured(false);
+      setStatusCopy("Loading settings...");
+      return;
+    }
+
     setConnectionReady(false);
     setIsRecording(false);
     setStatusCopy(
@@ -426,7 +461,7 @@ export function useCadenceController() {
       unsubscribe();
       void activeSession.disconnect();
     };
-  }, [activeSession, mode, textBackend, ttsProvider, voiceBackend]);
+  }, [activeSession, mode, settingsLoaded, settingsRevision, textBackend, ttsProvider, voiceBackend]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -539,6 +574,37 @@ export function useCadenceController() {
     );
   }
 
+  async function saveSettings(
+    update: Omit<SettingsUpdate, "preferences">
+  ): Promise<void> {
+    const bridge = getCadenceBridge();
+
+    setSettingsSaveState("saving");
+    setSettingsFeedback("Saving settings...");
+
+    try {
+      const snapshot = await bridge.settings.update({
+        ...update,
+        preferences: {
+          mode,
+          textBackend,
+          ttsProvider,
+          voiceBackend
+        }
+      });
+
+      setSettingsSnapshot(snapshot);
+      setSettingsSaveState("saved");
+      setSettingsFeedback("Settings saved.");
+      setSettingsRevision((previous) => previous + 1);
+    } catch (error) {
+      setSettingsSaveState("error");
+      setSettingsFeedback(
+        error instanceof Error ? error.message : "Failed to save settings."
+      );
+    }
+  }
+
   const activeState: AssistantStateSnapshot = useMemo(() => {
     const base = buildAssistantSnapshot(activeStateId);
     return {
@@ -556,6 +622,11 @@ export function useCadenceController() {
     metrics,
     mode,
     backendConfig,
+    saveSettings,
+    settingsFeedback,
+    settingsLoaded,
+    settingsSaveState,
+    settingsSnapshot,
     voiceBackend,
     setInputText,
     setMode,
