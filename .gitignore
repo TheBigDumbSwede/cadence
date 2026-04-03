@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-electron
+.env
+.env.local
+.env.*
+!.env.example
+coverage
+*.log
+*.tsbuildinfo

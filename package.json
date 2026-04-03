@@ -1,0 +1,42 @@
+{
+  "name": "cadence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A voice-first desktop companion scaffold optimized for fast turn-taking.",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "check": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "clean": "rimraf dist dist-electron",
+    "dev": "concurrently -k -n renderer,electron,app -c blue,green,yellow \"npm:dev:renderer\" \"npm:dev:electron\" \"npm:dev:app\"",
+    "dev:renderer": "vite",
+    "dev:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --outdir=dist-electron --external:electron --watch",
+    "dev:app": "wait-on tcp:5173 file:dist-electron/main.js && cross-env CADENCE_RENDERER_URL=http://127.0.0.1:5173 electron dist-electron/main.js",
+    "build": "npm run check && npm run build:renderer && npm run build:electron",
+    "build:renderer": "vite build",
+    "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --outdir=dist-electron --external:electron",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.1.1",
+    "esbuild": "^0.25.11",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10",
+    "wait-on": "^9.0.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
