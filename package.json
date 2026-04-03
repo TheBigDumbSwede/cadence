@@ -6,7 +6,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "check": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
-    "clean": "rimraf dist dist-electron",
+    "clean": "rimraf dist dist-electron release",
     "dev": "concurrently -k -n renderer,electron,app -c blue,green,yellow \"npm:dev:renderer\" \"npm:dev:electron\" \"npm:dev:app\"",
     "dev:renderer": "vite",
     "dev:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --outdir=dist-electron --external:electron --watch",
@@ -14,6 +14,8 @@
     "build": "npm run check && npm run build:renderer && npm run build:electron",
     "build:renderer": "vite build",
     "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --outdir=dist-electron --external:electron",
+    "dist:win": "npm run build && electron-builder --win portable",
+    "dist:dir": "npm run build && electron-builder --dir",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -30,6 +32,7 @@
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
     "esbuild": "^0.25.11",
     "rimraf": "^6.0.1",
     "typescript": "^5.9.3",
@@ -38,5 +41,25 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "build": {
+    "appId": "com.brucevibe.cadence",
+    "productName": "Cadence",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "Cadence-${version}-portable.${ext}"
+    }
   }
 }

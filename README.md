@@ -58,6 +58,13 @@ cadence/
 3. Run `npm run dev`.
 4. Add a local `.env` with whichever provider keys you want to use.
 
+## Packaging
+
+- `npm run dist:win` builds a Windows portable executable into `release/`
+- `npm run dist:dir` builds an unpacked app directory for inspection
+
+For the current prototype, environment values still come from a local `.env` file. Packaging works, but real settings persistence should move into the app before wider distribution.
+
 ## Environment
 
 - `OPENAI_API_KEY` enables OpenAI Realtime voice mode, OpenAI text mode, and OpenAI transcription for Kindroid Voice.
