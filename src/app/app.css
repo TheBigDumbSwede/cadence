@@ -107,7 +107,6 @@ textarea {
 }
 
 .runtime-pill span,
-.status-chip,
 .state-chip {
   padding: 7px 11px;
   border-radius: 999px;
@@ -208,10 +207,7 @@ textarea {
 
 .panel-copy,
 .metric-label,
-.setting-copy,
-.turn-meta,
-.runtime-copy,
-.status-copy {
+.setting-copy {
   margin: 0;
   color: var(--text-muted);
 }
@@ -309,8 +305,6 @@ textarea {
 
 .metric-card,
 .setting-card,
-.turn-card,
-.status-card,
 .chat-empty,
 .message-bubble {
   padding: 14px;
@@ -476,8 +470,6 @@ textarea {
 
 .preview-button strong,
 .setting-card strong,
-.turn-card strong,
-.status-card strong,
 .chat-empty strong {
   display: block;
   margin-bottom: 4px;

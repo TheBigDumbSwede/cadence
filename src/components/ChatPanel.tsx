@@ -77,7 +77,7 @@ export function ChatPanel({
   return (
     <section className="panel chat-panel">
       <header className="chat-header">
-        <div className="panel-header-copy">
+        <div>
           <p className="eyebrow">Conversation</p>
           <p className="panel-copy">{mode === "voice" ? voiceSummary : "Text-only mode is active."}</p>
         </div>
