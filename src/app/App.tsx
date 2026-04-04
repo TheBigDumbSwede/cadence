@@ -17,14 +17,19 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
     activeState,
+    avatarPoseDebug,
     backendConfig,
+    chooseAvatarFile,
     configured,
     connectionReady,
     inputText,
     isRecording,
     metrics,
     mode,
+    performance,
     saveSettings,
+    setAvatar,
+    setAvatarPoseDebug,
     settingsFeedback,
     settingsLoaded,
     settingsSaveState,
@@ -92,7 +97,12 @@ export function App() {
       </header>
 
       <section className="workspace-grid">
-        <StagePanel activeState={activeState} />
+        <StagePanel
+          activeState={activeState}
+          avatar={settingsSnapshot?.avatar ?? null}
+          avatarPoseDebug={avatarPoseDebug}
+          performance={performance}
+        />
         <ChatPanel
           configured={configured}
           connectionReady={connectionReady}
@@ -134,12 +144,16 @@ export function App() {
         >
           <SettingsPanel
             backendConfig={backendConfig}
+            avatarPoseDebug={avatarPoseDebug}
+            onChooseAvatar={chooseAvatarFile}
+            onSetAvatar={setAvatar}
             mode={mode}
             onSaveSettings={saveSettings as (update: Omit<SettingsUpdate, "preferences">) => Promise<void>}
             settingsFeedback={settingsFeedback}
             settingsLoaded={settingsLoaded}
             settingsSaveState={settingsSaveState}
             settingsSnapshot={settingsSnapshot}
+            setAvatarPoseDebug={setAvatarPoseDebug}
             textBackend={textBackend}
             ttsProvider={ttsProvider}
             voiceBackend={voiceBackend}

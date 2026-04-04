@@ -7,12 +7,20 @@ import {
 import type { ConversationMetrics, ConversationTurn } from "../shared/conversation-types";
 import type { BackendConfigSummary } from "../shared/backend-config";
 import type { TextBackendProvider } from "../shared/backend-provider";
-import type { SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
+import type { AvatarSelection, SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
 import type { InteractionMode } from "../shared/interaction-mode";
+import type {
+  AssistantPerformanceDirective,
+  AvatarPerformanceSnapshot
+} from "../shared/performance-directive";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 import type { CadenceEvent } from "../shared/voice-events";
 import { PushToTalkRecorder } from "../services/audio/audioCapture";
+import {
+  createPerformanceDirective,
+  inferPerformanceDirective
+} from "../services/avatar/performanceHeuristics";
 import { getCadenceBridge } from "../services/bridge";
 import {
   createKindroidSession,
@@ -33,30 +41,41 @@ function timestampNow(): string {
   }).format(new Date());
 }
 
-function nextStateFromEvent(event: CadenceEvent): PreviewAssistantStateId | null {
-  switch (event.type) {
-    case "session.status":
-      switch (event.status) {
-        case "listening":
-          return "listening";
-        case "thinking":
-        case "connecting":
-          return "thinking";
-        case "speaking":
-          return "speaking";
-        case "ready":
-        case "disconnected":
-          return "idle";
-        default:
-          return null;
-      }
-    case "transport.error":
-      return "error";
-    case "assistant.interrupted":
-      return "listening";
-    default:
-      return null;
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function estimateUserReadMs(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return clamp(320 + words * 70, 360, 1200);
+}
+
+function estimateAssistantDeliveryMs(
+  text: string,
+  pace: AvatarPerformanceSnapshot["pace"]
+): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  const basePerWord =
+    pace === "animated" ? 150 : pace === "calm" ? 220 : 185;
+
+  return clamp(1100 + words * basePerWord, 1600, 7000);
+}
+
+function snapshotFromDirective(
+  directive: AssistantPerformanceDirective,
+  previous?: AvatarPerformanceSnapshot,
+  options?: {
+    retriggerGesture?: boolean;
   }
+): AvatarPerformanceSnapshot {
+  const shouldRetrigger =
+    directive.gesture !== "none" &&
+    (options?.retriggerGesture || previous?.gesture !== directive.gesture);
+
+  return {
+    ...directive,
+    gestureRevision: shouldRetrigger ? (previous?.gestureRevision ?? 0) + 1 : previous?.gestureRevision ?? 0
+  };
 }
 
 export function useCadenceController() {
@@ -75,8 +94,12 @@ export function useCadenceController() {
     "idle"
   );
   const [settingsFeedback, setSettingsFeedback] = useState("");
+  const [avatarPoseDebug, setAvatarPoseDebug] = useState(false);
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [activeStateId, setActiveStateId] = useState<PreviewAssistantStateId>("idle");
+  const [avatarPerformance, setAvatarPerformance] = useState<AvatarPerformanceSnapshot>(() =>
+    snapshotFromDirective(createPerformanceDirective())
+  );
   const [statusCopy, setStatusCopy] = useState("Connect to OpenAI to begin.");
   const [connectionReady, setConnectionReady] = useState(false);
   const [configured, setConfigured] = useState(false);
@@ -94,6 +117,9 @@ export function useCadenceController() {
     interruptRecoveryMs: 0
   });
   const recorderRef = useRef<PushToTalkRecorder | null>(null);
+  const poseHoldTimerRef = useRef<number | null>(null);
+  const stagePhaseTimerRef = useRef<number | null>(null);
+  const stageTimelineManagedRef = useRef(false);
   const responseClock = useRef<{
     startedAt: number | null;
     firstAudioAt: number | null;
@@ -112,11 +138,114 @@ export function useCadenceController() {
       : textBackend === "kindroid"
         ? kindroidSession
         : textSession;
+  const visualReplyPoseMode =
+    mode === "text" || (mode === "voice" && voiceBackend === "kindroid" && ttsProvider === "none");
   const topology = useMemo(() => activeSession.describeTopology(), [activeSession]);
 
   useEffect(() => {
     recorderRef.current = new PushToTalkRecorder();
   }, []);
+
+  useEffect(
+    () => () => {
+      if (poseHoldTimerRef.current !== null) {
+        window.clearTimeout(poseHoldTimerRef.current);
+      }
+      if (stagePhaseTimerRef.current !== null) {
+        window.clearTimeout(stagePhaseTimerRef.current);
+      }
+    },
+    []
+  );
+
+  function clearStagePhaseTimer(): void {
+    if (stagePhaseTimerRef.current !== null) {
+      window.clearTimeout(stagePhaseTimerRef.current);
+      stagePhaseTimerRef.current = null;
+    }
+  }
+
+  function clearPoseHold(): void {
+    if (poseHoldTimerRef.current !== null) {
+      window.clearTimeout(poseHoldTimerRef.current);
+      poseHoldTimerRef.current = null;
+    }
+  }
+
+  function clearAvatarTimeline(): void {
+    clearPoseHold();
+    clearStagePhaseTimer();
+    stageTimelineManagedRef.current = false;
+  }
+
+  function holdPoseState(state: PreviewAssistantStateId, durationMs = 1100): void {
+    clearPoseHold();
+    setActiveStateId(state);
+    poseHoldTimerRef.current = window.setTimeout(() => {
+      poseHoldTimerRef.current = null;
+      stageTimelineManagedRef.current = false;
+      updatePerformance(
+        createPerformanceDirective({
+          mood: "neutral",
+          gesture: "none",
+          intensity: 0.26,
+          pace: "steady",
+          cue: "ready"
+        })
+      );
+      setActiveStateId("idle");
+    }, durationMs);
+  }
+
+  function updatePerformance(
+    directive: AssistantPerformanceDirective,
+    options?: {
+      retriggerGesture?: boolean;
+    }
+  ): void {
+    setAvatarPerformance((previous) => snapshotFromDirective(directive, previous, options));
+  }
+
+  function beginVisualReplyPrelude(text: string): void {
+    clearAvatarTimeline();
+    stageTimelineManagedRef.current = true;
+    setActiveStateId("listening");
+    updatePerformance(
+      createPerformanceDirective({
+        mood: "focused",
+        gesture: "none",
+        intensity: 0.3,
+        pace: "steady",
+        cue: "user-turn"
+      })
+    );
+
+    stagePhaseTimerRef.current = window.setTimeout(() => {
+      stagePhaseTimerRef.current = null;
+      if (!stageTimelineManagedRef.current) {
+        return;
+      }
+
+      setActiveStateId("thinking");
+      updatePerformance(
+        createPerformanceDirective({
+          mood: "focused",
+          gesture: "thinking_touch",
+          intensity: 0.32,
+          pace: "calm",
+          cue: "thinking"
+        })
+      );
+    }, estimateUserReadMs(text));
+  }
+
+  function beginVisualReplyDelivery(text: string): void {
+    const directive = inferPerformanceDirective(text);
+    clearStagePhaseTimer();
+    stageTimelineManagedRef.current = true;
+    updatePerformance(directive, { retriggerGesture: true });
+    holdPoseState("speaking", estimateAssistantDeliveryMs(text, directive.pace));
+  }
 
   useEffect(() => {
     const bridge = getCadenceBridge();
@@ -320,42 +449,105 @@ export function useCadenceController() {
     }
 
     const unsubscribe = activeSession.subscribe((event) => {
-      const nextState = nextStateFromEvent(event);
-      if (nextState) {
-        setActiveStateId(nextState);
-      }
-
       switch (event.type) {
         case "session.status":
-          if (event.status === "ready") {
-            setConnectionReady(true);
-            setConfigured(true);
-            setStatusCopy(
-              mode === "voice"
-                ? voiceBackend === "kindroid"
-                  ? `Kindroid voice mode ready with ${
-                      ttsProvider === "none"
-                        ? "text replies only"
-                        : ttsProvider === "openai"
-                          ? "OpenAI speech"
-                          : "ElevenLabs"
-                    }. Hold the button or press Space to talk.`
-                  : "Voice mode ready. Hold the button or press Space to talk."
-                : textBackend === "kindroid"
-                  ? "Kindroid text mode ready. Replies will use the configured AI ID."
-                  : "Text-only mode ready. Use the text composer for cheaper iteration."
-            );
-          } else if (event.status === "connecting") {
-            setStatusCopy("Connecting...");
-          } else if (event.status === "thinking") {
-            setStatusCopy("Thinking...");
-          } else if (event.status === "speaking") {
-            setStatusCopy("Speaking.");
-          } else if (event.status === "disconnected") {
-            setConnectionReady(false);
+          switch (event.status) {
+            case "listening":
+              clearPoseHold();
+              setActiveStateId("listening");
+              updatePerformance(
+                createPerformanceDirective({
+                  mood: "focused",
+                  gesture: "none",
+                  intensity: 0.24,
+                  pace: "steady",
+                  cue: "listening"
+                })
+              );
+              break;
+            case "connecting":
+            case "thinking":
+              if (visualReplyPoseMode && stageTimelineManagedRef.current) {
+                break;
+              }
+              clearPoseHold();
+              setActiveStateId("thinking");
+              updatePerformance(
+                createPerformanceDirective({
+                  mood: "focused",
+                  gesture: "thinking_touch",
+                  intensity: 0.28,
+                  pace: "calm",
+                  cue: "thinking"
+                })
+              );
+              break;
+            case "speaking":
+              if (visualReplyPoseMode) {
+                break;
+              }
+              clearPoseHold();
+              setActiveStateId("speaking");
+              break;
+            case "ready":
+              if (!poseHoldTimerRef.current && !stageTimelineManagedRef.current) {
+                setActiveStateId("idle");
+              }
+              if (!visualReplyPoseMode && !stageTimelineManagedRef.current) {
+                updatePerformance(
+                  createPerformanceDirective({
+                    mood: "neutral",
+                    gesture: "none",
+                    intensity: 0.26,
+                    pace: "steady",
+                    cue: "ready"
+                  })
+                );
+              }
+              setConnectionReady(true);
+              setConfigured(true);
+              setStatusCopy(
+                mode === "voice"
+                  ? voiceBackend === "kindroid"
+                    ? `Kindroid voice mode ready with ${
+                        ttsProvider === "none"
+                          ? "text replies only"
+                          : ttsProvider === "openai"
+                            ? "OpenAI speech"
+                            : "ElevenLabs"
+                      }. Hold the button or press Space to talk.`
+                    : "Voice mode ready. Hold the button or press Space to talk."
+                  : textBackend === "kindroid"
+                    ? "Kindroid text mode ready. Replies will use the configured AI ID."
+                    : "Text-only mode ready. Use the text composer for cheaper iteration."
+              );
+              break;
+            case "disconnected":
+              clearAvatarTimeline();
+              setActiveStateId("idle");
+              updatePerformance(createPerformanceDirective());
+              setConnectionReady(false);
+              break;
+            default:
+              break;
           }
           break;
         case "transcript.final":
+          if (visualReplyPoseMode) {
+            if (!stageTimelineManagedRef.current) {
+              beginVisualReplyPrelude(event.text);
+            }
+          } else {
+            updatePerformance(
+              createPerformanceDirective({
+                mood: "focused",
+                gesture: "thinking_touch",
+                intensity: 0.3,
+                pace: "calm",
+                cue: "user-turn"
+              })
+            );
+          }
           setTurns((previous) => [
             ...previous,
             {
@@ -367,6 +559,9 @@ export function useCadenceController() {
           ]);
           break;
         case "assistant.response.delta":
+          if (visualReplyPoseMode) {
+            beginVisualReplyDelivery(event.text);
+          }
           setTurns((previous) => {
             const existingIndex = previous.findIndex((turn) => turn.id === event.turnId);
             if (existingIndex >= 0) {
@@ -390,6 +585,13 @@ export function useCadenceController() {
           });
           break;
         case "assistant.response.completed":
+          if (visualReplyPoseMode) {
+            beginVisualReplyDelivery(event.text);
+          } else {
+            updatePerformance(inferPerformanceDirective(event.text), {
+              retriggerGesture: true
+            });
+          }
           setTurns((previous) => {
             const existingIndex = previous.findIndex((turn) => turn.id === event.turnId);
             if (existingIndex < 0) {
@@ -426,10 +628,34 @@ export function useCadenceController() {
           }
           break;
         case "assistant.interrupted":
+          clearAvatarTimeline();
+          setActiveStateId("listening");
+          updatePerformance(
+            createPerformanceDirective({
+              mood: "focused",
+              gesture: "none",
+              intensity: 0.25,
+              pace: "steady",
+              cue: "interrupted"
+            })
+          );
           responseClock.current.interruptionStartedAt = performance.now();
           setStatusCopy("Interrupted. Ready for the next utterance.");
           break;
         case "transport.error":
+          clearAvatarTimeline();
+          setActiveStateId("error");
+          updatePerformance(
+            createPerformanceDirective({
+              mood: "concerned",
+              gesture: "small_shrug",
+              intensity: 0.36,
+              pace: "calm",
+              cue: "error",
+              source: "default"
+            }),
+            { retriggerGesture: true }
+          );
           setConnectionReady(false);
           setConfigured(event.message !== "OPENAI_API_KEY is not configured.");
           setStatusCopy(event.message);
@@ -461,7 +687,7 @@ export function useCadenceController() {
       unsubscribe();
       void activeSession.disconnect();
     };
-  }, [activeSession, mode, settingsLoaded, settingsRevision, textBackend, ttsProvider, voiceBackend]);
+  }, [activeSession, mode, settingsLoaded, settingsRevision, textBackend, ttsProvider, visualReplyPoseMode, voiceBackend]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -509,6 +735,7 @@ export function useCadenceController() {
     await activeSession.interrupt();
     await recorderRef.current.start();
     setIsRecording(true);
+    clearAvatarTimeline();
     setActiveStateId("listening");
     setStatusCopy("Listening...");
   }
@@ -550,6 +777,9 @@ export function useCadenceController() {
     responseClock.current.firstAudioAt = null;
     const text = inputText.trim();
     setInputText("");
+    if (visualReplyPoseMode) {
+      beginVisualReplyPrelude(text);
+    }
     setStatusCopy(
       mode === "voice"
         ? voiceBackend === "kindroid"
@@ -605,6 +835,30 @@ export function useCadenceController() {
     }
   }
 
+  async function chooseAvatarFile(): Promise<AvatarSelection | null> {
+    const bridge = getCadenceBridge();
+    return bridge.settings.chooseAvatarFile();
+  }
+
+  async function setAvatar(filePath: string | null): Promise<void> {
+    const bridge = getCadenceBridge();
+
+    setSettingsSaveState("saving");
+    setSettingsFeedback(filePath ? "Updating avatar..." : "Clearing avatar...");
+
+    try {
+      const snapshot = await bridge.settings.setAvatar(filePath);
+      setSettingsSnapshot(snapshot);
+      setSettingsSaveState("saved");
+      setSettingsFeedback(filePath ? "Avatar updated." : "Avatar cleared.");
+    } catch (error) {
+      setSettingsSaveState("error");
+      setSettingsFeedback(
+        error instanceof Error ? error.message : "Failed to update avatar."
+      );
+    }
+  }
+
   const activeState: AssistantStateSnapshot = useMemo(() => {
     const base = buildAssistantSnapshot(activeStateId);
     return {
@@ -615,6 +869,7 @@ export function useCadenceController() {
 
   return {
     activeState,
+    avatarPoseDebug,
     configured,
     connectionReady,
     inputText,
@@ -622,7 +877,11 @@ export function useCadenceController() {
     metrics,
     mode,
     backendConfig,
+    chooseAvatarFile,
+    performance: avatarPerformance,
     saveSettings,
+    setAvatar,
+    setAvatarPoseDebug,
     settingsFeedback,
     settingsLoaded,
     settingsSaveState,

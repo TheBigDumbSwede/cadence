@@ -4,7 +4,7 @@ import type { KindroidBridge, KindroidControlState } from "../src/shared/kindroi
 import type { OpenAiAudioBridge, OpenAiAudioControlState } from "../src/shared/openai-audio-control";
 import type { OpenAiSpeechBridge, OpenAiSpeechControlState } from "../src/shared/openai-speech-control";
 import type { RealtimeBridge, RealtimeControlState } from "../src/shared/realtime-control";
-import type { SettingsSnapshot, SettingsUpdate } from "../src/shared/app-settings";
+import type { AvatarSelection, SettingsSnapshot, SettingsUpdate } from "../src/shared/app-settings";
 import type { SettingsBridge } from "../src/shared/settings-control";
 import type { TextBridge, TextControlState } from "../src/shared/text-control";
 import type { RuntimeInfo } from "../src/shared/runtime-info";
@@ -57,7 +57,13 @@ const cadenceBridge = {
   settings: {
     get: () => ipcRenderer.invoke("settings:get") as Promise<SettingsSnapshot>,
     update: (update: SettingsUpdate) =>
-      ipcRenderer.invoke("settings:update", update) as Promise<SettingsSnapshot>
+      ipcRenderer.invoke("settings:update", update) as Promise<SettingsSnapshot>,
+    setAvatar: (filePath: string | null) =>
+      ipcRenderer.invoke("settings:set-avatar", filePath) as Promise<SettingsSnapshot>,
+    chooseAvatarFile: () =>
+      ipcRenderer.invoke("settings:choose-avatar-file") as Promise<AvatarSelection | null>,
+    readAvatarFile: (filePath: string) =>
+      ipcRenderer.invoke("settings:read-avatar-file", filePath) as Promise<ArrayBuffer>
   } satisfies SettingsBridge,
   realtime: {
     connect: () => ipcRenderer.invoke("realtime:connect") as Promise<void>,

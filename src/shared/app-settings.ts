@@ -10,12 +10,20 @@ export type SettingsPreferences = {
   voiceBackend: VoiceBackendProvider;
 };
 
+export type AvatarSelection = {
+  path: string;
+  label: string;
+  fileUrl: string;
+};
+
 export type SettingsSnapshot = {
   preferences: SettingsPreferences;
   openAiTtsVoice: string;
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;
+  avatar: AvatarSelection | null;
+  recentAvatars: AvatarSelection[];
   hasOpenAiApiKey: boolean;
   hasElevenLabsApiKey: boolean;
   hasKindroidApiKey: boolean;
@@ -31,7 +39,9 @@ export type SettingsUpdate = {
   openAiApiKey?: string;
   elevenLabsApiKey?: string;
   kindroidApiKey?: string;
+  avatarPath?: string;
   clearOpenAiApiKey?: boolean;
   clearElevenLabsApiKey?: boolean;
   clearKindroidApiKey?: boolean;
+  clearAvatar?: boolean;
 };
