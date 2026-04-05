@@ -135,7 +135,7 @@ export function App() {
       {systemOpen ? (
         <MenuWindow
           title="System"
-          subtitle="Timing, transport posture, and runtime details"
+          subtitle="Runtime, timing, and backend state"
           onClose={() => setSystemOpen(false)}
         >
           <SystemPanel
@@ -151,7 +151,7 @@ export function App() {
       {settingsOpen ? (
         <MenuWindow
           title="Settings"
-          subtitle="Mode selection and backend configuration"
+          subtitle="Modes, stage, and keys"
           onClose={() => setSettingsOpen(false)}
         >
           <SettingsPanel

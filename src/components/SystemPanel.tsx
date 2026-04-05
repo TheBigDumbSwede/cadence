@@ -29,7 +29,7 @@ export function SystemPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Live System</p>
-            <h3 className="panel-title">Current posture and timing</h3>
+            <h3 className="panel-title">Status and timing</h3>
           </div>
         </div>
         <div className="settings-grid metrics-grid">
@@ -56,7 +56,7 @@ export function SystemPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Architecture</p>
-            <h3 className="panel-title">Transport and rendering boundaries</h3>
+            <h3 className="panel-title">Boundaries</h3>
           </div>
         </div>
         <div className="settings-grid">
@@ -91,7 +91,7 @@ export function SystemPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Notes</p>
-            <h3 className="panel-title">Working assumptions for the prototype</h3>
+            <h3 className="panel-title">Prototype notes</h3>
           </div>
         </div>
         <div className="settings-grid">

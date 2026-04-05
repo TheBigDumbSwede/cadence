@@ -37,6 +37,22 @@ type SettingsPanelProps = {
   setVoiceBackend: (provider: VoiceBackendProvider) => void;
 };
 
+const OPENAI_TTS_VOICE_OPTIONS = [
+  "alloy",
+  "echo",
+  "fable",
+  "onyx",
+  "nova",
+  "shimmer",
+  "coral",
+  "verse",
+  "ballad",
+  "ash",
+  "sage",
+  "marin",
+  "cedar"
+] as const;
+
 export function SettingsPanel({
   avatarPoseDebug,
   backendConfig,
@@ -90,6 +106,11 @@ export function SettingsPanel({
   }, [settingsSnapshot]);
 
   const saveDisabled = !settingsLoaded || settingsSaveState === "saving";
+  const openAiTtsVoiceOptions = openAiTtsVoice
+    ? OPENAI_TTS_VOICE_OPTIONS.includes(openAiTtsVoice as (typeof OPENAI_TTS_VOICE_OPTIONS)[number])
+      ? OPENAI_TTS_VOICE_OPTIONS
+      : [openAiTtsVoice, ...OPENAI_TTS_VOICE_OPTIONS]
+    : OPENAI_TTS_VOICE_OPTIONS;
 
   return (
     <div className="menu-stack">
@@ -97,7 +118,7 @@ export function SettingsPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Interaction</p>
-            <h3 className="panel-title">Choose how Cadence should listen and answer</h3>
+            <h3 className="panel-title">Interaction mode</h3>
           </div>
         </div>
         <div className="mode-switch">
@@ -107,7 +128,7 @@ export function SettingsPanel({
             onClick={() => setMode("voice")}
           >
             <strong>Voice</strong>
-            <span>Push-to-talk with live spoken or text replies.</span>
+            <span>Voice turns with spoken or text replies.</span>
           </button>
           <button
             type="button"
@@ -115,7 +136,7 @@ export function SettingsPanel({
             onClick={() => setMode("text")}
           >
             <strong>Text-only</strong>
-            <span>Cheaper iteration path through typed turns.</span>
+            <span>Typed turns only.</span>
           </button>
         </div>
       </section>
@@ -125,7 +146,7 @@ export function SettingsPanel({
           <div className="menu-section-header">
             <div>
               <p className="eyebrow">Voice Input</p>
-              <h3 className="panel-title">Choose how Cadence should capture your turn</h3>
+              <h3 className="panel-title">Voice capture</h3>
             </div>
           </div>
           <div className="mode-switch">
@@ -135,7 +156,7 @@ export function SettingsPanel({
               onClick={() => setVoiceInputMode("push_to_talk")}
             >
               <strong>Push To Talk</strong>
-              <span>Use the button or Space bar to start and stop capture explicitly.</span>
+              <span>Button or Space starts and stops capture.</span>
             </button>
             <button
               type="button"
@@ -143,7 +164,7 @@ export function SettingsPanel({
               onClick={() => setVoiceInputMode("hot_mic")}
             >
               <strong>Hot Mic</strong>
-              <span>Keep the mic open and send a turn after speech and a pause are detected.</span>
+              <span>Open mic with speech and pause detection.</span>
             </button>
           </div>
         </section>
@@ -154,7 +175,7 @@ export function SettingsPanel({
           <div className="menu-section-header">
             <div>
               <p className="eyebrow">Voice Backend</p>
-              <h3 className="panel-title">Pick the live conversation path</h3>
+              <h3 className="panel-title">Voice backend</h3>
             </div>
           </div>
           <div className="mode-switch">
@@ -164,7 +185,7 @@ export function SettingsPanel({
               onClick={() => setVoiceBackend("openai")}
             >
               <strong>OpenAI Realtime</strong>
-              <span>Native low-latency speech path.</span>
+              <span>Native low-latency speech.</span>
             </button>
             <button
               type="button"
@@ -172,7 +193,7 @@ export function SettingsPanel({
               onClick={() => setVoiceBackend("openai-batch")}
             >
               <strong>OpenAI Voice</strong>
-              <span>OpenAI STT, OpenAI Responses, and the same output-layer choices.</span>
+              <span>STT plus Responses with shared output options.</span>
             </button>
             <button
               type="button"
@@ -180,7 +201,7 @@ export function SettingsPanel({
               onClick={() => setVoiceBackend("kindroid")}
             >
               <strong>Kindroid Voice</strong>
-              <span>OpenAI STT, Kindroid character reply, selectable output.</span>
+              <span>OpenAI STT, Kindroid reply, selectable output.</span>
             </button>
           </div>
         </section>
@@ -191,7 +212,7 @@ export function SettingsPanel({
           <div className="menu-section-header">
             <div>
               <p className="eyebrow">Output Layer</p>
-              <h3 className="panel-title">Choose how responses should leave the app</h3>
+              <h3 className="panel-title">Output</h3>
             </div>
           </div>
           <div className="mode-switch mode-switch-triple">
@@ -201,7 +222,7 @@ export function SettingsPanel({
               onClick={() => setTtsProvider("none")}
             >
               <strong>Text Reply</strong>
-              <span>Voice in, text out.</span>
+              <span>Return text only.</span>
             </button>
             <button
               type="button"
@@ -209,7 +230,7 @@ export function SettingsPanel({
               onClick={() => setTtsProvider("elevenlabs")}
             >
               <strong>ElevenLabs Voice</strong>
-              <span>Character-forward speech output.</span>
+              <span>Character-forward speech.</span>
             </button>
             <button
               type="button"
@@ -217,7 +238,7 @@ export function SettingsPanel({
               onClick={() => setTtsProvider("openai")}
             >
               <strong>OpenAI Voice</strong>
-              <span>Simpler single-vendor speech path.</span>
+              <span>Single-vendor speech path.</span>
             </button>
           </div>
         </section>
@@ -228,7 +249,7 @@ export function SettingsPanel({
           <div className="menu-section-header">
             <div>
               <p className="eyebrow">Text Backend</p>
-              <h3 className="panel-title">Pick the text conversation engine</h3>
+              <h3 className="panel-title">Text backend</h3>
             </div>
           </div>
           <div className="mode-switch">
@@ -238,7 +259,7 @@ export function SettingsPanel({
               onClick={() => setTextBackend("openai")}
             >
               <strong>OpenAI Text</strong>
-              <span>Cheap general-purpose development path.</span>
+              <span>General-purpose typed chat.</span>
             </button>
             <button
               type="button"
@@ -246,7 +267,7 @@ export function SettingsPanel({
               onClick={() => setTextBackend("kindroid")}
             >
               <strong>Kindroid</strong>
-              <span>Character backend using your Kindroid AI ID.</span>
+              <span>Character backend via your AI ID.</span>
             </button>
           </div>
         </section>
@@ -256,7 +277,7 @@ export function SettingsPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Avatar</p>
-            <h3 className="panel-title">Choose how the stage should present Cadence</h3>
+            <h3 className="panel-title">Stage</h3>
           </div>
         </div>
         <div className="mode-switch">
@@ -266,7 +287,7 @@ export function SettingsPanel({
             onClick={() => setStageMode("avatar")}
           >
             <strong>Avatar</strong>
-            <span>Render a VRM character on the stage.</span>
+            <span>VRM character stage.</span>
           </button>
           <button
             type="button"
@@ -274,7 +295,7 @@ export function SettingsPanel({
             onClick={() => setStageMode("waveform")}
           >
             <strong>Waveform</strong>
-            <span>Render a live waveform driven by the actual output audio.</span>
+            <span>Live waveform from output audio.</span>
           </button>
         </div>
         <div className="settings-grid">
@@ -356,8 +377,7 @@ export function SettingsPanel({
             <article className="setting-card">
               <strong>Waveform stage</strong>
               <p className="setting-copy">
-                The waveform is sampled from the real playback signal, so the motion stays tied to
-                the speech you actually hear.
+                Driven from the real playback signal.
               </p>
             </article>
           )}
@@ -368,7 +388,7 @@ export function SettingsPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Credentials</p>
-            <h3 className="panel-title">Store keys and IDs in your local profile</h3>
+            <h3 className="panel-title">Local keys and IDs</h3>
           </div>
         </div>
 
@@ -418,14 +438,24 @@ export function SettingsPanel({
             </div>
             <div className="settings-field">
               <label htmlFor="openai-tts-voice">TTS voice</label>
-              <input
+              <select
                 id="openai-tts-voice"
                 className="settings-input"
-                type="text"
                 value={openAiTtsVoice}
                 onChange={(event) => setOpenAiTtsVoice(event.target.value)}
-                placeholder="alloy"
-              />
+              >
+                <option value="">Default (alloy)</option>
+                {openAiTtsVoiceOptions.map((voice) => (
+                  <option key={voice} value={voice}>
+                    {voice === openAiTtsVoice &&
+                    !OPENAI_TTS_VOICE_OPTIONS.includes(
+                      voice as (typeof OPENAI_TTS_VOICE_OPTIONS)[number]
+                    )
+                      ? `Custom: ${voice}`
+                      : voice}
+                  </option>
+                ))}
+              </select>
             </div>
           </article>
 
@@ -591,7 +621,7 @@ export function SettingsPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Configuration</p>
-            <h3 className="panel-title">{backendConfig.providerLabel}</h3>
+            <h3 className="panel-title">Current backend</h3>
           </div>
         </div>
         <div className="settings-grid">
