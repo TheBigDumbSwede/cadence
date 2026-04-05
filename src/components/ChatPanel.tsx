@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef } from "react";
 import type { ConversationTurn } from "../shared/conversation-types";
 import type { InteractionMode } from "../shared/interaction-mode";
 import type { TtsProvider } from "../shared/tts-provider";
+import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 type ChatPanelProps = {
   configured: boolean;
   connectionReady: boolean;
+  hotMicMuted: boolean;
   inputText: string;
   isRecording: boolean;
   mode: InteractionMode;
@@ -14,6 +16,8 @@ type ChatPanelProps = {
   ttsProvider: TtsProvider;
   turns: ConversationTurn[];
   voiceBackend: VoiceBackendProvider;
+  voiceInputMode: VoiceInputMode;
+  setHotMicMuted: (muted: boolean) => void;
   setInputText: (value: string) => void;
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
@@ -22,21 +26,28 @@ type ChatPanelProps = {
 
 function buildVoiceSummary(voiceBackend: VoiceBackendProvider, ttsProvider: TtsProvider): string {
   if (voiceBackend === "openai") {
-    return "OpenAI Realtime voice is active.";
+    return "OpenAI Realtime";
+  }
+
+  if (voiceBackend === "openai-batch") {
+    if (ttsProvider === "none") {
+      return "OpenAI Voice · Text Reply";
+    }
+
+    return `OpenAI Voice · ${ttsProvider === "openai" ? "OpenAI Speech" : "ElevenLabs"}`;
   }
 
   if (ttsProvider === "none") {
-    return "Kindroid voice is using speech in and text replies out.";
+    return "Kindroid Voice · Text Reply";
   }
 
-  return `Kindroid voice is using ${
-    ttsProvider === "openai" ? "OpenAI speech" : "ElevenLabs"
-  } for output.`;
+  return `Kindroid Voice · ${ttsProvider === "openai" ? "OpenAI Speech" : "ElevenLabs"}`;
 }
 
 export function ChatPanel({
   configured,
   connectionReady,
+  hotMicMuted,
   inputText,
   isRecording,
   mode,
@@ -44,6 +55,8 @@ export function ChatPanel({
   ttsProvider,
   turns,
   voiceBackend,
+  voiceInputMode,
+  setHotMicMuted,
   setInputText,
   startRecording,
   stopRecording,
@@ -51,6 +64,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const canSendText = connectionReady && inputText.trim().length > 0;
   const voiceSummary = buildVoiceSummary(voiceBackend, ttsProvider);
+  const pushToTalkEnabled = mode === "voice" && voiceInputMode === "push_to_talk";
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const lastTurnSignature = useMemo(() => {
@@ -79,22 +93,38 @@ export function ChatPanel({
       <header className="chat-header">
         <div>
           <p className="eyebrow">Conversation</p>
-          <p className="panel-copy">{mode === "voice" ? voiceSummary : "Text-only mode is active."}</p>
+          <p className="panel-copy">{mode === "voice" ? voiceSummary : "Text-only"}</p>
         </div>
         <div className="chat-controls">
           <div className="state-chip">{connectionReady ? "Live" : "Standby"}</div>
           <button
             type="button"
             className={`chat-action ${isRecording ? "active" : ""}`}
-            disabled={mode !== "voice" || !configured || !connectionReady}
+            disabled={!pushToTalkEnabled || !configured || !connectionReady}
             onMouseDown={() => void startRecording()}
             onMouseUp={() => void stopRecording()}
             onMouseLeave={() => void stopRecording()}
             onTouchStart={() => void startRecording()}
             onTouchEnd={() => void stopRecording()}
           >
-            {mode === "voice" ? (isRecording ? "Release To Send" : "Hold To Talk") : "Voice Disabled"}
+            {mode !== "voice"
+              ? "Voice Disabled"
+              : voiceInputMode === "hot_mic"
+                ? "Hot Mic Live"
+                : isRecording
+                  ? "Release To Send"
+                  : "Hold To Talk"}
           </button>
+          {mode === "voice" && voiceInputMode === "hot_mic" ? (
+            <button
+              type="button"
+              className={`secondary-button ${hotMicMuted ? "active" : ""}`}
+              disabled={!configured || !connectionReady}
+              onClick={() => setHotMicMuted(!hotMicMuted)}
+            >
+              {hotMicMuted ? "Unmute Mic" : "Mute Mic"}
+            </button>
+          ) : null}
         </div>
       </header>
 

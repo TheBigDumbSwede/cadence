@@ -1,4 +1,9 @@
 const TARGET_SAMPLE_RATE = 24000;
+const HOT_MIC_THRESHOLD = 0.026;
+const HOT_MIC_START_MS = 70;
+const HOT_MIC_END_SILENCE_MS = 860;
+const HOT_MIC_MIN_UTTERANCE_MS = 360;
+const HOT_MIC_COOLDOWN_MS = 420;
 
 function toMono(channelData: Float32Array[]): Float32Array {
   if (channelData.length === 1) {
@@ -66,6 +71,61 @@ function getSupportedMimeType(): string | undefined {
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
 }
 
+type RecorderSegment = {
+  recorder: MediaRecorder;
+  chunks: BlobPart[];
+};
+
+async function getAudioStream(existingStream?: MediaStream | null): Promise<MediaStream> {
+  if (existingStream) {
+    return existingStream;
+  }
+
+  return navigator.mediaDevices.getUserMedia({
+    audio: {
+      channelCount: 1,
+      echoCancellation: true,
+      noiseSuppression: true
+    }
+  });
+}
+
+function createRecorderSegment(stream: MediaStream): RecorderSegment {
+  const mimeType = getSupportedMimeType();
+  const recorder = mimeType
+    ? new MediaRecorder(stream, { mimeType })
+    : new MediaRecorder(stream);
+  const chunks: BlobPart[] = [];
+
+  recorder.addEventListener("dataavailable", (event) => {
+    if (event.data.size > 0) {
+      chunks.push(event.data);
+    }
+  });
+
+  return {
+    recorder,
+    chunks
+  };
+}
+
+async function stopRecorderSegment(segment: RecorderSegment | null): Promise<ArrayBuffer> {
+  if (!segment || segment.recorder.state === "inactive") {
+    return new ArrayBuffer(0);
+  }
+
+  await new Promise<void>((resolve) => {
+    segment.recorder.addEventListener("stop", () => resolve(), { once: true });
+    segment.recorder.stop();
+  });
+
+  const blob = new Blob(segment.chunks, {
+    type: segment.recorder.mimeType || "audio/webm"
+  });
+
+  return resampleBlob(blob);
+}
+
 export class PushToTalkRecorder {
   private stream: MediaStream | null = null;
   private recorder: MediaRecorder | null = null;
@@ -76,15 +136,7 @@ export class PushToTalkRecorder {
       return;
     }
 
-    if (!this.stream) {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true
-        }
-      });
-    }
+    this.stream = await getAudioStream(this.stream);
 
     const mimeType = getSupportedMimeType();
     this.chunks = [];
@@ -121,5 +173,203 @@ export class PushToTalkRecorder {
     this.chunks = [];
 
     return resampleBlob(blob);
+  }
+}
+
+export type HotMicMonitorState =
+  | "idle"
+  | "armed"
+  | "capturing"
+  | "waiting_for_end_silence"
+  | "cooldown"
+  | "suppressed";
+
+type HotMicCallbacks = {
+  onSpeechStart?: () => void;
+  onStateChange?: (state: HotMicMonitorState) => void;
+  onUtterance: (audio: ArrayBuffer) => Promise<void> | void;
+};
+
+export class HotMicRecorder {
+  private stream: MediaStream | null = null;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private rafId = 0;
+  private segment: RecorderSegment | null = null;
+  private callbacks: HotMicCallbacks | null = null;
+  private state: HotMicMonitorState = "idle";
+  private suppressed = false;
+  private speechDetectedAt: number | null = null;
+  private silenceDetectedAt: number | null = null;
+  private utteranceStartedAt: number | null = null;
+  private cooldownUntil = 0;
+  private processingUtterance = false;
+
+  async start(callbacks: HotMicCallbacks): Promise<void> {
+    this.callbacks = callbacks;
+    this.stream = await getAudioStream(this.stream);
+
+    if (!this.audioContext) {
+      this.audioContext = new AudioContext();
+    }
+
+    if (this.audioContext.state === "suspended") {
+      await this.audioContext.resume();
+    }
+
+    if (!this.analyser) {
+      this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 1024;
+      this.analyser.smoothingTimeConstant = 0.72;
+      this.sourceNode.connect(this.analyser);
+    }
+
+    this.setState(this.suppressed ? "suppressed" : "armed");
+    if (!this.rafId) {
+      this.tick();
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.rafId) {
+      window.cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+    }
+
+    this.speechDetectedAt = null;
+    this.silenceDetectedAt = null;
+    this.utteranceStartedAt = null;
+    this.processingUtterance = false;
+    this.cooldownUntil = 0;
+
+    await stopRecorderSegment(this.segment);
+    this.segment = null;
+    this.setState("idle");
+  }
+
+  setSuppressed(suppressed: boolean): void {
+    this.suppressed = suppressed;
+    if (suppressed) {
+      this.speechDetectedAt = null;
+      this.silenceDetectedAt = null;
+      if (!this.processingUtterance) {
+        this.setState("suppressed");
+      }
+      return;
+    }
+
+    this.cooldownUntil = 0;
+    this.speechDetectedAt = null;
+    this.silenceDetectedAt = null;
+
+    if (!this.processingUtterance && this.state !== "capturing" && this.state !== "waiting_for_end_silence") {
+      this.setState("armed");
+    }
+  }
+
+  private tick = () => {
+    this.rafId = 0;
+    if (!this.analyser) {
+      return;
+    }
+
+    const now = performance.now();
+    const samples = new Float32Array(this.analyser.fftSize);
+    this.analyser.getFloatTimeDomainData(samples);
+
+    let sumSquares = 0;
+    for (let index = 0; index < samples.length; index += 1) {
+      const sample = samples[index] ?? 0;
+      sumSquares += sample * sample;
+    }
+
+    const rms = Math.sqrt(sumSquares / samples.length);
+    const aboveThreshold = rms >= HOT_MIC_THRESHOLD;
+
+    if (this.processingUtterance) {
+      this.rafId = window.requestAnimationFrame(this.tick);
+      return;
+    }
+
+    if (this.suppressed) {
+      this.setState("suppressed");
+      this.rafId = window.requestAnimationFrame(this.tick);
+      return;
+    }
+
+    if (now < this.cooldownUntil) {
+      this.setState("cooldown");
+      this.rafId = window.requestAnimationFrame(this.tick);
+      return;
+    }
+
+    if (aboveThreshold) {
+      this.silenceDetectedAt = null;
+      this.speechDetectedAt ??= now;
+
+      if (!this.segment && now - this.speechDetectedAt >= HOT_MIC_START_MS) {
+        this.beginUtterance(now);
+      } else if (this.segment) {
+        this.setState("capturing");
+      }
+    } else {
+      this.speechDetectedAt = null;
+
+      if (this.segment) {
+        this.silenceDetectedAt ??= now;
+        this.setState("waiting_for_end_silence");
+
+        if (now - this.silenceDetectedAt >= HOT_MIC_END_SILENCE_MS) {
+          void this.finishUtterance(now);
+        }
+      } else {
+        this.setState("armed");
+      }
+    }
+
+    this.rafId = window.requestAnimationFrame(this.tick);
+  };
+
+  private beginUtterance(now: number): void {
+    if (!this.stream || this.segment) {
+      return;
+    }
+
+    this.segment = createRecorderSegment(this.stream);
+    this.segment.recorder.start();
+    this.utteranceStartedAt = now;
+    this.silenceDetectedAt = null;
+    this.setState("capturing");
+    this.callbacks?.onSpeechStart?.();
+  }
+
+  private async finishUtterance(now: number): Promise<void> {
+    const utteranceDuration = this.utteranceStartedAt ? now - this.utteranceStartedAt : 0;
+    this.processingUtterance = true;
+    const audio = await stopRecorderSegment(this.segment);
+    this.segment = null;
+    this.processingUtterance = false;
+    this.utteranceStartedAt = null;
+    this.silenceDetectedAt = null;
+    this.speechDetectedAt = null;
+    this.cooldownUntil = performance.now() + HOT_MIC_COOLDOWN_MS;
+    this.setState("cooldown");
+
+    if (utteranceDuration < HOT_MIC_MIN_UTTERANCE_MS || audio.byteLength === 0) {
+      return;
+    }
+
+    await this.callbacks?.onUtterance(audio);
+  }
+
+  private setState(state: HotMicMonitorState): void {
+    if (this.state === state) {
+      return;
+    }
+
+    this.state = state;
+    this.callbacks?.onStateChange?.(state);
   }
 }

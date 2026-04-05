@@ -8,7 +8,9 @@ import { useCadenceController } from "../hooks/useCadenceController";
 import type { TextBackendProvider } from "../shared/backend-provider";
 import type { RuntimeInfo } from "../shared/runtime-info";
 import type { SettingsUpdate } from "../shared/app-settings";
+import type { StageMode } from "../shared/stage-mode";
 import type { TtsProvider } from "../shared/tts-provider";
+import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 export function App() {
@@ -22,6 +24,7 @@ export function App() {
     chooseAvatarFile,
     configured,
     connectionReady,
+    hotMicMuted,
     inputText,
     isRecording,
     metrics,
@@ -30,6 +33,7 @@ export function App() {
     saveSettings,
     setAvatar,
     setAvatarPoseDebug,
+    stageMode,
     settingsFeedback,
     settingsLoaded,
     settingsSaveState,
@@ -37,10 +41,14 @@ export function App() {
     textBackend,
     ttsProvider,
     voiceBackend,
+    voiceInputMode,
     setInputText,
     setMode,
+    setStageMode,
     setTextBackend,
     setTtsProvider,
+    setHotMicMuted,
+    setVoiceInputMode,
     setVoiceBackend,
     startRecording,
     statusCopy,
@@ -102,10 +110,12 @@ export function App() {
           avatar={settingsSnapshot?.avatar ?? null}
           avatarPoseDebug={avatarPoseDebug}
           performance={performance}
+          stageMode={stageMode}
         />
         <ChatPanel
           configured={configured}
           connectionReady={connectionReady}
+          hotMicMuted={hotMicMuted}
           inputText={inputText}
           isRecording={isRecording}
           mode={mode}
@@ -113,6 +123,8 @@ export function App() {
           ttsProvider={ttsProvider}
           turns={turns}
           voiceBackend={voiceBackend}
+          voiceInputMode={voiceInputMode}
+          setHotMicMuted={setHotMicMuted}
           setInputText={setInputText}
           startRecording={startRecording}
           stopRecording={stopRecording}
@@ -154,12 +166,16 @@ export function App() {
             settingsSaveState={settingsSaveState}
             settingsSnapshot={settingsSnapshot}
             setAvatarPoseDebug={setAvatarPoseDebug}
+            stageMode={stageMode}
             textBackend={textBackend}
             ttsProvider={ttsProvider}
             voiceBackend={voiceBackend}
+            voiceInputMode={voiceInputMode}
             setMode={setMode}
+            setStageMode={setStageMode as (mode: StageMode) => void}
             setTextBackend={setTextBackend as (mode: TextBackendProvider) => void}
             setTtsProvider={setTtsProvider as (provider: TtsProvider) => void}
+            setVoiceInputMode={setVoiceInputMode as (mode: VoiceInputMode) => void}
             setVoiceBackend={setVoiceBackend as (mode: VoiceBackendProvider) => void}
           />
         </MenuWindow>

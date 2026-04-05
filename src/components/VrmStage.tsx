@@ -150,7 +150,10 @@ export function VrmStage({ activeState, avatar, debugPose, performance }: VrmSta
       setLoadState("loading");
     }
 
-    const loadVrmaAction = (assetUrl: string, actionName: "idle" | "listening" | "thinking") => {
+    const loadVrmaAction = (
+      assetUrl: string,
+      actionName: "idle" | "listening" | "thinking"
+    ) => {
       void fetch(assetUrl)
         .then((response) => response.arrayBuffer())
         .then((buffer) => {
@@ -194,7 +197,6 @@ export function VrmStage({ activeState, avatar, debugPose, performance }: VrmSta
               action.clampWhenFinished = false;
               action.play();
               action.paused = true;
-
               if (actionName === "idle") {
                 idleAction = action;
                 idleVrmaLoaded = true;

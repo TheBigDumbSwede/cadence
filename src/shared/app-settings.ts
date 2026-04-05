@@ -1,12 +1,16 @@
 import type { TextBackendProvider } from "./backend-provider";
 import type { InteractionMode } from "./interaction-mode";
+import type { StageMode } from "./stage-mode";
 import type { TtsProvider } from "./tts-provider";
+import type { VoiceInputMode } from "./voice-input-mode";
 import type { VoiceBackendProvider } from "./voice-backend";
 
 export type SettingsPreferences = {
   mode: InteractionMode;
+  stageMode: StageMode;
   textBackend: TextBackendProvider;
   ttsProvider: TtsProvider;
+  voiceInputMode: VoiceInputMode;
   voiceBackend: VoiceBackendProvider;
 };
 

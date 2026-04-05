@@ -1,1 +1,1 @@
-export type VoiceBackendProvider = "openai" | "kindroid";
+export type VoiceBackendProvider = "openai" | "openai-batch" | "kindroid";

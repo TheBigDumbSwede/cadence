@@ -3,6 +3,7 @@ import { RendererSpeechOutputAdapter } from "./audio/RendererSpeechOutputAdapter
 import type { TransportConfig } from "./contracts";
 import { KindroidIpcTransport } from "./transports/kindroid/KindroidIpcTransport";
 import { KindroidVoiceIpcTransport } from "./transports/kindroid/KindroidVoiceIpcTransport";
+import { OpenAIBatchVoiceIpcTransport } from "./transports/openai/OpenAIBatchVoiceIpcTransport";
 import { OpenAIRealtimeIpcTransport } from "./transports/openai/OpenAIRealtimeIpcTransport";
 import { OpenAIResponsesIpcTransport } from "./transports/openai/OpenAIResponsesIpcTransport";
 
@@ -19,6 +20,25 @@ export const defaultTextTransportConfig: TransportConfig = {
   voice: "none",
   instructions:
     "You are Cadence, a concise desktop companion. Keep answers clear and fairly short unless asked for more detail.",
+  modalities: ["text"]
+};
+
+export const defaultOpenAiBatchVoiceTransportConfig: TransportConfig = {
+  model: "gpt-5-mini+elevenlabs",
+  voice: "",
+  instructions:
+    "You are Cadence, a concise desktop voice companion. Keep answers clear and fairly short unless asked for more detail.",
+  modalities: ["audio"]
+};
+
+export const defaultOpenAiBatchVoiceOpenAiTtsConfig: TransportConfig = {
+  ...defaultOpenAiBatchVoiceTransportConfig,
+  model: "gpt-5-mini+openai-tts"
+};
+
+export const defaultOpenAiBatchVoiceTextOnlyConfig: TransportConfig = {
+  ...defaultOpenAiBatchVoiceTransportConfig,
+  model: "gpt-5-mini+text-only",
   modalities: ["text"]
 };
 
@@ -55,6 +75,13 @@ export function createKindroidVoiceSession(): CadenceSession {
   });
 }
 
+export function createOpenAiBatchVoiceSession(): CadenceSession {
+  return new CadenceSession({
+    transport: new OpenAIBatchVoiceIpcTransport(),
+    speechOutputAdapter: new RendererSpeechOutputAdapter()
+  });
+}
+
 export function createTextSession(): CadenceSession {
   return new CadenceSession({
     transport: new OpenAIResponsesIpcTransport()
@@ -75,6 +102,10 @@ export const voiceStackNotes = [
   {
     title: "Cheap dev mode",
     body: "Text-only mode routes through the Responses API on gpt-5-mini so ordinary iteration does not burn audio tokens."
+  },
+  {
+    title: "OpenAI chained voice path",
+    body: "OpenAI Voice composes OpenAI transcription, the Responses API, and a selectable output layer when you want simpler non-realtime voice behavior."
   },
   {
     title: "Kindroid voice path",

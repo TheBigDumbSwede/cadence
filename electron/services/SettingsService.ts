@@ -28,8 +28,10 @@ type StoredSettings = {
 
 const DEFAULT_PREFERENCES: SettingsPreferences = {
   mode: "voice",
+  stageMode: "avatar",
   textBackend: "openai",
   ttsProvider: "elevenlabs",
+  voiceInputMode: "push_to_talk",
   voiceBackend: "openai"
 };
 
@@ -49,8 +51,11 @@ export class SettingsService {
     return {
       preferences: {
         mode: stored.preferences?.mode ?? DEFAULT_PREFERENCES.mode,
+        stageMode: stored.preferences?.stageMode ?? DEFAULT_PREFERENCES.stageMode,
         textBackend: stored.preferences?.textBackend ?? DEFAULT_PREFERENCES.textBackend,
         ttsProvider: stored.preferences?.ttsProvider ?? DEFAULT_PREFERENCES.ttsProvider,
+        voiceInputMode:
+          stored.preferences?.voiceInputMode ?? DEFAULT_PREFERENCES.voiceInputMode,
         voiceBackend: stored.preferences?.voiceBackend ?? DEFAULT_PREFERENCES.voiceBackend
       },
       openAiTtsVoice: this.getOpenAiTtsVoice(),
@@ -71,8 +76,10 @@ export class SettingsService {
 
     stored.preferences = {
       mode: update.preferences.mode,
+      stageMode: update.preferences.stageMode,
       textBackend: update.preferences.textBackend,
       ttsProvider: update.preferences.ttsProvider,
+      voiceInputMode: update.preferences.voiceInputMode,
       voiceBackend: update.preferences.voiceBackend
     };
     stored.openAiTtsVoice = normalizeValue(update.openAiTtsVoice);

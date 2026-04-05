@@ -1,22 +1,29 @@
 import type { AvatarSelection } from "../shared/app-settings";
 import type { AssistantStateSnapshot } from "../shared/assistant-state";
 import type { AvatarPerformanceSnapshot } from "../shared/performance-directive";
+import type { StageMode } from "../shared/stage-mode";
 import { VrmStage } from "./VrmStage";
+import { WaveformStage } from "./WaveformStage";
 
 type StagePanelProps = {
   activeState: AssistantStateSnapshot;
   avatar: AvatarSelection | null;
   avatarPoseDebug: boolean;
   performance: AvatarPerformanceSnapshot;
+  stageMode: StageMode;
 };
 
 export function StagePanel({
   activeState,
   avatar,
   avatarPoseDebug,
-  performance
+  performance,
+  stageMode
 }: StagePanelProps) {
-  const avatarName = avatar?.label.replace(/\.vrm$/i, "") ?? "No avatar";
+  const stageLabel =
+    stageMode === "waveform"
+      ? "Waveform"
+      : avatar?.label.replace(/\.vrm$/i, "") ?? "No avatar";
 
   return (
     <section className={`panel stage stage-state-${activeState.type}`}>
@@ -26,15 +33,19 @@ export function StagePanel({
       </div>
 
       <div className="stage-canvas">
-        <VrmStage
-          activeState={activeState}
-          avatar={avatar}
-          debugPose={avatarPoseDebug}
-          performance={performance}
-        />
+        {stageMode === "waveform" ? (
+          <WaveformStage activeState={activeState} />
+        ) : (
+          <VrmStage
+            activeState={activeState}
+            avatar={avatar}
+            debugPose={avatarPoseDebug}
+            performance={performance}
+          />
+        )}
 
         <div className="stage-status">
-          <strong>{avatarName}</strong>
+          <strong>{stageLabel}</strong>
           <span>{activeState.detail}</span>
         </div>
       </div>

@@ -7,7 +7,9 @@ import type {
 import type { BackendConfigSummary } from "../shared/backend-config";
 import type { TextBackendProvider } from "../shared/backend-provider";
 import type { InteractionMode } from "../shared/interaction-mode";
+import type { StageMode } from "../shared/stage-mode";
 import type { TtsProvider } from "../shared/tts-provider";
+import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 type SettingsPanelProps = {
@@ -22,12 +24,16 @@ type SettingsPanelProps = {
   settingsSaveState: "idle" | "saving" | "saved" | "error";
   settingsSnapshot: SettingsSnapshot | null;
   setAvatarPoseDebug: (enabled: boolean) => void;
+  stageMode: StageMode;
   textBackend: TextBackendProvider;
   ttsProvider: TtsProvider;
   voiceBackend: VoiceBackendProvider;
+  voiceInputMode: VoiceInputMode;
   setMode: (mode: InteractionMode) => void;
+  setStageMode: (mode: StageMode) => void;
   setTextBackend: (provider: TextBackendProvider) => void;
   setTtsProvider: (provider: TtsProvider) => void;
+  setVoiceInputMode: (mode: VoiceInputMode) => void;
   setVoiceBackend: (provider: VoiceBackendProvider) => void;
 };
 
@@ -43,12 +49,16 @@ export function SettingsPanel({
   settingsSaveState,
   settingsSnapshot,
   setAvatarPoseDebug,
+  stageMode,
   textBackend,
   ttsProvider,
   voiceBackend,
+  voiceInputMode,
   setMode,
+  setStageMode,
   setTextBackend,
   setTtsProvider,
+  setVoiceInputMode,
   setVoiceBackend
 }: SettingsPanelProps) {
   const [openAiApiKey, setOpenAiApiKey] = useState("");
@@ -114,6 +124,35 @@ export function SettingsPanel({
         <section className="menu-section">
           <div className="menu-section-header">
             <div>
+              <p className="eyebrow">Voice Input</p>
+              <h3 className="panel-title">Choose how Cadence should capture your turn</h3>
+            </div>
+          </div>
+          <div className="mode-switch">
+            <button
+              type="button"
+              className={`preview-button ${voiceInputMode === "push_to_talk" ? "active" : ""}`}
+              onClick={() => setVoiceInputMode("push_to_talk")}
+            >
+              <strong>Push To Talk</strong>
+              <span>Use the button or Space bar to start and stop capture explicitly.</span>
+            </button>
+            <button
+              type="button"
+              className={`preview-button ${voiceInputMode === "hot_mic" ? "active" : ""}`}
+              onClick={() => setVoiceInputMode("hot_mic")}
+            >
+              <strong>Hot Mic</strong>
+              <span>Keep the mic open and send a turn after speech and a pause are detected.</span>
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {mode === "voice" ? (
+        <section className="menu-section">
+          <div className="menu-section-header">
+            <div>
               <p className="eyebrow">Voice Backend</p>
               <h3 className="panel-title">Pick the live conversation path</h3>
             </div>
@@ -129,6 +168,14 @@ export function SettingsPanel({
             </button>
             <button
               type="button"
+              className={`preview-button ${voiceBackend === "openai-batch" ? "active" : ""}`}
+              onClick={() => setVoiceBackend("openai-batch")}
+            >
+              <strong>OpenAI Voice</strong>
+              <span>OpenAI STT, OpenAI Responses, and the same output-layer choices.</span>
+            </button>
+            <button
+              type="button"
               className={`preview-button ${voiceBackend === "kindroid" ? "active" : ""}`}
               onClick={() => setVoiceBackend("kindroid")}
             >
@@ -139,12 +186,12 @@ export function SettingsPanel({
         </section>
       ) : null}
 
-      {mode === "voice" && voiceBackend === "kindroid" ? (
+      {mode === "voice" && voiceBackend !== "openai" ? (
         <section className="menu-section">
           <div className="menu-section-header">
             <div>
               <p className="eyebrow">Output Layer</p>
-              <h3 className="panel-title">Choose how Kindroid responses should leave the app</h3>
+              <h3 className="panel-title">Choose how responses should leave the app</h3>
             </div>
           </div>
           <div className="mode-switch mode-switch-triple">
@@ -209,8 +256,26 @@ export function SettingsPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Avatar</p>
-            <h3 className="panel-title">Choose the VRM model for the stage</h3>
+            <h3 className="panel-title">Choose how the stage should present Cadence</h3>
           </div>
+        </div>
+        <div className="mode-switch">
+          <button
+            type="button"
+            className={`preview-button ${stageMode === "avatar" ? "active" : ""}`}
+            onClick={() => setStageMode("avatar")}
+          >
+            <strong>Avatar</strong>
+            <span>Render a VRM character on the stage.</span>
+          </button>
+          <button
+            type="button"
+            className={`preview-button ${stageMode === "waveform" ? "active" : ""}`}
+            onClick={() => setStageMode("waveform")}
+          >
+            <strong>Waveform</strong>
+            <span>Render a live waveform driven by the actual output audio.</span>
+          </button>
         </div>
         <div className="settings-grid">
           <article className="setting-card">
@@ -266,26 +331,36 @@ export function SettingsPanel({
               </div>
             ) : null}
           </article>
-          <article className="setting-card">
-            <strong>Pose debug</strong>
-            <p className="setting-copy">
-              Show arm-chain axes and live rotation readouts on the stage while we tune the idle.
-            </p>
-            <div className="settings-inline-actions">
-              <button
-                type="button"
-                className={`secondary-button ${avatarPoseDebug ? "active" : ""}`}
-                onClick={() => setAvatarPoseDebug(!avatarPoseDebug)}
-              >
-                {avatarPoseDebug ? "Disable Debug" : "Enable Debug"}
-              </button>
-            </div>
-            <p className="field-status">
-              {avatarPoseDebug
-                ? "Debug helpers are visible on the stage."
-                : "Debug helpers are hidden."}
-            </p>
-          </article>
+          {stageMode === "avatar" ? (
+            <article className="setting-card">
+              <strong>Pose debug</strong>
+              <p className="setting-copy">
+                Show arm-chain axes and live rotation readouts on the stage while we tune the idle.
+              </p>
+              <div className="settings-inline-actions">
+                <button
+                  type="button"
+                  className={`secondary-button ${avatarPoseDebug ? "active" : ""}`}
+                  onClick={() => setAvatarPoseDebug(!avatarPoseDebug)}
+                >
+                  {avatarPoseDebug ? "Disable Debug" : "Enable Debug"}
+                </button>
+              </div>
+              <p className="field-status">
+                {avatarPoseDebug
+                  ? "Debug helpers are visible on the stage."
+                  : "Debug helpers are hidden."}
+              </p>
+            </article>
+          ) : (
+            <article className="setting-card">
+              <strong>Waveform stage</strong>
+              <p className="setting-copy">
+                The waveform is sampled from the real playback signal, so the motion stays tied to
+                the speech you actually hear.
+              </p>
+            </article>
+          )}
         </div>
       </section>
 

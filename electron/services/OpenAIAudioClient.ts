@@ -2,7 +2,10 @@ import "dotenv/config";
 
 import { getSettingsService } from "./SettingsService";
 
-const DEFAULT_MODEL = "gpt-4o-mini-transcribe";
+const DEFAULT_MODEL = "gpt-4o-transcribe";
+const DEFAULT_LANGUAGE = "en";
+const DEFAULT_PROMPT =
+  "Transcribe spoken conversational English verbatim. Do not translate, transliterate, or rewrite into any other language or script. Use normal English words and punctuation.";
 const TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions";
 
 function pcm16ToWav(pcm: ArrayBuffer, sampleRate: number): ArrayBuffer {
@@ -43,7 +46,8 @@ export class OpenAIAudioClient {
     return {
       configured: this.isConfigured(),
       apiKeyPresent: this.isConfigured(),
-      model: DEFAULT_MODEL
+      model: DEFAULT_MODEL,
+      language: DEFAULT_LANGUAGE
     };
   }
 
@@ -56,6 +60,10 @@ export class OpenAIAudioClient {
     const form = new FormData();
     const wav = pcm16ToWav(audio, 24000);
     form.append("model", DEFAULT_MODEL);
+    form.append("language", DEFAULT_LANGUAGE);
+    form.append("prompt", DEFAULT_PROMPT);
+    form.append("response_format", "text");
+    form.append("temperature", "0");
     form.append("file", new Blob([wav], { type: "audio/wav" }), "cadence.wav");
 
     const response = await fetch(TRANSCRIPTIONS_URL, {
@@ -71,9 +79,9 @@ export class OpenAIAudioClient {
       throw new Error(`OpenAI transcription failed: ${response.status} ${errorBody}`);
     }
 
-    const payload = (await response.json()) as { text?: string };
+    const transcript = await response.text();
     return {
-      text: payload.text ?? "",
+      text: transcript,
       model: DEFAULT_MODEL
     };
   }
