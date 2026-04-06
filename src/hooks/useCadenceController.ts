@@ -28,6 +28,20 @@ import {
   inferPerformanceDirective
 } from "../services/avatar/performanceHeuristics";
 import { getCadenceBridge } from "../services/bridge";
+import { snapshotFromDirective } from "./cadence/performance";
+import {
+  buildListeningStatusCopy,
+  buildPreparingStatusCopy,
+  buildReadyStatusCopy,
+  buildSubmitStatusCopy
+} from "./cadence/statusCopy";
+import {
+  estimateAssistantDeliveryMs,
+  estimateAssistantReadMs,
+  estimateUserReadMs,
+  timestampNow
+} from "./cadence/timing";
+import { appendOrUpdateAssistantTurn, isBenignInterruptError } from "./cadence/turns";
 import {
   createKindroidSession,
   createKindroidVoiceSession,
@@ -43,55 +57,6 @@ import {
   defaultTextTransportConfig,
   defaultVoiceTransportConfig
 } from "../services/transportOptions";
-
-function timestampNow(): string {
-  return new Intl.DateTimeFormat([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date());
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function estimateUserReadMs(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  return clamp(320 + words * 70, 360, 1200);
-}
-
-function estimateAssistantDeliveryMs(
-  text: string,
-  pace: AvatarPerformanceSnapshot["pace"]
-): number {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  const basePerWord =
-    pace === "animated" ? 150 : pace === "calm" ? 220 : 185;
-
-  return clamp(1100 + words * basePerWord, 1600, 7000);
-}
-
-function estimateAssistantReadMs(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  return clamp(900 + words * 95, 1200, 4200);
-}
-
-function snapshotFromDirective(
-  directive: AssistantPerformanceDirective,
-  previous?: AvatarPerformanceSnapshot,
-  options?: {
-    retriggerGesture?: boolean;
-  }
-): AvatarPerformanceSnapshot {
-  const shouldRetrigger =
-    directive.gesture !== "none" &&
-    (options?.retriggerGesture || previous?.gesture !== directive.gesture);
-
-  return {
-    ...directive,
-    gestureRevision: shouldRetrigger ? (previous?.gestureRevision ?? 0) + 1 : previous?.gestureRevision ?? 0
-  };
-}
 
 export function useCadenceController() {
   const [voiceSession] = useState(() => createVoiceSession());
@@ -298,49 +263,6 @@ export function useCadenceController() {
     setTurns((previous) => previous.filter((turn) => turn.id !== pendingId));
   }
 
-  function appendOrUpdateAssistantTurn(
-    turns: ConversationTurn[],
-    turnId: string,
-    text: string,
-    mode: "append" | "replace"
-  ): ConversationTurn[] {
-    const existingIndex = turns.findIndex((turn) => turn.id === turnId);
-    if (existingIndex >= 0) {
-      const updated = [...turns];
-      updated[existingIndex] = {
-        ...updated[existingIndex],
-        text:
-          mode === "replace"
-            ? text || updated[existingIndex].text
-            : updated[existingIndex].text + text
-      };
-      return updated;
-    }
-
-    return [
-      ...turns,
-      {
-        id: turnId,
-        speaker: "assistant",
-        timestamp: timestampNow(),
-        text
-      }
-    ];
-  }
-
-  function isBenignInterruptError(message: string, recoverable: boolean): boolean {
-    if (!recoverable) {
-      return false;
-    }
-
-    const normalized = message.toLowerCase();
-    return (
-      normalized.includes("cancel") ||
-      normalized.includes("no active response") ||
-      normalized.includes("response not found")
-    );
-  }
-
   function beginVisualReplyPrelude(text: string): void {
     clearAvatarTimeline();
     stageTimelineManagedRef.current = true;
@@ -418,21 +340,12 @@ export function useCadenceController() {
     setConnectionReady(false);
     setIsRecording(false);
     setStatusCopy(
-      mode === "voice"
-        ? voiceBackend === "kindroid"
-          ? `Preparing Kindroid voice mode with ${
-              ttsProvider === "none"
-                ? "text replies only"
-                : ttsProvider === "openai"
-                  ? "OpenAI speech"
-                  : "ElevenLabs"
-            }...`
-          : voiceBackend === "openai-batch"
-            ? "Preparing OpenAI Voice mode..."
-          : "Preparing voice mode..."
-        : textBackend === "kindroid"
-          ? "Preparing Kindroid text mode..."
-          : "Preparing text-only mode..."
+      buildPreparingStatusCopy({
+        mode,
+        voiceBackend,
+        textBackend,
+        ttsProvider
+      })
     );
 
     const bridge = getCadenceBridge();
@@ -744,27 +657,11 @@ export function useCadenceController() {
               setConnectionReady(true);
               setConfigured(true);
               setStatusCopy(
-                mode === "voice"
-                  ? voiceBackend === "kindroid"
-                      ? voiceInputMode === "hot_mic"
-                        ? hotMicMutedRef.current
-                          ? "Ready. Hot mic is paused."
-                          : "Ready. Hot mic is armed."
-                        : "Ready. Hold the button or press Space."
-                    : voiceBackend === "openai-batch"
-                      ? voiceInputMode === "hot_mic"
-                        ? hotMicMutedRef.current
-                          ? "Ready. Hot mic is paused."
-                          : "Ready. Hot mic is armed."
-                        : "Ready. Hold the button or press Space."
-                    : voiceInputMode === "hot_mic"
-                      ? hotMicMutedRef.current
-                        ? "Ready. Hot mic is paused."
-                        : "Ready. Hot mic is armed."
-                      : "Ready. Hold the button or press Space."
-                  : textBackend === "kindroid"
-                    ? "Ready."
-                    : "Ready."
+                buildReadyStatusCopy({
+                  mode,
+                  voiceInputMode,
+                  hotMicMuted: hotMicMutedRef.current
+                })
               );
               break;
             case "disconnected":
@@ -920,13 +817,7 @@ export function useCadenceController() {
           break;
         case "transport.error":
           if (isBenignInterruptError(event.message, event.recoverable)) {
-            setStatusCopy(
-              mode === "voice" && voiceInputMode === "hot_mic"
-                ? hotMicMutedRef.current
-                  ? "Hot mic is paused."
-                  : "Hot mic is armed."
-                : "Listening..."
-            );
+            setStatusCopy(buildListeningStatusCopy(voiceInputMode, hotMicMutedRef.current));
             break;
           }
           clearPlaybackSuppressionTimer();
@@ -1190,27 +1081,12 @@ export function useCadenceController() {
       beginVisualReplyPrelude(text);
     }
     setStatusCopy(
-      mode === "voice"
-        ? voiceBackend === "kindroid"
-          ? `Sending text through Kindroid voice session with ${
-              ttsProvider === "none"
-                ? "text reply only"
-                : ttsProvider === "openai"
-                  ? "OpenAI speech"
-                  : "ElevenLabs"
-            }...`
-          : voiceBackend === "openai-batch"
-            ? `Sending text through OpenAI Voice with ${
-                ttsProvider === "none"
-                  ? "text reply only"
-                  : ttsProvider === "openai"
-                    ? "OpenAI speech"
-                    : "ElevenLabs"
-              }...`
-            : "Sending text through OpenAI Realtime..."
-        : textBackend === "kindroid"
-          ? "Sending text to Kindroid..."
-          : "Sending text..."
+      buildSubmitStatusCopy({
+        mode,
+        voiceBackend,
+        textBackend,
+        ttsProvider
+      })
     );
     await activeSession.sendUserText(
       text,
