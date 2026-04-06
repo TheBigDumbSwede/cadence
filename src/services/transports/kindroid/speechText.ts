@@ -1,9 +1,14 @@
 export function stripKindroidNarrationForSpeech(text: string): string {
   const withoutDelimitedNarration = text.replace(/\*[^*]*\*/g, " ");
-  const normalized = withoutDelimitedNarration
-    .replace(/\s+/g, " ")
-    .replace(/\s+([,.;!?])/g, "$1")
-    .trim();
+  const paragraphs = withoutDelimitedNarration
+    .split(/\n\s*\n+/)
+    .map((paragraph) =>
+      paragraph
+        .replace(/[^\S\r\n]+/g, " ")
+        .replace(/\s+([,.;!?])/g, "$1")
+        .trim()
+    )
+    .filter(Boolean);
 
-  return normalized;
+  return paragraphs.join("\n\n");
 }
