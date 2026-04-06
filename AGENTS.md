@@ -76,6 +76,25 @@ Important rule:
 - Kindroid and OpenAI batch voice are composed paths
 - do not try to pretend Realtime is a generic wrapper for third-party reasoning
 
+## Kindroid Conversation Notes
+
+Kindroid is no longer just a single `ai_id` path.
+
+Current working model:
+- solo Kindroid uses a participant roster
+- group Kindroid uses a local mirror of an already-existing Kindroid group
+- Cadence stores the local participant metadata needed for:
+  - `ai_id` routing
+  - bubble naming
+  - per-participant speech routing
+  - narration filtering for TTS
+  - waveform color/accent theming
+
+Keep the boundary sharp:
+- Kindroid remains the source of truth for actual group existence and turn logic
+- Cadence owns the local mirror, orchestration, and presentation
+- do not bloat Cadence into a full Kindroid management surface
+
 ## Stage Modes
 
 Cadence has two stage modes:
@@ -111,6 +130,7 @@ Do not overcomplicate avatar animation prematurely. Keep:
 - speaking should be driven by actual output audio samples when available
 - non-speaking states use procedural motion
 - there is a short speaking pre-roll to bridge the gap before real output samples arrive
+- Kindroid can tint the waveform per participant; that theming should follow the actually audible speaker, not the next queued turn
 
 Do not reintroduce avatar-specific timing hacks into the waveform path.
 

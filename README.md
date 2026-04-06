@@ -63,6 +63,7 @@ Cadence is exploring a few specific ideas:
 - low-latency voice interaction without locking the whole app to one provider
 - a stage layer that can be either stylized waveform or VRM avatar
 - persistent local settings instead of forcing `.env` for normal use
+- multi-character Kindroid scenes without turning the app into a Kin management panel
 
 ## Architecture Notes
 
@@ -93,7 +94,8 @@ Cadence now prefers profile-backed settings stored through the app itself.
 
 That includes:
 - API keys
-- AI IDs
+- Kindroid participant rosters and active selection
+- mirrored Kindroid group ids and local group membership
 - OpenAI batch TTS voice instructions
 - Kindroid new-chat greeting
 - selected stage mode
@@ -129,6 +131,26 @@ Experimental capabilities are grouped by responsibility:
 - `suggestions`
   suggested user-message helpers
 
+## Kindroid Group Notes
+
+Cadence currently treats Kindroid group conversations as a local mirror:
+
+- create and manage the actual group inside Kindroid
+- mirror the `group_id` and exact participant roster locally in Cadence
+- choose `solo` or `group` mode from the Kindroid UI
+
+Cadence does not try to own Kindroid group creation. That is deliberate.
+
+Each local Kindroid participant can carry its own:
+
+- bubble/display name
+- text-only or speech output path
+- OpenAI or ElevenLabs voice settings
+- narration filtering rules for speech
+- waveform color and accent theme
+
+Automatic Kindroid groups can chain multiple Kin replies until Kindroid yields the turn back to the user. Manual groups let the user choose the next Kin directly from the in-chat roster buttons.
+
 ## VRM / Stage Notes
 
 Avatar mode currently supports:
@@ -139,6 +161,8 @@ Avatar mode currently supports:
 Waveform mode is not a fallback. It is a first-class stage path:
 - audio-driven when speech is actually playing
 - procedural and ambient when it is not
+
+When Kindroid is active, the waveform stage can also pick up per-participant visual themes so different characters read differently at a glance.
 
 ## Getting Started
 
@@ -169,7 +193,7 @@ npm run dist:win
 ```
 
 Output:
-- `release/Cadence-0.1.0-portable.exe`
+- `release/Cadence-0.1.2-portable.exe`
 
 ### Unpacked directory build
 
