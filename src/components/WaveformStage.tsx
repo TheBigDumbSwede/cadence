@@ -138,6 +138,7 @@ export function WaveformStage({ activeState }: WaveformStageProps) {
     getOutputWaveformSnapshot()
   );
   const [phase, setPhase] = useState(0);
+  const [speakingBridgeStartedAt, setSpeakingBridgeStartedAt] = useState<number | null>(null);
 
   useEffect(() => subscribeToOutputWaveform(setWaveform), []);
 
@@ -153,6 +154,15 @@ export function WaveformStage({ activeState }: WaveformStageProps) {
     return () => window.cancelAnimationFrame(frameId);
   }, []);
 
+  useEffect(() => {
+    if (activeState.type === "speaking") {
+      setSpeakingBridgeStartedAt((previous) => previous ?? performance.now());
+      return;
+    }
+
+    setSpeakingBridgeStartedAt(null);
+  }, [activeState.type]);
+
   const displayLevel = useMemo(() => {
     if (waveform.active) {
       return waveform.level;
@@ -166,11 +176,18 @@ export function WaveformStage({ activeState }: WaveformStageProps) {
       activeState.type === "transcribing" ||
       activeState.type === "error"
     ) {
-      return activeState.type === "speaking" ? 0.11 : 0.08;
+      if (activeState.type === "speaking") {
+        const bridgeAgeMs =
+          speakingBridgeStartedAt === null ? 0 : performance.now() - speakingBridgeStartedAt;
+        const bridgeAttack = clamp(bridgeAgeMs / 180, 0, 1);
+        return 0.14 + bridgeAttack * 0.16;
+      }
+
+      return 0.08;
     }
 
     return 0.08;
-  }, [activeState.type, waveform.active, waveform.level]);
+  }, [activeState.type, phase, speakingBridgeStartedAt, waveform.active, waveform.level]);
 
   const samples = useMemo(() => {
     if (waveform.active && waveform.samples.some((sample) => Math.abs(sample) > 0.002)) {

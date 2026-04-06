@@ -12,7 +12,6 @@ type ChatPanelProps = {
   inputText: string;
   isRecording: boolean;
   mode: InteractionMode;
-  statusCopy: string;
   ttsProvider: TtsProvider;
   turns: ConversationTurn[];
   voiceBackend: VoiceBackendProvider;
@@ -51,7 +50,6 @@ export function ChatPanel({
   inputText,
   isRecording,
   mode,
-  statusCopy,
   ttsProvider,
   turns,
   voiceBackend,
@@ -96,7 +94,6 @@ export function ChatPanel({
           <p className="panel-copy">{mode === "voice" ? voiceSummary : "Text-only"}</p>
         </div>
         <div className="chat-controls">
-          <div className="state-chip">{connectionReady ? "Live" : "Standby"}</div>
           <button
             type="button"
             className={`chat-action ${isRecording ? "active" : ""}`}
@@ -127,11 +124,6 @@ export function ChatPanel({
           ) : null}
         </div>
       </header>
-
-      <div className="chat-status-line">
-        <strong>Status</strong>
-        <span>{statusCopy}</span>
-      </div>
 
       <div ref={transcriptRef} className="chat-transcript">
         {turns.length === 0 ? (

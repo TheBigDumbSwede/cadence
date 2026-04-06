@@ -100,7 +100,7 @@ export function useCadenceController() {
   const [textSession] = useState(() => createTextSession());
   const [kindroidSession] = useState(() => createKindroidSession());
   const [mode, setMode] = useState<InteractionMode>("voice");
-  const [stageMode, setStageMode] = useState<StageMode>("avatar");
+  const [stageMode, setStageMode] = useState<StageMode>("waveform");
   const [voiceBackend, setVoiceBackend] = useState<VoiceBackendProvider>("openai");
   const [voiceInputMode, setVoiceInputMode] = useState<VoiceInputMode>("push_to_talk");
   const [hotMicMuted, setHotMicMuted] = useState(false);

@@ -85,10 +85,6 @@ export function App() {
           <p className="eyebrow">Cadence</p>
         </div>
         <div className="topbar-actions">
-          <div className="runtime-pill">
-            <span>{connectionReady ? "Live" : "Standby"}</span>
-            <span>{mode === "voice" ? "Voice" : "Text-only"}</span>
-          </div>
           <div className="menu-actions">
             <button type="button" className="menu-button" onClick={() => setSystemOpen(true)}>
               System
@@ -96,10 +92,6 @@ export function App() {
             <button type="button" className="menu-button" onClick={() => setSettingsOpen(true)}>
               Settings
             </button>
-          </div>
-          <div className="runtime-pill">
-            <span>{runtimeInfo ? `Electron ${runtimeInfo.electronVersion}` : "Electron pending"}</span>
-            <span>{runtimeInfo ? runtimeInfo.platform : "platform pending"}</span>
           </div>
         </div>
       </header>
@@ -119,7 +111,6 @@ export function App() {
           inputText={inputText}
           isRecording={isRecording}
           mode={mode}
-          statusCopy={statusCopy}
           ttsProvider={ttsProvider}
           turns={turns}
           voiceBackend={voiceBackend}

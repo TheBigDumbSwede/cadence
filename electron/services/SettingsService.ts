@@ -28,7 +28,7 @@ type StoredSettings = {
 
 const DEFAULT_PREFERENCES: SettingsPreferences = {
   mode: "voice",
-  stageMode: "avatar",
+  stageMode: "waveform",
   textBackend: "openai",
   ttsProvider: "elevenlabs",
   voiceInputMode: "push_to_talk",

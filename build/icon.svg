@@ -1,0 +1,62 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(352 264) rotate(55) scale(900 880)">
+      <stop offset="0" stop-color="#2B1F18"/>
+      <stop offset="0.45" stop-color="#1B1512"/>
+      <stop offset="1" stop-color="#0C0A09"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(456 362) rotate(56) scale(518 512)">
+      <stop offset="0" stop-color="#734C34"/>
+      <stop offset="0.42" stop-color="#34261E"/>
+      <stop offset="1" stop-color="#140F0D"/>
+    </radialGradient>
+    <radialGradient id="coreGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 512) rotate(90) scale(210)">
+      <stop offset="0" stop-color="#F0B37D" stop-opacity="0.92"/>
+      <stop offset="0.48" stop-color="#D48C54" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#D48C54" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pulse" x1="244" y1="512" x2="780" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7E8D6" stop-opacity="0.05"/>
+      <stop offset="0.2" stop-color="#F7D2AF" stop-opacity="0.82"/>
+      <stop offset="0.5" stop-color="#FFD8B3"/>
+      <stop offset="0.8" stop-color="#F7D2AF" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#F7E8D6" stop-opacity="0.05"/>
+    </linearGradient>
+    <filter id="softBlur" x="114" y="114" width="796" height="796" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <filter id="pulseGlow" x="180" y="334" width="664" height="356" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <g filter="url(#softBlur)" opacity="0.68">
+    <circle cx="512" cy="512" r="282" fill="#D7955B" fill-opacity="0.22"/>
+  </g>
+
+  <circle cx="512" cy="512" r="274" fill="url(#orb)" stroke="rgba(243,236,229,0.12)" stroke-width="2"/>
+  <circle cx="512" cy="512" r="188" fill="url(#coreGlow)"/>
+  <circle cx="512" cy="512" r="250" stroke="rgba(243,236,229,0.08)" stroke-width="2"/>
+
+  <g filter="url(#pulseGlow)" opacity="0.92">
+    <path
+      d="M248 512C292 512 320 512 352 512C388 512 406 518 420 562C434 606 442 468 462 404C478 352 494 468 514 558C530 628 540 644 558 550C574 470 584 468 602 514C620 560 642 566 680 550C710 538 736 520 776 520"
+      stroke="#D7955B"
+      stroke-width="28"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <path
+    d="M248 512C292 512 320 512 352 512C388 512 406 518 420 562C434 606 442 468 462 404C478 352 494 468 514 558C530 628 540 644 558 550C574 470 584 468 602 514C620 560 642 566 680 550C710 538 736 520 776 520"
+    stroke="url(#pulse)"
+    stroke-width="18"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <circle cx="512" cy="512" r="10" fill="#FFE2C4" fill-opacity="0.95"/>
+</svg>

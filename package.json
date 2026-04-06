@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "A voice-first desktop companion scaffold optimized for fast turn-taking.",
+  "author": "Bruce Mager <bmager@bigdumbswede.com>",
   "main": "dist-electron/main.js",
   "scripts": {
     "check": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
@@ -14,6 +15,7 @@
     "build": "npm run check && npm run build:renderer && npm run build:electron",
     "build:renderer": "vite build",
     "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --outdir=dist-electron --external:electron",
+    "build:icon": "python scripts/generate_icon.py",
     "dist:win": "npm run build && electron-builder --win portable",
     "dist:dir": "npm run build && electron-builder --dir",
     "preview": "vite preview"
@@ -50,7 +52,8 @@
     "appId": "com.brucevibe.cadence",
     "productName": "Cadence",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -58,6 +61,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "portable"
       ]
