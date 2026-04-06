@@ -181,7 +181,8 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
 
     const synthesis = this.config?.model.includes("openai-tts")
       ? await bridge.openaiSpeech.synthesize(kindroidResponse.text, {
-          voice: this.config?.voice || undefined
+          voice: this.config?.voice || undefined,
+          instructions: this.config?.speechInstructions || undefined
         })
       : await bridge.elevenlabs.synthesize(kindroidResponse.text, {
           voiceId: this.config?.voice || undefined

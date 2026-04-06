@@ -8,6 +8,7 @@ export type TransportConfig = {
   model: string;
   voice: string;
   instructions: string;
+  speechInstructions?: string;
   modalities: Array<"text" | "audio">;
 };
 

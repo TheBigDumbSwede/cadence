@@ -5,13 +5,20 @@ export function appendOrUpdateAssistantTurn(
   turns: ConversationTurn[],
   turnId: string,
   text: string,
-  mode: "append" | "replace"
+  mode: "append" | "replace",
+  options?: {
+    speakerLabel?: string;
+    kindroidParticipantId?: string;
+  }
 ): ConversationTurn[] {
   const existingIndex = turns.findIndex((turn) => turn.id === turnId);
   if (existingIndex >= 0) {
     const updated = [...turns];
     updated[existingIndex] = {
       ...updated[existingIndex],
+      speakerLabel: options?.speakerLabel ?? updated[existingIndex].speakerLabel,
+      kindroidParticipantId:
+        options?.kindroidParticipantId ?? updated[existingIndex].kindroidParticipantId,
       text:
         mode === "replace"
           ? text || updated[existingIndex].text
@@ -25,6 +32,8 @@ export function appendOrUpdateAssistantTurn(
     {
       id: turnId,
       speaker: "assistant",
+      speakerLabel: options?.speakerLabel,
+      kindroidParticipantId: options?.kindroidParticipantId,
       timestamp: timestampNow(),
       text
     }

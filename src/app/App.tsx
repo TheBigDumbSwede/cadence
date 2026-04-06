@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChatBreakDialog } from "../components/ChatBreakDialog";
 import { ChatPanel } from "../components/ChatPanel";
+import { KindroidPanel } from "../components/KindroidPanel";
 import { MenuWindow } from "../components/MenuWindow";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { StagePanel } from "../components/StagePanel";
@@ -19,9 +20,11 @@ export function App() {
   const [chatBreakError, setChatBreakError] = useState("");
   const [chatBreakGreeting, setChatBreakGreeting] = useState("");
   const [chatBreakOpen, setChatBreakOpen] = useState(false);
+  const [kindroidOpen, setKindroidOpen] = useState(false);
   const [systemOpen, setSystemOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
+    activeKindroidParticipant,
     activeState,
     avatarPoseDebug,
     backendConfig,
@@ -36,6 +39,7 @@ export function App() {
     mode,
     performance,
     saveSettings,
+    saveKindroidParticipants,
     setAvatar,
     setAvatarPoseDebug,
     stageMode,
@@ -45,6 +49,7 @@ export function App() {
     settingsSnapshot,
     textBackend,
     ttsProvider,
+    effectiveTtsProvider,
     voiceBackend,
     voiceInputMode,
     setInputText,
@@ -87,6 +92,7 @@ export function App() {
         if (!newChatPending) {
           setChatBreakOpen(false);
         }
+        setKindroidOpen(false);
         setSystemOpen(false);
         setSettingsOpen(false);
       }
@@ -99,6 +105,7 @@ export function App() {
   const canStartChatBreak =
     (mode === "voice" && voiceBackend === "kindroid") ||
     (mode === "text" && textBackend === "kindroid");
+  const kindroidMenuVisible = canStartChatBreak;
 
   function openChatBreakDialog(): void {
     setChatBreakGreeting(settingsSnapshot?.kindroidGreeting ?? "");
@@ -126,6 +133,11 @@ export function App() {
         </div>
         <div className="topbar-actions">
           <div className="menu-actions">
+            {kindroidMenuVisible ? (
+              <button type="button" className="menu-button" onClick={() => setKindroidOpen(true)}>
+                Kindroid
+              </button>
+            ) : null}
             <button type="button" className="menu-button" onClick={() => setSystemOpen(true)}>
               System
             </button>
@@ -155,7 +167,7 @@ export function App() {
           newChatPending={newChatPending}
           openChatBreakDialog={openChatBreakDialog}
           textBackend={textBackend}
-          ttsProvider={ttsProvider}
+          ttsProvider={effectiveTtsProvider}
           turns={turns}
           voiceBackend={voiceBackend}
           voiceInputMode={voiceInputMode}
@@ -179,6 +191,26 @@ export function App() {
             runtimeInfo={runtimeInfo}
             statusCopy={statusCopy}
             topology={topology}
+          />
+        </MenuWindow>
+      ) : null}
+
+      {kindroidOpen ? (
+        <MenuWindow
+          title="Kindroid"
+          subtitle={
+            activeKindroidParticipant
+              ? `${activeKindroidParticipant.displayName} is active`
+              : "Participant roster and routing"
+          }
+          onClose={() => setKindroidOpen(false)}
+        >
+          <KindroidPanel
+            settingsFeedback={settingsFeedback}
+            settingsLoaded={settingsLoaded}
+            settingsSaveState={settingsSaveState}
+            settingsSnapshot={settingsSnapshot}
+            onSaveParticipants={saveKindroidParticipants}
           />
         </MenuWindow>
       ) : null}

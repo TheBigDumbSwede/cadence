@@ -113,6 +113,8 @@ export function useCadenceController() {
   const bufferedAssistantTurnRef = useRef<{
     turnId: string;
     text: string;
+    speakerLabel?: string;
+    kindroidParticipantId?: string;
   } | null>(null);
   const responseClock = useRef<{
     startedAt: number | null;
@@ -134,13 +136,53 @@ export function useCadenceController() {
       : textBackend === "kindroid"
         ? kindroidSession
         : textSession;
+  const activeKindroidParticipant = useMemo(() => {
+    if (!settingsSnapshot) {
+      return null;
+    }
+
+    const participants = settingsSnapshot.kindroidParticipants;
+    if (participants.length === 0) {
+      return null;
+    }
+
+    const activeParticipant =
+      participants.find(
+        (participant) => participant.id === settingsSnapshot.activeKindroidParticipantId
+      ) ?? participants[0];
+
+    return activeParticipant ?? null;
+  }, [settingsSnapshot]);
+  const effectiveKindroidTtsProvider = activeKindroidParticipant?.ttsProvider ?? ttsProvider;
+  const effectiveTtsProvider =
+    mode === "voice" && voiceBackend === "kindroid"
+      ? effectiveKindroidTtsProvider
+      : ttsProvider;
   const stagedTextReplyMode =
     mode === "text" ||
     (mode === "voice" &&
-      (voiceBackend === "kindroid" || voiceBackend === "openai-batch") &&
-      ttsProvider === "none");
+      ((voiceBackend === "kindroid" && effectiveKindroidTtsProvider === "none") ||
+        (voiceBackend === "openai-batch" && ttsProvider === "none")));
   const visualReplyPoseMode = stageMode === "avatar" && stagedTextReplyMode;
   const topology = useMemo(() => activeSession.describeTopology(), [activeSession]);
+
+  function getAssistantTurnMetadata(): {
+    speakerLabel?: string;
+    kindroidParticipantId?: string;
+  } {
+    const usesKindroid =
+      (mode === "voice" && voiceBackend === "kindroid") ||
+      (mode === "text" && textBackend === "kindroid");
+
+    if (!usesKindroid || !activeKindroidParticipant) {
+      return {};
+    }
+
+    return {
+      speakerLabel: activeKindroidParticipant.bubbleName,
+      kindroidParticipantId: activeKindroidParticipant.id
+    };
+  }
 
   useEffect(() => {
     recorderRef.current = new PushToTalkRecorder();
@@ -203,7 +245,8 @@ export function useCadenceController() {
     if (
       mode !== "voice" ||
       voiceInputMode !== "hot_mic" ||
-      ((voiceBackend === "kindroid" || voiceBackend === "openai-batch") && ttsProvider === "none")
+      ((voiceBackend === "kindroid" && effectiveKindroidTtsProvider === "none") ||
+        (voiceBackend === "openai-batch" && ttsProvider === "none"))
     ) {
       return;
     }
@@ -345,7 +388,7 @@ export function useCadenceController() {
         mode,
         voiceBackend,
         textBackend,
-        ttsProvider
+        ttsProvider: effectiveTtsProvider
       })
     );
 
@@ -468,9 +511,9 @@ export function useCadenceController() {
         bridge.openaiSpeech.getState()
       ]).then(([openAiState, kindroidState, elevenLabsState, openAiSpeechState]) => {
         const ttsConfigured =
-          ttsProvider === "none"
+          effectiveKindroidTtsProvider === "none"
             ? true
-            : ttsProvider === "openai"
+            : effectiveKindroidTtsProvider === "openai"
               ? openAiSpeechState.configured
               : elevenLabsState.configured;
         const isConfigured =
@@ -479,13 +522,18 @@ export function useCadenceController() {
         setBackendConfig({
           mode,
           providerLabel:
-            ttsProvider === "none"
+            effectiveKindroidTtsProvider === "none"
               ? "Kindroid Voice + Text Reply"
-              : ttsProvider === "openai"
+              : effectiveKindroidTtsProvider === "openai"
                 ? "Kindroid Voice + OpenAI TTS"
                 : "Kindroid Voice + ElevenLabs",
           configured: isConfigured,
           items: [
+            {
+              label: "Participant",
+              present: Boolean(activeKindroidParticipant),
+              value: activeKindroidParticipant?.displayName ?? undefined
+            },
             {
               label: "OPENAI_API_KEY",
               present: openAiState.apiKeyPresent
@@ -501,9 +549,10 @@ export function useCadenceController() {
             },
             {
               label: "KINDROID_AI_ID",
-              present: kindroidState.aiIdPresent
+              present: kindroidState.aiIdPresent,
+              value: activeKindroidParticipant?.aiId ?? undefined
             },
-            ...(ttsProvider === "none"
+            ...(effectiveKindroidTtsProvider === "none"
               ? [
                   {
                     label: "Speech output",
@@ -511,7 +560,7 @@ export function useCadenceController() {
                     value: "Disabled"
                   }
                 ]
-              : ttsProvider === "openai"
+              : effectiveKindroidTtsProvider === "openai"
               ? [
                   {
                     label: "OPENAI_API_KEY (TTS)",
@@ -519,13 +568,22 @@ export function useCadenceController() {
                   },
                   {
                     label: "OPENAI_TTS_VOICE",
-                    present: Boolean(openAiSpeechState.voice),
-                    value: openAiSpeechState.voice ?? undefined
+                    present: Boolean(activeKindroidParticipant?.openAiVoice || openAiSpeechState.voice),
+                    value:
+                      activeKindroidParticipant?.openAiVoice ||
+                      openAiSpeechState.voice ||
+                      undefined
                   },
                   {
                     label: "OPENAI_TTS_INSTRUCTIONS",
-                    present: Boolean(openAiSpeechState.instructions),
-                    value: openAiSpeechState.instructions || undefined
+                    present: Boolean(
+                      activeKindroidParticipant?.openAiInstructions ||
+                        openAiSpeechState.instructions
+                    ),
+                    value:
+                      activeKindroidParticipant?.openAiInstructions ||
+                      openAiSpeechState.instructions ||
+                      undefined
                   },
                   {
                     label: "TTS model",
@@ -540,8 +598,13 @@ export function useCadenceController() {
                   },
                   {
                     label: "ELEVENLABS_VOICE_ID",
-                    present: elevenLabsState.voiceIdPresent,
-                    value: elevenLabsState.voiceId ?? undefined
+                    present: Boolean(
+                      activeKindroidParticipant?.elevenLabsVoiceId || elevenLabsState.voiceId
+                    ),
+                    value:
+                      activeKindroidParticipant?.elevenLabsVoiceId ||
+                      elevenLabsState.voiceId ||
+                      undefined
                   },
                   {
                     label: "TTS model",
@@ -561,12 +624,18 @@ export function useCadenceController() {
           configured: state.configured,
           items: [
             {
+              label: "Participant",
+              present: Boolean(activeKindroidParticipant),
+              value: activeKindroidParticipant?.displayName ?? undefined
+            },
+            {
               label: "KINDROID_API_KEY",
               present: state.apiKeyPresent
             },
             {
               label: "KINDROID_AI_ID",
-              present: state.aiIdPresent
+              present: state.aiIdPresent,
+              value: activeKindroidParticipant?.aiId ?? undefined
             },
             {
               label: "Base URL",
@@ -747,14 +816,19 @@ export function useCadenceController() {
                 nextTurns,
                 bufferedAssistantTurn.turnId,
                 bufferedAssistantTurn.text,
-                "replace"
+                "replace",
+                {
+                  speakerLabel: bufferedAssistantTurn.speakerLabel,
+                  kindroidParticipantId: bufferedAssistantTurn.kindroidParticipantId
+                }
               );
             }
 
             return nextTurns;
           });
           break;
-        case "assistant.response.delta":
+        case "assistant.response.delta": {
+          const assistantTurnMetadata = getAssistantTurnMetadata();
           if (stagedTextReplyMode) {
             beginVisualReplyDelivery(event.text);
           }
@@ -764,19 +838,26 @@ export function useCadenceController() {
               buffered && buffered.turnId === event.turnId
                 ? {
                     turnId: event.turnId,
-                    text: buffered.text + event.text
+                    text: buffered.text + event.text,
+                    speakerLabel: buffered.speakerLabel ?? assistantTurnMetadata.speakerLabel,
+                    kindroidParticipantId:
+                      buffered.kindroidParticipantId ??
+                      assistantTurnMetadata.kindroidParticipantId
                   }
                 : {
                     turnId: event.turnId,
-                    text: event.text
+                    text: event.text,
+                    ...assistantTurnMetadata
                   };
             break;
           }
           setTurns((previous) =>
-            appendOrUpdateAssistantTurn(previous, event.turnId, event.text, "append")
+            appendOrUpdateAssistantTurn(previous, event.turnId, event.text, "append", assistantTurnMetadata)
           );
           break;
-        case "assistant.response.completed":
+        }
+        case "assistant.response.completed": {
+          const completedAssistantTurnMetadata = getAssistantTurnMetadata();
           if (stagedTextReplyMode) {
             beginVisualReplyDelivery(event.text);
           } else {
@@ -788,16 +869,24 @@ export function useCadenceController() {
           if (pendingUserTurnIdRef.current) {
             bufferedAssistantTurnRef.current = {
               turnId: event.turnId,
-              text: event.text
+              text: event.text,
+              ...completedAssistantTurnMetadata
             };
             setStatusCopy("Response complete.");
             break;
           }
           setTurns((previous) =>
-            appendOrUpdateAssistantTurn(previous, event.turnId, event.text, "replace")
+            appendOrUpdateAssistantTurn(
+              previous,
+              event.turnId,
+              event.text,
+              "replace",
+              completedAssistantTurnMetadata
+            )
           );
           setStatusCopy("Response complete.");
           break;
+        }
         case "assistant.audio.chunk":
           if (!responseClock.current.firstAudioAt && responseClock.current.startedAt) {
             const now = performance.now();
@@ -860,19 +949,39 @@ export function useCadenceController() {
     const config =
       mode === "voice"
         ? voiceBackend === "kindroid"
-          ? ttsProvider === "none"
-            ? defaultKindroidVoiceTextOnlyConfig
-            : ttsProvider === "openai"
-              ? defaultKindroidVoiceOpenAiTtsConfig
-              : defaultKindroidVoiceTransportConfig
+          ? effectiveKindroidTtsProvider === "none"
+            ? {
+                ...defaultKindroidVoiceTextOnlyConfig
+              }
+            : effectiveKindroidTtsProvider === "openai"
+              ? {
+                  ...defaultKindroidVoiceOpenAiTtsConfig,
+                  voice: activeKindroidParticipant?.openAiVoice ?? "",
+                  speechInstructions:
+                    activeKindroidParticipant?.openAiInstructions || undefined
+                }
+              : {
+                  ...defaultKindroidVoiceTransportConfig,
+                  voice: activeKindroidParticipant?.elevenLabsVoiceId ?? ""
+                }
           : voiceBackend === "openai-batch"
             ? ttsProvider === "none"
-              ? defaultOpenAiBatchVoiceTextOnlyConfig
+              ? {
+                  ...defaultOpenAiBatchVoiceTextOnlyConfig
+                }
               : ttsProvider === "openai"
-                ? defaultOpenAiBatchVoiceOpenAiTtsConfig
-                : defaultOpenAiBatchVoiceTransportConfig
-          : defaultVoiceTransportConfig
-        : defaultTextTransportConfig;
+                ? {
+                    ...defaultOpenAiBatchVoiceOpenAiTtsConfig
+                  }
+                : {
+                    ...defaultOpenAiBatchVoiceTransportConfig
+                  }
+          : {
+              ...defaultVoiceTransportConfig
+            }
+        : {
+            ...defaultTextTransportConfig
+          };
 
     void activeSession.connect(config).catch((error: Error) => {
       setConfigured(false);
@@ -885,7 +994,20 @@ export function useCadenceController() {
       unsubscribe();
       void activeSession.disconnect();
     };
-  }, [activeSession, mode, settingsLoaded, settingsRevision, stagedTextReplyMode, textBackend, ttsProvider, visualReplyPoseMode, voiceBackend, voiceInputMode]);
+  }, [
+    activeKindroidParticipant,
+    activeSession,
+    effectiveKindroidTtsProvider,
+    mode,
+    settingsLoaded,
+    settingsRevision,
+    stagedTextReplyMode,
+    textBackend,
+    ttsProvider,
+    visualReplyPoseMode,
+    voiceBackend,
+    voiceInputMode
+  ]);
 
   useEffect(() => {
     const hotMicRecorder = hotMicRecorderRef.current;
@@ -1096,7 +1218,7 @@ export function useCadenceController() {
         mode,
         voiceBackend,
         textBackend,
-        ttsProvider
+        ttsProvider: effectiveTtsProvider
       })
     );
     await activeSession.sendUserText(
@@ -1110,7 +1232,9 @@ export function useCadenceController() {
 
   async function playKindroidGreeting(turnId: string, text: string): Promise<void> {
     const usesSpokenKindroidGreeting =
-      mode === "voice" && voiceBackend === "kindroid" && ttsProvider !== "none";
+      mode === "voice" &&
+      voiceBackend === "kindroid" &&
+      effectiveKindroidTtsProvider !== "none";
 
     if (!usesSpokenKindroidGreeting) {
       return;
@@ -1118,9 +1242,14 @@ export function useCadenceController() {
 
     const bridge = getCadenceBridge();
     const synthesis =
-      ttsProvider === "openai"
-        ? await bridge.openaiSpeech.synthesize(text)
-        : await bridge.elevenlabs.synthesize(text);
+      effectiveKindroidTtsProvider === "openai"
+        ? await bridge.openaiSpeech.synthesize(text, {
+            voice: activeKindroidParticipant?.openAiVoice || undefined,
+            instructions: activeKindroidParticipant?.openAiInstructions || undefined
+          })
+        : await bridge.elevenlabs.synthesize(text, {
+            voiceId: activeKindroidParticipant?.elevenLabsVoiceId || undefined
+          });
 
     await activeSession.playAssistantAudioChunk({
       type: "assistant.audio.chunk",
@@ -1167,6 +1296,7 @@ export function useCadenceController() {
         {
           id: assistantTurnId,
           speaker: "assistant",
+          ...getAssistantTurnMetadata(),
           timestamp: timestampNow(),
           text: nextGreeting
         }
@@ -1234,6 +1364,27 @@ export function useCadenceController() {
     }
   }
 
+  async function saveKindroidParticipants(update: {
+    kindroidParticipants: SettingsSnapshot["kindroidParticipants"];
+    activeKindroidParticipantId: string | null;
+  }): Promise<void> {
+    if (!settingsSnapshot) {
+      throw new Error("Settings are still loading.");
+    }
+
+    await saveSettings({
+      openAiTtsVoice: settingsSnapshot.openAiTtsVoice,
+      openAiTtsInstructions: settingsSnapshot.openAiTtsInstructions,
+      elevenLabsVoiceId: settingsSnapshot.elevenLabsVoiceId,
+      kindroidAiId: settingsSnapshot.kindroidAiId,
+      kindroidBaseUrl: settingsSnapshot.kindroidBaseUrl,
+      kindroidExperimentalEnabled: settingsSnapshot.kindroidExperimentalEnabled,
+      kindroidGreeting: settingsSnapshot.kindroidGreeting,
+      kindroidParticipants: update.kindroidParticipants,
+      activeKindroidParticipantId: update.activeKindroidParticipantId
+    });
+  }
+
   async function chooseAvatarFile(): Promise<AvatarSelection | null> {
     const bridge = getCadenceBridge();
     return bridge.settings.chooseAvatarFile();
@@ -1268,6 +1419,7 @@ export function useCadenceController() {
 
   return {
     activeState,
+    activeKindroidParticipant,
     avatarPoseDebug,
     configured,
     connectionReady,
@@ -1281,6 +1433,7 @@ export function useCadenceController() {
     chooseAvatarFile,
     performance: avatarPerformance,
     saveSettings,
+    saveKindroidParticipants,
     setAvatar,
     setAvatarPoseDebug,
     stageMode,
@@ -1305,6 +1458,7 @@ export function useCadenceController() {
     submitText,
     textBackend,
     ttsProvider,
+    effectiveTtsProvider,
     topology,
     turns
   };

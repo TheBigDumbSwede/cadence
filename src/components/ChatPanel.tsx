@@ -162,7 +162,7 @@ export function ChatPanel({
           turns.map((turn) => (
             <article key={turn.id} className="message-bubble" data-speaker={turn.speaker}>
               <p className="message-meta">
-                <strong>{turn.speaker === "assistant" ? "Cadence" : "You"}</strong>
+                <strong>{turn.speakerLabel ?? (turn.speaker === "assistant" ? "Cadence" : "You")}</strong>
                 <span>{turn.timestamp}</span>
               </p>
               <p className="message-text">{turn.text}</p>

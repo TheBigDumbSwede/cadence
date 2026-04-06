@@ -682,6 +682,24 @@ textarea {
   padding-top: 4px;
 }
 
+.kindroid-participant-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.kindroid-participant-card {
+  display: grid;
+  gap: 10px;
+}
+
+.kindroid-participant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .preview-button {
   padding: 12px 14px;
   text-align: left;

@@ -86,7 +86,6 @@ export function SettingsPanel({
   const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState("");
   const [kindroidApiKey, setKindroidApiKey] = useState("");
   const [clearKindroidApiKey, setClearKindroidApiKey] = useState(false);
-  const [kindroidAiId, setKindroidAiId] = useState("");
   const [kindroidBaseUrl, setKindroidBaseUrl] = useState("");
   const [kindroidExperimentalEnabled, setKindroidExperimentalEnabled] = useState(false);
   const [kindroidGreeting, setKindroidGreeting] = useState("");
@@ -105,7 +104,6 @@ export function SettingsPanel({
     setElevenLabsVoiceId(settingsSnapshot.elevenLabsVoiceId);
     setKindroidApiKey("");
     setClearKindroidApiKey(false);
-    setKindroidAiId(settingsSnapshot.kindroidAiId);
     setKindroidBaseUrl(settingsSnapshot.kindroidBaseUrl);
     setKindroidExperimentalEnabled(settingsSnapshot.kindroidExperimentalEnabled);
     setKindroidGreeting(settingsSnapshot.kindroidGreeting);
@@ -207,13 +205,13 @@ export function SettingsPanel({
               onClick={() => setVoiceBackend("kindroid")}
             >
               <strong>Kindroid Voice</strong>
-              <span>OpenAI STT, Kindroid reply, selectable output.</span>
+              <span>OpenAI STT, Kindroid reply, participant-routed output.</span>
             </button>
           </div>
         </section>
       ) : null}
 
-      {mode === "voice" && voiceBackend !== "openai" ? (
+      {mode === "voice" && voiceBackend === "openai-batch" ? (
         <section className="menu-section">
           <div className="menu-section-header">
             <div>
@@ -273,7 +271,7 @@ export function SettingsPanel({
               onClick={() => setTextBackend("kindroid")}
             >
               <strong>Kindroid</strong>
-              <span>Character backend via your AI ID.</span>
+              <span>Character backend via your participant roster.</span>
             </button>
           </div>
         </section>
@@ -580,17 +578,6 @@ export function SettingsPanel({
               </p>
             </div>
             <div className="settings-field">
-              <label htmlFor="kindroid-ai-id">AI ID</label>
-              <input
-                id="kindroid-ai-id"
-                className="settings-input"
-                type="text"
-                value={kindroidAiId}
-                onChange={(event) => setKindroidAiId(event.target.value)}
-                placeholder="AI ID"
-              />
-            </div>
-            <div className="settings-field">
               <label htmlFor="kindroid-base-url">Base URL</label>
               <input
                 id="kindroid-base-url"
@@ -634,6 +621,10 @@ export function SettingsPanel({
                 assistant message in a new conversation.
               </p>
             </div>
+            <p className="field-status">
+              Kindroid participants and per-character output routing now live in the Kindroid
+              menu.
+            </p>
           </article>
         </div>
 
@@ -658,11 +649,14 @@ export function SettingsPanel({
                 openAiTtsInstructions,
                 elevenLabsApiKey: elevenLabsApiKey.trim() || undefined,
                 elevenLabsVoiceId,
-                kindroidAiId,
+                kindroidAiId: settingsSnapshot?.kindroidAiId ?? "",
                 kindroidApiKey: kindroidApiKey.trim() || undefined,
                 kindroidBaseUrl,
                 kindroidExperimentalEnabled,
                 kindroidGreeting,
+                kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
+                activeKindroidParticipantId:
+                  settingsSnapshot?.activeKindroidParticipantId ?? null,
                 clearOpenAiApiKey,
                 clearElevenLabsApiKey,
                 clearKindroidApiKey

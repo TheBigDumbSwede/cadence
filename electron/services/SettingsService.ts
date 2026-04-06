@@ -10,6 +10,7 @@ import type {
   SettingsSnapshot,
   SettingsUpdate
 } from "../../src/shared/app-settings";
+import type { KindroidParticipant } from "../../src/shared/kindroid-participants";
 
 type StoredSettings = {
   preferences?: Partial<SettingsPreferences>;
@@ -20,6 +21,8 @@ type StoredSettings = {
   kindroidBaseUrl?: string;
   kindroidExperimentalEnabled?: boolean;
   kindroidGreeting?: string;
+  kindroidParticipants?: KindroidParticipant[];
+  activeKindroidParticipantId?: string;
   avatarPath?: string;
   recentAvatarPaths?: string[];
   secrets?: {
@@ -40,6 +43,7 @@ const DEFAULT_PREFERENCES: SettingsPreferences = {
 
 const DEFAULT_KINDROID_BASE_URL = "https://api.kindroid.ai/v1";
 const DEFAULT_KINDROID_GREETING = "Hello.";
+const LEGACY_KINDROID_PARTICIPANT_ID = "legacy-kindroid";
 const MAX_RECENT_AVATARS = 6;
 
 function normalizeValue(value: string | undefined | null): string {
@@ -72,6 +76,8 @@ export class SettingsService {
 
   getSnapshot(): SettingsSnapshot {
     const stored = this.readStore();
+    const kindroidParticipants = this.getKindroidParticipants();
+    const activeKindroidParticipantId = this.getActiveKindroidParticipantId();
 
     return {
       preferences: {
@@ -90,6 +96,8 @@ export class SettingsService {
       kindroidBaseUrl: this.getKindroidBaseUrl(),
       kindroidExperimentalEnabled: this.getKindroidExperimentalEnabled(),
       kindroidGreeting: this.getKindroidGreeting(),
+      kindroidParticipants,
+      activeKindroidParticipantId,
       avatar: this.getAvatarSelection(),
       recentAvatars: this.getRecentAvatarSelections(),
       hasOpenAiApiKey: Boolean(this.getOpenAiApiKey()),
@@ -101,6 +109,9 @@ export class SettingsService {
 
   update(update: SettingsUpdate): SettingsSnapshot {
     const stored = this.readStore();
+    const normalizedKindroidParticipants = this.normalizeKindroidParticipants(
+      update.kindroidParticipants
+    );
 
     stored.preferences = {
       mode: update.preferences.mode,
@@ -117,6 +128,11 @@ export class SettingsService {
     stored.kindroidBaseUrl = normalizeValue(update.kindroidBaseUrl);
     stored.kindroidExperimentalEnabled = update.kindroidExperimentalEnabled;
     stored.kindroidGreeting = normalizeValue(update.kindroidGreeting);
+    stored.kindroidParticipants = normalizedKindroidParticipants;
+    stored.activeKindroidParticipantId = this.normalizeKindroidParticipantId(
+      update.activeKindroidParticipantId,
+      normalizedKindroidParticipants
+    );
     if (typeof update.avatarPath === "string") {
       const normalizedPath = normalizeValue(update.avatarPath);
       if (normalizedPath) {
@@ -208,6 +224,11 @@ export class SettingsService {
   }
 
   getKindroidAiId(): string | null {
+    const activeParticipant = this.getActiveKindroidParticipant();
+    if (activeParticipant) {
+      return activeParticipant.aiId;
+    }
+
     return this.getStoredNonSecret("kindroidAiId") ?? this.getEnv("KINDROID_AI_ID");
   }
 
@@ -234,6 +255,46 @@ export class SettingsService {
       this.getEnv("KINDROID_GREETING") ??
       DEFAULT_KINDROID_GREETING
     );
+  }
+
+  getKindroidParticipants(): KindroidParticipant[] {
+    const storedParticipants = this.normalizeKindroidParticipants(
+      this.readStore().kindroidParticipants
+    );
+
+    if (storedParticipants.length > 0) {
+      return storedParticipants;
+    }
+
+    const legacyAiId =
+      this.getStoredNonSecret("kindroidAiId") ?? this.getEnv("KINDROID_AI_ID");
+    if (!legacyAiId) {
+      return [];
+    }
+
+    return [this.buildLegacyKindroidParticipant(legacyAiId)];
+  }
+
+  getActiveKindroidParticipantId(): string | null {
+    const participants = this.getKindroidParticipants();
+    if (participants.length === 0) {
+      return null;
+    }
+
+    return this.normalizeKindroidParticipantId(
+      this.readStore().activeKindroidParticipantId,
+      participants
+    );
+  }
+
+  getActiveKindroidParticipant(): KindroidParticipant | null {
+    const participants = this.getKindroidParticipants();
+    const activeId = this.getActiveKindroidParticipantId();
+    if (!activeId) {
+      return null;
+    }
+
+    return participants.find((participant) => participant.id === activeId) ?? null;
   }
 
   getAvatarSelection(): AvatarSelection | null {
@@ -321,6 +382,69 @@ export class SettingsService {
   private getEnv(name: string): string | null {
     const value = process.env[name]?.trim();
     return value ? value : null;
+  }
+
+  private normalizeKindroidParticipants(
+    participants: KindroidParticipant[] | undefined
+  ): KindroidParticipant[] {
+    return (participants ?? [])
+      .map((participant, index) => {
+        const id = normalizeValue(participant?.id) || `kindroid-participant-${index + 1}`;
+        const aiId = normalizeValue(participant?.aiId);
+        const displayName = normalizeValue(participant?.displayName);
+        const bubbleName = normalizeValue(participant?.bubbleName);
+        const ttsProvider = participant?.ttsProvider ?? "none";
+
+        if (!aiId || !displayName || !bubbleName) {
+          return null;
+        }
+
+        return {
+          id,
+          aiId,
+          displayName,
+          bubbleName,
+          ttsProvider,
+          openAiVoice: normalizeValue(participant?.openAiVoice),
+          openAiInstructions: normalizeValue(participant?.openAiInstructions),
+          elevenLabsVoiceId: normalizeValue(participant?.elevenLabsVoiceId)
+        };
+      })
+      .filter(
+        (participant): participant is KindroidParticipant =>
+          Boolean(participant)
+      );
+  }
+
+  private normalizeKindroidParticipantId(
+    activeId: string | undefined | null,
+    participants: KindroidParticipant[]
+  ): string | null {
+    const normalizedId = normalizeValue(activeId);
+    if (!participants.length) {
+      return null;
+    }
+
+    if (normalizedId && participants.some((participant) => participant.id === normalizedId)) {
+      return normalizedId;
+    }
+
+    return participants[0].id;
+  }
+
+  private buildLegacyKindroidParticipant(aiId: string): KindroidParticipant {
+    const ttsProvider = this.readStore().preferences?.ttsProvider ?? DEFAULT_PREFERENCES.ttsProvider;
+
+    return {
+      id: LEGACY_KINDROID_PARTICIPANT_ID,
+      aiId,
+      displayName: "Kindroid",
+      bubbleName: "Kindroid",
+      ttsProvider,
+      openAiVoice: this.getOpenAiTtsVoice(),
+      openAiInstructions: this.getOpenAiTtsInstructions(),
+      elevenLabsVoiceId: this.getElevenLabsVoiceId() ?? ""
+    };
   }
 
   private encodeSecret(value: string): string {

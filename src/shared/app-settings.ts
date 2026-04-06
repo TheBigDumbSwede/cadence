@@ -1,5 +1,6 @@
 import type { TextBackendProvider } from "./backend-provider";
 import type { InteractionMode } from "./interaction-mode";
+import type { KindroidParticipant } from "./kindroid-participants";
 import type { StageMode } from "./stage-mode";
 import type { TtsProvider } from "./tts-provider";
 import type { VoiceInputMode } from "./voice-input-mode";
@@ -29,6 +30,8 @@ export type SettingsSnapshot = {
   kindroidBaseUrl: string;
   kindroidExperimentalEnabled: boolean;
   kindroidGreeting: string;
+  kindroidParticipants: KindroidParticipant[];
+  activeKindroidParticipantId: string | null;
   avatar: AvatarSelection | null;
   recentAvatars: AvatarSelection[];
   hasOpenAiApiKey: boolean;
@@ -46,6 +49,8 @@ export type SettingsUpdate = {
   kindroidBaseUrl: string;
   kindroidExperimentalEnabled: boolean;
   kindroidGreeting: string;
+  kindroidParticipants: KindroidParticipant[];
+  activeKindroidParticipantId: string | null;
   openAiApiKey?: string;
   elevenLabsApiKey?: string;
   kindroidApiKey?: string;

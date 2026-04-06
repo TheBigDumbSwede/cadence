@@ -1,6 +1,8 @@
 export type ConversationTurn = {
   id: string;
   speaker: "user" | "assistant";
+  speakerLabel?: string;
+  kindroidParticipantId?: string;
   timestamp: string;
   text: string;
 };

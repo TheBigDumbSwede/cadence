@@ -193,7 +193,8 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
 
     const synthesis = this.config?.model.includes("openai-tts")
       ? await bridge.openaiSpeech.synthesize(response.text, {
-          voice: this.config?.voice || undefined
+          voice: this.config?.voice || undefined,
+          instructions: this.config?.speechInstructions || undefined
         })
       : await bridge.elevenlabs.synthesize(response.text, {
           voiceId: this.config?.voice || undefined
