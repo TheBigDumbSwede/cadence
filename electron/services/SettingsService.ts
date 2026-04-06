@@ -17,6 +17,7 @@ type StoredSettings = {
   elevenLabsVoiceId?: string;
   kindroidAiId?: string;
   kindroidBaseUrl?: string;
+  kindroidGreeting?: string;
   avatarPath?: string;
   recentAvatarPaths?: string[];
   secrets?: {
@@ -36,6 +37,7 @@ const DEFAULT_PREFERENCES: SettingsPreferences = {
 };
 
 const DEFAULT_KINDROID_BASE_URL = "https://api.kindroid.ai/v1";
+const DEFAULT_KINDROID_GREETING = "Hello.";
 const MAX_RECENT_AVATARS = 6;
 
 function normalizeValue(value: string | undefined | null): string {
@@ -62,6 +64,7 @@ export class SettingsService {
       elevenLabsVoiceId: this.getElevenLabsVoiceId() ?? "",
       kindroidAiId: this.getKindroidAiId() ?? "",
       kindroidBaseUrl: this.getKindroidBaseUrl(),
+      kindroidGreeting: this.getKindroidGreeting(),
       avatar: this.getAvatarSelection(),
       recentAvatars: this.getRecentAvatarSelections(),
       hasOpenAiApiKey: Boolean(this.getOpenAiApiKey()),
@@ -86,6 +89,7 @@ export class SettingsService {
     stored.elevenLabsVoiceId = normalizeValue(update.elevenLabsVoiceId);
     stored.kindroidAiId = normalizeValue(update.kindroidAiId);
     stored.kindroidBaseUrl = normalizeValue(update.kindroidBaseUrl);
+    stored.kindroidGreeting = normalizeValue(update.kindroidGreeting);
     if (typeof update.avatarPath === "string") {
       const normalizedPath = normalizeValue(update.avatarPath);
       if (normalizedPath) {
@@ -181,6 +185,14 @@ export class SettingsService {
       this.getStoredNonSecret("kindroidBaseUrl") ??
       this.getEnv("KINDROID_BASE_URL") ??
       DEFAULT_KINDROID_BASE_URL
+    );
+  }
+
+  getKindroidGreeting(): string {
+    return (
+      this.getStoredNonSecret("kindroidGreeting") ??
+      this.getEnv("KINDROID_GREETING") ??
+      DEFAULT_KINDROID_GREETING
     );
   }
 

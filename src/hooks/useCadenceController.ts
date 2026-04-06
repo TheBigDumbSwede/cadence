@@ -95,6 +95,7 @@ export function useCadenceController() {
   });
   const [isRecording, setIsRecording] = useState(false);
   const [inputText, setInputText] = useState("");
+  const [newChatPending, setNewChatPending] = useState(false);
   const [metrics, setMetrics] = useState<ConversationMetrics>({
     timeToListeningMs: 0,
     timeToFirstSpeechMs: 0,
@@ -1097,6 +1098,99 @@ export function useCadenceController() {
     );
   }
 
+  async function playKindroidGreeting(turnId: string, text: string): Promise<void> {
+    const usesSpokenKindroidGreeting =
+      mode === "voice" && voiceBackend === "kindroid" && ttsProvider !== "none";
+
+    if (!usesSpokenKindroidGreeting) {
+      return;
+    }
+
+    const bridge = getCadenceBridge();
+    const synthesis =
+      ttsProvider === "openai"
+        ? await bridge.openaiSpeech.synthesize(text)
+        : await bridge.elevenlabs.synthesize(text);
+
+    await activeSession.playAssistantAudioChunk({
+      type: "assistant.audio.chunk",
+      turnId,
+      sequence: 0,
+      format: synthesis.format,
+      data: synthesis.audio
+    });
+  }
+
+  async function startNewChat(greeting: string): Promise<void> {
+    const usesKindroid =
+      (mode === "voice" && voiceBackend === "kindroid") ||
+      (mode === "text" && textBackend === "kindroid");
+
+    if (!usesKindroid) {
+      throw new Error("Chat Break is only available when Kindroid is the active backend.");
+    }
+
+    if (!settingsSnapshot) {
+      throw new Error("Settings are still loading.");
+    }
+
+    if (newChatPending) {
+      throw new Error("A chat break is already in progress.");
+    }
+
+    const nextGreeting = greeting || "Hello.";
+    const assistantTurnId = crypto.randomUUID();
+
+    setNewChatPending(true);
+    setStatusCopy("Running Kindroid chat break...");
+
+    try {
+      await activeSession.interrupt();
+      await getCadenceBridge().kindroid.chatBreak(nextGreeting);
+      clearPlaybackSuppressionTimer();
+      releaseHotMicSuppression();
+      clearAvatarTimeline();
+      clearPendingUserTurn();
+      bufferedAssistantTurnRef.current = null;
+      setInputText("");
+      setTurns([
+        {
+          id: assistantTurnId,
+          speaker: "assistant",
+          timestamp: timestampNow(),
+          text: nextGreeting
+        }
+      ]);
+      if (stagedTextReplyMode) {
+        beginVisualReplyDelivery(nextGreeting);
+      } else {
+        const directive = inferPerformanceDirective(nextGreeting);
+        setActiveStateId("speaking");
+        updatePerformance(directive, { retriggerGesture: true });
+        holdPoseState("speaking", estimateAssistantDeliveryMs(nextGreeting, directive.pace));
+      }
+
+      try {
+        await playKindroidGreeting(assistantTurnId, nextGreeting);
+        scheduleHotMicPlaybackRelease(nextGreeting);
+        setStatusCopy("Chat break complete.");
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? `Chat break complete, but speech playback failed: ${error.message}`
+            : "Chat break complete, but speech playback failed.";
+        setStatusCopy(message);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to run the Kindroid chat break.";
+      setStatusCopy(message);
+      throw error instanceof Error ? error : new Error(message);
+    } finally {
+      setNewChatPending(false);
+    }
+  }
+
   async function saveSettings(
     update: Omit<SettingsUpdate, "preferences">
   ): Promise<void> {
@@ -1172,6 +1266,7 @@ export function useCadenceController() {
     isRecording,
     metrics,
     mode,
+    newChatPending,
     backendConfig,
     chooseAvatarFile,
     performance: avatarPerformance,
@@ -1196,6 +1291,7 @@ export function useCadenceController() {
     startRecording,
     statusCopy,
     stopRecording,
+    startNewChat,
     submitText,
     textBackend,
     ttsProvider,

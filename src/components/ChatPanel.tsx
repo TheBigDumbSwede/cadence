@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ConversationTurn } from "../shared/conversation-types";
 import type { InteractionMode } from "../shared/interaction-mode";
+import type { TextBackendProvider } from "../shared/backend-provider";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 type ChatPanelProps = {
+  canStartNewChat: boolean;
   configured: boolean;
   connectionReady: boolean;
   hotMicMuted: boolean;
   inputText: string;
   isRecording: boolean;
   mode: InteractionMode;
+  newChatPending: boolean;
+  openChatBreakDialog: () => void;
+  textBackend: TextBackendProvider;
   ttsProvider: TtsProvider;
   turns: ConversationTurn[];
   voiceBackend: VoiceBackendProvider;
@@ -44,12 +49,16 @@ function buildVoiceSummary(voiceBackend: VoiceBackendProvider, ttsProvider: TtsP
 }
 
 export function ChatPanel({
+  canStartNewChat,
   configured,
   connectionReady,
   hotMicMuted,
   inputText,
   isRecording,
   mode,
+  newChatPending,
+  openChatBreakDialog,
+  textBackend,
   ttsProvider,
   turns,
   voiceBackend,
@@ -61,7 +70,12 @@ export function ChatPanel({
   submitText
 }: ChatPanelProps) {
   const canSendText = connectionReady && inputText.trim().length > 0;
-  const voiceSummary = buildVoiceSummary(voiceBackend, ttsProvider);
+  const conversationSummary =
+    mode === "voice"
+      ? buildVoiceSummary(voiceBackend, ttsProvider)
+      : textBackend === "kindroid"
+        ? "Kindroid"
+        : "Text-only";
   const pushToTalkEnabled = mode === "voice" && voiceInputMode === "push_to_talk";
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
@@ -91,9 +105,19 @@ export function ChatPanel({
       <header className="chat-header">
         <div>
           <p className="eyebrow">Conversation</p>
-          <p className="panel-copy">{mode === "voice" ? voiceSummary : "Text-only"}</p>
+          <p className="panel-copy">{conversationSummary}</p>
         </div>
         <div className="chat-controls">
+          {canStartNewChat ? (
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!configured || !connectionReady || isRecording || newChatPending}
+              onClick={openChatBreakDialog}
+            >
+              {newChatPending ? "Running Chat Break..." : "Chat Break"}
+            </button>
+          ) : null}
           <button
             type="button"
             className={`chat-action ${isRecording ? "active" : ""}`}

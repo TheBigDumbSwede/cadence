@@ -87,6 +87,7 @@ export function SettingsPanel({
   const [clearKindroidApiKey, setClearKindroidApiKey] = useState(false);
   const [kindroidAiId, setKindroidAiId] = useState("");
   const [kindroidBaseUrl, setKindroidBaseUrl] = useState("");
+  const [kindroidGreeting, setKindroidGreeting] = useState("");
 
   useEffect(() => {
     if (!settingsSnapshot) {
@@ -103,6 +104,7 @@ export function SettingsPanel({
     setClearKindroidApiKey(false);
     setKindroidAiId(settingsSnapshot.kindroidAiId);
     setKindroidBaseUrl(settingsSnapshot.kindroidBaseUrl);
+    setKindroidGreeting(settingsSnapshot.kindroidGreeting);
   }, [settingsSnapshot]);
 
   const saveDisabled = !settingsLoaded || settingsSaveState === "saving";
@@ -580,6 +582,21 @@ export function SettingsPanel({
                 placeholder="https://api.kindroid.ai/v1"
               />
             </div>
+            <div className="settings-field">
+              <label htmlFor="kindroid-greeting">Default chat-break greeting</label>
+              <textarea
+                id="kindroid-greeting"
+                className="settings-input"
+                rows={3}
+                value={kindroidGreeting}
+                onChange={(event) => setKindroidGreeting(event.target.value)}
+                placeholder="Hello."
+              />
+              <p className="field-status">
+                Used to prefill the Chat Break dialog. Kindroid uses this greeting as the first
+                assistant message in a new conversation.
+              </p>
+            </div>
           </article>
         </div>
 
@@ -606,6 +623,7 @@ export function SettingsPanel({
                 kindroidAiId,
                 kindroidApiKey: kindroidApiKey.trim() || undefined,
                 kindroidBaseUrl,
+                kindroidGreeting,
                 clearOpenAiApiKey,
                 clearElevenLabsApiKey,
                 clearKindroidApiKey

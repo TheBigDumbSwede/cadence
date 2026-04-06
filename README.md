@@ -94,6 +94,7 @@ Cadence now prefers profile-backed settings stored through the app itself.
 That includes:
 - API keys
 - AI IDs
+- Kindroid new-chat greeting
 - selected stage mode
 - selected voice mode/backend
 - TTS voice settings

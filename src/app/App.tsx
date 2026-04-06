@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChatBreakDialog } from "../components/ChatBreakDialog";
 import { ChatPanel } from "../components/ChatPanel";
 import { MenuWindow } from "../components/MenuWindow";
 import { SettingsPanel } from "../components/SettingsPanel";
@@ -15,12 +16,16 @@ import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 export function App() {
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
+  const [chatBreakError, setChatBreakError] = useState("");
+  const [chatBreakGreeting, setChatBreakGreeting] = useState("");
+  const [chatBreakOpen, setChatBreakOpen] = useState(false);
   const [systemOpen, setSystemOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
     activeState,
     avatarPoseDebug,
     backendConfig,
+    newChatPending,
     chooseAvatarFile,
     configured,
     connectionReady,
@@ -51,6 +56,7 @@ export function App() {
     setVoiceInputMode,
     setVoiceBackend,
     startRecording,
+    startNewChat,
     statusCopy,
     stopRecording,
     submitText,
@@ -67,8 +73,20 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (chatBreakOpen) {
+      return;
+    }
+
+    setChatBreakGreeting(settingsSnapshot?.kindroidGreeting ?? "");
+    setChatBreakError("");
+  }, [chatBreakOpen, settingsSnapshot]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (!newChatPending) {
+          setChatBreakOpen(false);
+        }
         setSystemOpen(false);
         setSettingsOpen(false);
       }
@@ -76,7 +94,29 @@ export function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [newChatPending]);
+
+  const canStartChatBreak =
+    (mode === "voice" && voiceBackend === "kindroid") ||
+    (mode === "text" && textBackend === "kindroid");
+
+  function openChatBreakDialog(): void {
+    setChatBreakGreeting(settingsSnapshot?.kindroidGreeting ?? "");
+    setChatBreakError("");
+    setChatBreakOpen(true);
+  }
+
+  async function confirmChatBreak(): Promise<void> {
+    try {
+      await startNewChat(chatBreakGreeting);
+      setChatBreakOpen(false);
+      setChatBreakError("");
+    } catch (error) {
+      setChatBreakError(
+        error instanceof Error ? error.message : "Failed to run the chat break."
+      );
+    }
+  }
 
   return (
     <main className="shell">
@@ -105,12 +145,16 @@ export function App() {
           stageMode={stageMode}
         />
         <ChatPanel
+          canStartNewChat={canStartChatBreak}
           configured={configured}
           connectionReady={connectionReady}
           hotMicMuted={hotMicMuted}
           inputText={inputText}
           isRecording={isRecording}
           mode={mode}
+          newChatPending={newChatPending}
+          openChatBreakDialog={openChatBreakDialog}
+          textBackend={textBackend}
           ttsProvider={ttsProvider}
           turns={turns}
           voiceBackend={voiceBackend}
@@ -170,6 +214,22 @@ export function App() {
             setVoiceBackend={setVoiceBackend as (mode: VoiceBackendProvider) => void}
           />
         </MenuWindow>
+      ) : null}
+
+      {chatBreakOpen ? (
+        <ChatBreakDialog
+          error={chatBreakError}
+          greeting={chatBreakGreeting}
+          pending={newChatPending}
+          onChangeGreeting={setChatBreakGreeting}
+          onClose={() => {
+            if (!newChatPending) {
+              setChatBreakOpen(false);
+              setChatBreakError("");
+            }
+          }}
+          onConfirm={() => void confirmChatBreak()}
+        />
       ) : null}
     </main>
   );

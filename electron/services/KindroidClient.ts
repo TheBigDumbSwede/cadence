@@ -93,6 +93,7 @@ export class KindroidClient {
     const apiKey = settings.getKindroidApiKey();
     const aiId = settings.getKindroidAiId();
     const baseUrl = settings.getKindroidBaseUrl();
+    const nextGreeting = greeting.trim() || settings.getKindroidGreeting();
 
     const response = await fetch(`${baseUrl}/chat-break`, {
       method: "POST",
@@ -102,7 +103,7 @@ export class KindroidClient {
       },
       body: JSON.stringify({
         ai_id: aiId,
-        greeting
+        greeting: nextGreeting
       })
     });
 

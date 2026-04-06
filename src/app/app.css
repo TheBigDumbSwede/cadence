@@ -819,6 +819,25 @@ textarea {
     linear-gradient(180deg, rgba(38, 31, 28, 0.96), rgba(18, 15, 13, 0.98));
 }
 
+.chat-break-dialog {
+  width: min(560px, 100%);
+  max-height: min(72vh, 720px);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 18%),
+    linear-gradient(180deg, rgba(38, 31, 28, 0.96), rgba(18, 15, 13, 0.98));
+}
+
+.chat-break-input {
+  min-height: 108px;
+}
+
+.chat-break-toolbar {
+  padding-top: 0;
+}
+
 .menu-window-body {
   min-height: 0;
   overflow: auto;

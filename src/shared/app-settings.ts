@@ -26,6 +26,7 @@ export type SettingsSnapshot = {
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;
+  kindroidGreeting: string;
   avatar: AvatarSelection | null;
   recentAvatars: AvatarSelection[];
   hasOpenAiApiKey: boolean;
@@ -40,6 +41,7 @@ export type SettingsUpdate = {
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;
+  kindroidGreeting: string;
   openAiApiKey?: string;
   elevenLabsApiKey?: string;
   kindroidApiKey?: string;

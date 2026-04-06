@@ -61,6 +61,21 @@ export class CadenceSession {
     await this.dependencies.transport.sendUserAudio(audio);
   }
 
+  async playAssistantAudioChunk(
+    event: Extract<CadenceEvent, { type: "assistant.audio.chunk" }>
+  ): Promise<void> {
+    if (this.dependencies.speechOutputAdapter) {
+      await this.dependencies.speechOutputAdapter.enqueueAudioChunk(
+        event.turnId,
+        event.sequence,
+        event.format,
+        event.data
+      );
+    }
+
+    this.emit(event);
+  }
+
   subscribe(listener: (event: CadenceEvent) => void): Unsubscribe {
     this.listeners.add(listener);
     return () => {
