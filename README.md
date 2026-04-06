@@ -1,84 +1,193 @@
 # Cadence
 
-Cadence is a voice-first desktop companion project inside `vibe`, aimed at fast turn-taking rather than generic chat-window behavior.
+Cadence is an experimental desktop companion app built around fast turn-taking, persistent presence, and swappable backend paths.
 
-## Principles
+It is not a generic chat client with voice bolted on. The main idea is that conversation, stage presence, and speech/text modes should still feel like one product.
 
-- Time to listening matters as much as model quality.
-- The assistant should expose explicit interaction states: `idle`, `listening`, `transcribing`, `thinking`, `speaking`, `error`.
-- Presence is a presentation concern. Avatar work should subscribe to state, not own conversation logic.
-- Voice and text paths should share session structure without forcing a single provider.
-- Development should have a cheaper text-only path, so ordinary iteration does not require audio-priced traffic.
+## Current State
 
-## Stack
+Cadence is public-prototype quality:
+- coherent enough to use and inspect
+- interesting enough to share
+- still rough around orchestration, timing, and polish
 
-- Electron for the desktop shell and media-friendly runtime
-- Vite + React + TypeScript for a lean renderer
-- Esbuild for a small Electron main/preload build step
+It is not pretending to be finished software.
 
-## Current Modes
+## License Status
 
-- OpenAI Realtime voice mode
-- OpenAI text-only mode
-- Kindroid text mode
-- Kindroid voice mode with OpenAI transcription and selectable output:
-  - ElevenLabs voice
-  - OpenAI voice
-  - text reply only
+This repository is currently public for visibility and collaboration, but it does **not** yet include an open-source license.
 
-## Project Layout
+Until a license is added, treat the code as:
+- source-available for reading
+- not granted for reuse, redistribution, or commercial resale
 
-```text
-cadence/
-├─ docs/
-│  └─ architecture.md
-├─ electron/
-│  ├─ ipc/
-│  │  └─ app.ts
-│  ├─ main.ts
-│  └─ preload.ts
-├─ public/
-├─ src/
-│  ├─ app/
-│  ├─ components/
-│  ├─ hooks/
-│  ├─ services/
-│  └─ shared/
-├─ .env.example
-├─ index.html
-├─ package.json
-├─ tsconfig.json
-└─ vite.config.ts
-```
+That may change later, but it is not the posture today.
+
+## What It Does
+
+### Interaction modes
+
+- `Voice`
+- `Text-only`
+
+### Voice backends
+
+- `OpenAI Realtime`
+- `OpenAI Voice`
+  OpenAI STT -> OpenAI Responses -> selectable output layer
+- `Kindroid Voice`
+  OpenAI STT -> Kindroid -> selectable output layer
+
+### Text backends
+
+- `OpenAI`
+- `Kindroid`
+
+### Output layers for non-realtime voice
+
+- `Text Reply`
+- `OpenAI Voice`
+- `ElevenLabs Voice`
+
+### Stage modes
+
+- `Waveform`
+- `Avatar`
+
+The default stage for a brand-new profile is `Waveform`.
+
+## Why It Exists
+
+Cadence is exploring a few specific ideas:
+- a companion surface instead of a dashboard
+- low-latency voice interaction without locking the whole app to one provider
+- a stage layer that can be either stylized waveform or VRM avatar
+- persistent local settings instead of forcing `.env` for normal use
+
+## Architecture Notes
+
+The important boundary is:
+- Cadence owns interaction, presence, and local UX
+- backends own reasoning, speech generation, or external integrations
+
+That means Cadence should stay the conversational shell, not become a giant integration blob.
+
+### Current shape
+
+- `electron/`
+  main-process services, IPC, settings persistence
+- `src/services/transports/`
+  backend-specific transport/session wiring
+- `src/hooks/useCadenceController.ts`
+  current orchestration root
+- `src/components/`
+  UI and stage renderers
+- `src/services/audio/`
+  capture, playback, waveform analysis
+- `src/services/avatar/`
+  performance heuristics and stage motion support
+
+## Settings
+
+Cadence now prefers profile-backed settings stored through the app itself.
+
+That includes:
+- API keys
+- AI IDs
+- selected stage mode
+- selected voice mode/backend
+- TTS voice settings
+- avatar selection
+
+`.env` still works as a fallback for development, but it is no longer the preferred runtime path.
+
+## VRM / Stage Notes
+
+Avatar mode currently supports:
+- local `.vrm` import
+- authored `.vrma` loop states for idle/listening/thinking
+- procedural speaking behavior layered on top
+
+Waveform mode is not a fallback. It is a first-class stage path:
+- audio-driven when speech is actually playing
+- procedural and ambient when it is not
 
 ## Getting Started
 
-1. Install Node.js 20 or newer.
-2. Run `npm install`.
-3. Run `npm run dev`.
-4. Add a local `.env` with whichever provider keys you want to use.
+### Requirements
+
+- Node.js 20+
+- Windows is the primary packaged target right now
+
+### Development
+
+```powershell
+npm install
+npm run dev
+```
+
+Then open `Settings` inside the app and enter whichever provider credentials you want to use.
+
+### Optional `.env` fallback
+
+If you prefer local env-based development, see [`./.env.example`](./.env.example).
 
 ## Packaging
 
-- `npm run dist:win` builds a Windows portable executable into `release/`
-- `npm run dist:dir` builds an unpacked app directory for inspection
+### Windows portable build
 
-For the current prototype, environment values still come from a local `.env` file. Packaging works, but real settings persistence should move into the app before wider distribution.
+```powershell
+npm run dist:win
+```
 
-## Environment
+Output:
+- `release/Cadence-0.1.0-portable.exe`
 
-- `OPENAI_API_KEY` enables OpenAI Realtime voice mode, OpenAI text mode, and OpenAI transcription for Kindroid Voice.
-- `OPENAI_TTS_VOICE` optionally selects the OpenAI speech voice for Kindroid Voice when OpenAI TTS is active.
-- `ELEVENLABS_API_KEY` plus `ELEVENLABS_VOICE_ID` enable ElevenLabs speech output for Kindroid Voice.
-- `KINDROID_API_KEY` plus `KINDROID_AI_ID` enable Kindroid text mode.
-- `KINDROID_BASE_URL` defaults to `https://api.kindroid.ai/v1`.
+### Unpacked directory build
 
-## Next Build Steps
+```powershell
+npm run dist:dir
+```
 
-1. Replace the abstract stage with a real avatar/presence layer.
-2. Tighten interruption and streaming behavior for the composed Kindroid voice path.
-3. Add richer provider settings in-app instead of relying on `.env` only.
-4. Improve transcript quality-of-life: message grouping, timestamps, and persistence.
-5. Add packaging and release setup for Windows builds.
+## Icon Pipeline
 
-The current app is no longer just a scaffold. The main remaining work is product refinement, packaging, and deeper conversation behavior.
+The Windows icon is generated from repo assets instead of being an opaque manual binary.
+
+Files:
+- [`build/icon.svg`](./build/icon.svg)
+- [`build/icon.png`](./build/icon.png)
+- [`build/icon.ico`](./build/icon.ico)
+- [`scripts/generate_icon.py`](./scripts/generate_icon.py)
+
+Regenerate:
+
+```powershell
+npm run build:icon
+```
+
+## Known Rough Edges
+
+- `src/hooks/useCadenceController.ts` is still the main orchestration pressure point
+- turn timing and stage timing are good enough, not fully elegant
+- hot mic is useful, but still prototype-tuned
+- avatar animation is intentionally restrained and not yet a full animation system
+- no claim of production hardening or broad platform support yet
+
+## Repo Hygiene
+
+Local-only files that should stay untracked include:
+- `.env`
+- `.env.local`
+- profile settings files under Electron user data
+- imported local avatar files under `assets/avatars/`
+- build outputs under `dist/`, `dist-electron/`, and `release/`
+
+## Suggested Framing
+
+If you share the project, the honest framing is:
+- experimental desktop companion
+- voice/text presence prototype
+- OpenAI + Kindroid backend exploration
+- waveform and VRM stage experiments
+
+That is strong enough. It does not need fake maturity language.
