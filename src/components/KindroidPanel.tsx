@@ -4,7 +4,12 @@ import type {
   KindroidConversationMode,
   KindroidGroupMirror
 } from "../shared/kindroid-group-mirrors";
-import type { KindroidParticipant } from "../shared/kindroid-participants";
+import {
+  getDefaultKindroidWaveformAccent,
+  getDefaultKindroidWaveformColor,
+  KINDROID_WAVEFORM_ACCENT_OPTIONS,
+  type KindroidParticipant
+} from "../shared/kindroid-participants";
 
 type KindroidPanelProps = {
   settingsLoaded: boolean;
@@ -37,12 +42,17 @@ const OPENAI_TTS_VOICE_OPTIONS = [
   "cedar"
 ] as const;
 
-function createParticipant(defaultTtsProvider: KindroidParticipant["ttsProvider"]): KindroidParticipant {
+function createParticipant(
+  defaultTtsProvider: KindroidParticipant["ttsProvider"],
+  index: number
+): KindroidParticipant {
   return {
     id: crypto.randomUUID(),
     aiId: "",
     displayName: "",
     bubbleName: "",
+    waveformColor: getDefaultKindroidWaveformColor(index),
+    waveformAccent: getDefaultKindroidWaveformAccent(index),
     ttsProvider: defaultTtsProvider,
     filterNarrationForTts: true,
     narrationDelimiter: "*",
@@ -127,7 +137,7 @@ export function KindroidPanel({
   }
 
   function addParticipant(): void {
-    const nextParticipant = createParticipant(defaultTtsProvider);
+    const nextParticipant = createParticipant(defaultTtsProvider, participants.length);
     setParticipants((previous) => [...previous, nextParticipant]);
     setActiveKindroidParticipantId((previous) => previous ?? nextParticipant.id);
     setValidationMessage("");
@@ -459,6 +469,48 @@ export function KindroidPanel({
                       <option value="none">Text reply</option>
                       <option value="openai">OpenAI speech</option>
                       <option value="elevenlabs">ElevenLabs speech</option>
+                    </select>
+                  </div>
+
+                  <div className="settings-field">
+                    <label htmlFor={`kindroid-waveform-color-${participant.id}`}>
+                      Waveform color
+                    </label>
+                    <input
+                      id={`kindroid-waveform-color-${participant.id}`}
+                      className="settings-input settings-color-input"
+                      type="color"
+                      value={participant.waveformColor}
+                      onChange={(event) =>
+                        updateParticipant(participant.id, (current) => ({
+                          ...current,
+                          waveformColor: event.target.value
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="settings-field">
+                    <label htmlFor={`kindroid-waveform-accent-${participant.id}`}>
+                      Waveform accent
+                    </label>
+                    <select
+                      id={`kindroid-waveform-accent-${participant.id}`}
+                      className="settings-input"
+                      value={participant.waveformAccent}
+                      onChange={(event) =>
+                        updateParticipant(participant.id, (current) => ({
+                          ...current,
+                          waveformAccent:
+                            event.target.value as KindroidParticipant["waveformAccent"]
+                        }))
+                      }
+                    >
+                      {KINDROID_WAVEFORM_ACCENT_OPTIONS.map((accent) => (
+                        <option key={accent} value={accent}>
+                          {accent}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

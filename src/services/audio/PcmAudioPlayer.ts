@@ -2,12 +2,25 @@ import {
   publishOutputWaveform,
   resetOutputWaveform
 } from "./outputWaveformStore";
+import {
+  publishOutputPlayback,
+  resetOutputPlayback
+} from "./outputPlaybackStore";
 
 const TARGET_SAMPLE_RATE = 24000;
 const DEFAULT_START_LEAD_SECONDS = 0.01;
 
 type EnqueuePlaybackOptions = {
   boundaryGapSeconds?: number;
+  turnId?: string;
+};
+
+type ScheduledPlayback = {
+  source: AudioBufferSourceNode;
+  startAt: number;
+  turnId: string | null;
+  started: boolean;
+  startTimerId: number | null;
 };
 
 function pcm16ToFloat32(buffer: ArrayBuffer): Float32Array {
@@ -30,6 +43,8 @@ export class PcmAudioPlayer {
   private unlockHandler: (() => void) | null = null;
   private monitorFrameId = 0;
   private analyserBuffer: Uint8Array<ArrayBuffer> | null = null;
+  private scheduledPlaybacks = new Map<AudioBufferSourceNode, ScheduledPlayback>();
+  private activeTurnId: string | null = null;
 
   async enqueue(
     buffer: ArrayBuffer,
@@ -68,9 +83,18 @@ export class PcmAudioPlayer {
       source.stop();
     }
 
+    for (const playback of this.scheduledPlaybacks.values()) {
+      if (playback.startTimerId !== null) {
+        window.clearTimeout(playback.startTimerId);
+      }
+    }
+
     this.activeSources.clear();
+    this.scheduledPlaybacks.clear();
+    this.activeTurnId = null;
     this.nextStartTime = 0;
     this.stopMonitoring();
+    resetOutputPlayback();
   }
 
   private getAudioContext(): AudioContext {
@@ -129,9 +153,24 @@ export class PcmAudioPlayer {
     source.start(startAt);
     this.nextStartTime = startAt + durationSeconds;
     this.activeSources.add(source);
+    const playback: ScheduledPlayback = {
+      source,
+      startAt,
+      turnId: options?.turnId ?? null,
+      started: false,
+      startTimerId: null
+    };
+    this.scheduledPlaybacks.set(source, playback);
+    this.schedulePlaybackStart(playback);
 
     source.onended = () => {
       this.activeSources.delete(source);
+      const completedPlayback = this.scheduledPlaybacks.get(source);
+      if (completedPlayback && completedPlayback.startTimerId !== null) {
+        window.clearTimeout(completedPlayback.startTimerId);
+      }
+      this.scheduledPlaybacks.delete(source);
+      this.syncActiveTurn();
       if (this.activeSources.size === 0) {
         this.nextStartTime = 0;
         this.stopMonitoring();
@@ -195,6 +234,39 @@ export class PcmAudioPlayer {
     }
 
     resetOutputWaveform();
+  }
+
+  private schedulePlaybackStart(playback: ScheduledPlayback): void {
+    if (typeof window === "undefined") {
+      playback.started = true;
+      this.syncActiveTurn();
+      return;
+    }
+
+    const context = this.getAudioContext();
+    const delayMs = Math.max(0, (playback.startAt - context.currentTime) * 1000);
+
+    playback.startTimerId = window.setTimeout(() => {
+      playback.startTimerId = null;
+      playback.started = true;
+      this.syncActiveTurn();
+    }, delayMs);
+  }
+
+  private syncActiveTurn(): void {
+    const nextPlayback = Array.from(this.scheduledPlaybacks.values())
+      .filter((playback) => playback.started)
+      .sort((left, right) => left.startAt - right.startAt)[0];
+    const nextTurnId = nextPlayback?.turnId ?? null;
+
+    if (this.activeTurnId === nextTurnId) {
+      return;
+    }
+
+    this.activeTurnId = nextTurnId;
+    publishOutputPlayback({
+      activeTurnId: this.activeTurnId
+    });
   }
 
   private bindUnlockHandler(): void {

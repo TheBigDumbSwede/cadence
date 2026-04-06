@@ -24,6 +24,10 @@ import {
   PushToTalkRecorder
 } from "../services/audio/audioCapture";
 import {
+  getOutputPlaybackSnapshot,
+  subscribeToOutputPlayback
+} from "../services/audio/outputPlaybackStore";
+import {
   createPerformanceDirective,
   inferPerformanceDirective
 } from "../services/avatar/performanceHeuristics";
@@ -64,6 +68,7 @@ import { stripKindroidNarrationForSpeech } from "../services/transports/kindroid
 type PendingConversationHint =
   | {
       kind: "assistant";
+      kindroidParticipantId?: string;
       speakerLabel: string;
       message: string;
     }
@@ -119,6 +124,7 @@ export function useCadenceController() {
   });
   const [pendingConversationHint, setPendingConversationHint] =
     useState<PendingConversationHint | null>(null);
+  const [outputPlayback, setOutputPlayback] = useState(() => getOutputPlaybackSnapshot());
   const recorderRef = useRef<PushToTalkRecorder | null>(null);
   const hotMicRecorderRef = useRef<HotMicRecorder | null>(null);
   const hotMicMutedRef = useRef(false);
@@ -127,6 +133,7 @@ export function useCadenceController() {
   const poseHoldTimerRef = useRef<number | null>(null);
   const stagePhaseTimerRef = useRef<number | null>(null);
   const stageTimelineManagedRef = useRef(false);
+  const assistantTurnParticipantIdsRef = useRef(new Map<string, string>());
   const pendingUserTurnIdRef = useRef<string | null>(null);
   const bufferedAssistantTurnRef = useRef<{
     turnId: string;
@@ -209,6 +216,68 @@ export function useCadenceController() {
   );
   const groupKindroidHasAnySpeech =
     groupKindroidUsesOpenAiSpeech || groupKindroidUsesElevenLabsSpeech;
+  const activeWaveformKindroidParticipant = useMemo(() => {
+    const usesKindroid =
+      (mode === "voice" && voiceBackend === "kindroid") ||
+      (mode === "text" && textBackend === "kindroid");
+    if (!usesKindroid) {
+      return null;
+    }
+
+    if (!usesKindroidGroupConversation) {
+      return activeKindroidParticipant;
+    }
+
+    const activePlaybackParticipantId = outputPlayback.activeTurnId
+      ? assistantTurnParticipantIdsRef.current.get(outputPlayback.activeTurnId) ?? null
+      : null;
+
+    if (activePlaybackParticipantId) {
+      return (
+        settingsSnapshot?.kindroidParticipants.find(
+          (participant) => participant.id === activePlaybackParticipantId
+        ) ?? null
+      );
+    }
+
+    if (
+      pendingConversationHint?.kind === "assistant" &&
+      pendingConversationHint.kindroidParticipantId
+    ) {
+      return (
+        settingsSnapshot?.kindroidParticipants.find(
+          (participant) =>
+            participant.id === pendingConversationHint.kindroidParticipantId
+        ) ?? null
+      );
+    }
+
+    const lastAssistantParticipantId = [...turns]
+      .reverse()
+      .find((turn) => turn.speaker === "assistant" && turn.kindroidParticipantId)
+      ?.kindroidParticipantId;
+
+    if (!lastAssistantParticipantId) {
+      return activeKindroidGroupSpeakerParticipant;
+    }
+
+    return (
+      settingsSnapshot?.kindroidParticipants.find(
+        (participant) => participant.id === lastAssistantParticipantId
+      ) ?? activeKindroidGroupSpeakerParticipant
+    );
+  }, [
+    activeKindroidGroupSpeakerParticipant,
+    activeKindroidParticipant,
+    mode,
+    outputPlayback.activeTurnId,
+    pendingConversationHint,
+    settingsSnapshot?.kindroidParticipants,
+    textBackend,
+    turns,
+    usesKindroidGroupConversation,
+    voiceBackend
+  ]);
   const activeSession =
     mode === "voice"
       ? voiceBackend === "kindroid"
@@ -314,6 +383,8 @@ export function useCadenceController() {
     },
     []
   );
+
+  useEffect(() => subscribeToOutputPlayback(setOutputPlayback), []);
 
   function clearStagePhaseTimer(): void {
     if (stagePhaseTimerRef.current !== null) {
@@ -1034,6 +1105,7 @@ export function useCadenceController() {
             case "disconnected":
               clearPendingConversationHint();
               clearPlaybackSuppressionTimer();
+              assistantTurnParticipantIdsRef.current.clear();
               releaseHotMicSuppression();
               clearAvatarTimeline();
               setActiveStateId("idle");
@@ -1128,6 +1200,12 @@ export function useCadenceController() {
             kindroidParticipantId:
               event.kindroidParticipantId ?? getAssistantTurnMetadata().kindroidParticipantId
           };
+          if (assistantTurnMetadata.kindroidParticipantId) {
+            assistantTurnParticipantIdsRef.current.set(
+              event.turnId,
+              assistantTurnMetadata.kindroidParticipantId
+            );
+          }
           if (stagedTextReplyMode) {
             beginVisualReplyDelivery(event.text);
           }
@@ -1162,6 +1240,12 @@ export function useCadenceController() {
             kindroidParticipantId:
               event.kindroidParticipantId ?? getAssistantTurnMetadata().kindroidParticipantId
           };
+          if (completedAssistantTurnMetadata.kindroidParticipantId) {
+            assistantTurnParticipantIdsRef.current.set(
+              event.turnId,
+              completedAssistantTurnMetadata.kindroidParticipantId
+            );
+          }
           if (stagedTextReplyMode) {
             beginVisualReplyDelivery(event.text);
           } else {
@@ -1196,6 +1280,7 @@ export function useCadenceController() {
             setStatusCopy(event.message ?? `${event.speakerLabel} is thinking...`);
             setPendingConversationHint({
               kind: "assistant",
+              kindroidParticipantId: event.kindroidParticipantId,
               speakerLabel: event.speakerLabel,
               message: event.message ?? `${event.speakerLabel} is thinking...`
             });
@@ -1243,6 +1328,7 @@ export function useCadenceController() {
           }
           clearPendingConversationHint();
           clearPlaybackSuppressionTimer();
+          assistantTurnParticipantIdsRef.current.clear();
           releaseHotMicSuppression();
           clearPendingUserTurn();
           bufferedAssistantTurnRef.current = null;
@@ -1654,6 +1740,7 @@ export function useCadenceController() {
     try {
       await activeSession.interrupt();
       clearPendingConversationHint();
+      assistantTurnParticipantIdsRef.current.clear();
       await getCadenceBridge().kindroid.chatBreak(nextGreeting);
       clearPlaybackSuppressionTimer();
       releaseHotMicSuppression();
@@ -1839,6 +1926,7 @@ export function useCadenceController() {
     activeKindroidGroupParticipants,
     activeKindroidGroupSpeakerParticipant,
     activeKindroidParticipant,
+    activeWaveformKindroidParticipant,
     avatarPoseDebug,
     configured,
     connectionReady,

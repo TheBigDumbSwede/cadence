@@ -1,6 +1,7 @@
 import type { AvatarSelection } from "../shared/app-settings";
 import type { AssistantStateSnapshot } from "../shared/assistant-state";
 import type { AvatarPerformanceSnapshot } from "../shared/performance-directive";
+import type { KindroidWaveformAccent } from "../shared/kindroid-participants";
 import type { StageMode } from "../shared/stage-mode";
 import { VrmStage } from "./VrmStage";
 import { WaveformStage } from "./WaveformStage";
@@ -11,6 +12,10 @@ type StagePanelProps = {
   avatarPoseDebug: boolean;
   performance: AvatarPerformanceSnapshot;
   stageMode: StageMode;
+  waveformTheme: {
+    color: string;
+    accent: KindroidWaveformAccent;
+  } | null;
 };
 
 export function StagePanel({
@@ -18,7 +23,8 @@ export function StagePanel({
   avatar,
   avatarPoseDebug,
   performance,
-  stageMode
+  stageMode,
+  waveformTheme
 }: StagePanelProps) {
   const stageLabel =
     stageMode === "waveform"
@@ -34,7 +40,7 @@ export function StagePanel({
 
       <div className="stage-canvas">
         {stageMode === "waveform" ? (
-          <WaveformStage activeState={activeState} />
+          <WaveformStage activeState={activeState} theme={waveformTheme} />
         ) : (
           <VrmStage
             activeState={activeState}

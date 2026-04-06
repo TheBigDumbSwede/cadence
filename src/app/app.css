@@ -346,6 +346,31 @@ textarea {
   stroke-width: 2.1;
 }
 
+.waveform-accent-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.waveform-accent-overlay path,
+.waveform-accent-overlay circle {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.waveform-accent-overlay circle {
+  stroke-width: 1.4;
+}
+
+.waveform-accent-overlay path {
+  stroke-width: 2.8;
+}
+
 .waveform-state-listening .waveform-core-line path {
   stroke: rgba(214, 237, 250, 0.95);
 }
@@ -613,6 +638,11 @@ textarea {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
+}
+
+.settings-color-input {
+  min-height: 46px;
+  padding: 6px;
 }
 
 .settings-input:where(select) {

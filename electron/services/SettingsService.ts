@@ -14,7 +14,12 @@ import type {
   KindroidConversationMode,
   KindroidGroupMirror
 } from "../../src/shared/kindroid-group-mirrors";
-import type { KindroidParticipant } from "../../src/shared/kindroid-participants";
+import {
+  getDefaultKindroidWaveformAccent,
+  getDefaultKindroidWaveformColor,
+  KINDROID_WAVEFORM_ACCENT_OPTIONS,
+  type KindroidParticipant
+} from "../../src/shared/kindroid-participants";
 
 type StoredSettings = {
   preferences?: Partial<SettingsPreferences>;
@@ -53,11 +58,17 @@ const DEFAULT_KINDROID_BASE_URL = "https://api.kindroid.ai/v1";
 const DEFAULT_KINDROID_GREETING = "Hello.";
 const DEFAULT_KINDROID_CONVERSATION_MODE: KindroidConversationMode = "solo";
 const DEFAULT_KINDROID_NARRATION_DELIMITER = "*";
+const DEFAULT_KINDROID_WAVEFORM_COLOR = getDefaultKindroidWaveformColor(0);
 const LEGACY_KINDROID_PARTICIPANT_ID = "legacy-kindroid";
 const MAX_RECENT_AVATARS = 6;
 
 function normalizeValue(value: string | undefined | null): string {
   return value?.trim() ?? "";
+}
+
+function normalizeHexColor(value: string | undefined | null, fallback: string): string {
+  const normalized = normalizeValue(value);
+  return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : fallback;
 }
 
 function parseBooleanEnv(value: string | null): boolean | null {
@@ -502,6 +513,15 @@ export class SettingsService {
           aiId,
           displayName,
           bubbleName,
+          waveformColor: normalizeHexColor(
+            participant?.waveformColor,
+            getDefaultKindroidWaveformColor(index)
+          ),
+          waveformAccent: KINDROID_WAVEFORM_ACCENT_OPTIONS.includes(
+            participant?.waveformAccent ?? "halo"
+          )
+            ? participant.waveformAccent
+            : getDefaultKindroidWaveformAccent(index),
           ttsProvider,
           filterNarrationForTts: participant?.filterNarrationForTts ?? true,
           narrationDelimiter:
@@ -639,6 +659,8 @@ export class SettingsService {
       aiId,
       displayName: "Kindroid",
       bubbleName: "Kindroid",
+      waveformColor: DEFAULT_KINDROID_WAVEFORM_COLOR,
+      waveformAccent: getDefaultKindroidWaveformAccent(0),
       ttsProvider,
       filterNarrationForTts: true,
       narrationDelimiter: DEFAULT_KINDROID_NARRATION_DELIMITER,

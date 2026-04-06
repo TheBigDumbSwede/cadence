@@ -27,6 +27,7 @@ export function App() {
     activeKindroidGroupParticipants,
     activeKindroidGroupMirror,
     activeKindroidParticipant,
+    activeWaveformKindroidParticipant,
     activeState,
     avatarPoseDebug,
     backendConfig,
@@ -166,6 +167,14 @@ export function App() {
           avatarPoseDebug={avatarPoseDebug}
           performance={performance}
           stageMode={stageMode}
+          waveformTheme={
+            activeWaveformKindroidParticipant
+              ? {
+                  color: activeWaveformKindroidParticipant.waveformColor,
+                  accent: activeWaveformKindroidParticipant.waveformAccent
+                }
+              : null
+          }
         />
         <ChatPanel
           canStartNewChat={canStartChatBreak}

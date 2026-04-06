@@ -25,12 +25,12 @@ export class RendererSpeechOutputAdapter implements SpeechOutputAdapter {
     this.lastTurnId = turnId;
 
     if (format === "pcm16") {
-      await this.player.enqueue(data, { boundaryGapSeconds });
+      await this.player.enqueue(data, { boundaryGapSeconds, turnId });
       return;
     }
 
     if (format === "mp3" || format === "wav") {
-      await this.player.enqueueEncoded(data, { boundaryGapSeconds });
+      await this.player.enqueueEncoded(data, { boundaryGapSeconds, turnId });
     }
   }
 

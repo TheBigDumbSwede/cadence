@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PreviewAssistantStateId } from "../shared/assistant-state";
 import type { AssistantStateSnapshot } from "../shared/assistant-state";
+import type { KindroidWaveformAccent } from "../shared/kindroid-participants";
 import {
   getOutputWaveformSnapshot,
   subscribeToOutputWaveform,
@@ -9,10 +10,120 @@ import {
 
 type WaveformStageProps = {
   activeState: AssistantStateSnapshot;
+  theme: {
+    color: string;
+    accent: KindroidWaveformAccent;
+  } | null;
 };
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex.slice(1) : "d7955b";
+  return [
+    Number.parseInt(normalized.slice(0, 2), 16),
+    Number.parseInt(normalized.slice(2, 4), 16),
+    Number.parseInt(normalized.slice(4, 6), 16)
+  ];
+}
+
+function mixRgb(
+  source: [number, number, number],
+  target: [number, number, number],
+  ratio: number
+): [number, number, number] {
+  return [
+    Math.round(source[0] * (1 - ratio) + target[0] * ratio),
+    Math.round(source[1] * (1 - ratio) + target[1] * ratio),
+    Math.round(source[2] * (1 - ratio) + target[2] * ratio)
+  ];
+}
+
+function toRgba(rgb: [number, number, number], alpha: number): string {
+  return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+}
+
+function buildWaveformColors(
+  color: string,
+  state: PreviewAssistantStateId
+): {
+  shellBackground: string;
+  gridBackground: string;
+  glow: string;
+  aura: string;
+  core: string;
+  accent: string;
+} {
+  const base = hexToRgb(color);
+  const white: [number, number, number] = [255, 247, 238];
+  const sky: [number, number, number] = [173, 220, 248];
+  const gold: [number, number, number] = [244, 208, 142];
+  const error: [number, number, number] = [214, 114, 114];
+
+  const stateBase =
+    state === "listening"
+      ? mixRgb(base, sky, 0.34)
+      : state === "thinking" || state === "transcribing"
+        ? mixRgb(base, gold, 0.22)
+        : state === "error"
+          ? mixRgb(base, error, 0.72)
+          : base;
+
+  return {
+    shellBackground: `radial-gradient(circle at 50% 56%, ${toRgba(stateBase, 0.18)}, transparent 24%), linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(9, 8, 7, 0.12))`,
+    gridBackground: `linear-gradient(${toRgba(white, 0.03)} 1px, transparent 1px) 0 0 / 100% 22px, linear-gradient(90deg, ${toRgba(stateBase, 0.08)} 1px, transparent 1px) 0 0 / 28px 100%`,
+    glow: toRgba(stateBase, state === "speaking" ? 0.88 : 0.76),
+    aura: toRgba(mixRgb(stateBase, white, 0.38), state === "speaking" ? 0.58 : 0.48),
+    core: toRgba(mixRgb(stateBase, white, 0.62), state === "speaking" ? 0.98 : 0.94),
+    accent: toRgba(mixRgb(stateBase, white, 0.28), 0.9)
+  };
+}
+
+function renderAccent(accent: KindroidWaveformAccent, color: string) {
+  switch (accent) {
+    case "none":
+      return null;
+    case "chevrons":
+      return (
+        <svg className="waveform-accent-overlay" viewBox="0 0 540 540" aria-hidden="true">
+          <path
+            d="M120 270l46-42m-46 42l46 42M420 270l-46-42m46 42l-46 42M270 120l-42 46m42-46l42 46M270 420l-42-46m42 46l42-46"
+            style={{ stroke: color }}
+          />
+        </svg>
+      );
+    case "spark":
+      return (
+        <svg className="waveform-accent-overlay" viewBox="0 0 540 540" aria-hidden="true">
+          <circle cx="384" cy="140" r="7" style={{ fill: color }} />
+          <circle cx="420" cy="172" r="4.5" style={{ fill: color, opacity: 0.76 }} />
+          <circle cx="358" cy="178" r="3.5" style={{ fill: color, opacity: 0.62 }} />
+        </svg>
+      );
+    case "brackets":
+      return (
+        <svg className="waveform-accent-overlay" viewBox="0 0 540 540" aria-hidden="true">
+          <path
+            d="M148 150h38m-38 0v38M392 150h-38m38 0v38M148 390h38m-38 0v-38M392 390h-38m38 0v-38"
+            style={{ stroke: color }}
+          />
+        </svg>
+      );
+    case "halo":
+    default:
+      return (
+        <svg className="waveform-accent-overlay" viewBox="0 0 540 540" aria-hidden="true">
+          <circle
+            cx="270"
+            cy="270"
+            r="206"
+            style={{ stroke: color }}
+          />
+        </svg>
+      );
+  }
 }
 
 function getWaveProfile(state: PreviewAssistantStateId): {
@@ -133,7 +244,7 @@ function buildSmoothPath(
   return path;
 }
 
-export function WaveformStage({ activeState }: WaveformStageProps) {
+export function WaveformStage({ activeState, theme }: WaveformStageProps) {
   const [waveform, setWaveform] = useState<OutputWaveformSnapshot>(() =>
     getOutputWaveformSnapshot()
   );
@@ -206,24 +317,32 @@ export function WaveformStage({ activeState }: WaveformStageProps) {
   const glowPath = useMemo(() => buildSmoothPath(samples, 540, 540, 0.3), [samples]);
   const auraPath = useMemo(() => buildSmoothPath(samples, 540, 540, 0.26), [samples]);
   const corePath = useMemo(() => buildSmoothPath(samples, 540, 540, 0.22), [samples]);
+  const waveformColors = useMemo(
+    () => buildWaveformColors(theme?.color ?? "#d7955b", activeState.type),
+    [activeState.type, theme?.color]
+  );
 
   return (
-    <div className="waveform-stage-shell">
-      <div className="waveform-grid" />
+    <div
+      className="waveform-stage-shell"
+      style={{ background: waveformColors.shellBackground }}
+    >
+      <div className="waveform-grid" style={{ background: waveformColors.gridBackground }} />
       <div className={`waveform-core waveform-state-${activeState.type}`}>
         <svg
           className="waveform-svg waveform-glow"
           viewBox="0 0 540 540"
           aria-hidden="true"
         >
-          <path d={glowPath} />
+          <path d={glowPath} style={{ stroke: waveformColors.glow }} />
         </svg>
         <svg className="waveform-svg waveform-aura" viewBox="0 0 540 540" aria-hidden="true">
-          <path d={auraPath} />
+          <path d={auraPath} style={{ stroke: waveformColors.aura }} />
         </svg>
         <svg className="waveform-svg waveform-core-line" viewBox="0 0 540 540" aria-hidden="true">
-          <path d={corePath} />
+          <path d={corePath} style={{ stroke: waveformColors.core }} />
         </svg>
+        {renderAccent(theme?.accent ?? "none", waveformColors.accent)}
       </div>
     </div>
   );
