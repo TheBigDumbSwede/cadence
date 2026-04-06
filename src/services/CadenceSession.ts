@@ -61,6 +61,14 @@ export class CadenceSession {
     await this.dependencies.transport.sendUserAudio(audio);
   }
 
+  async requestKindroidGroupParticipantTurn(kindroidParticipantId: string): Promise<void> {
+    if (!this.dependencies.transport.requestKindroidGroupParticipantTurn) {
+      throw new Error("The active transport does not support direct Kindroid group turns.");
+    }
+
+    await this.dependencies.transport.requestKindroidGroupParticipantTurn(kindroidParticipantId);
+  }
+
   async playAssistantAudioChunk(
     event: Extract<CadenceEvent, { type: "assistant.audio.chunk" }>
   ): Promise<void> {

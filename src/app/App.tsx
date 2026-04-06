@@ -24,6 +24,7 @@ export function App() {
   const [systemOpen, setSystemOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
+    activeKindroidGroupParticipants,
     activeKindroidGroupMirror,
     activeKindroidParticipant,
     activeState,
@@ -33,14 +34,19 @@ export function App() {
     chooseAvatarFile,
     configured,
     connectionReady,
+    composerPlaceholder,
     hotMicMuted,
     inputText,
     isRecording,
+    kindroidAwaitingUserTurn,
     metrics,
     mode,
     performance,
+    pendingAssistantHint,
+    requestKindroidGroupParticipantTurn,
     saveSettings,
     saveKindroidConfig,
+    selectKindroidGroupSpeaker,
     setAvatar,
     setAvatarPoseDebug,
     stageMode,
@@ -165,6 +171,7 @@ export function App() {
           canStartNewChat={canStartChatBreak}
           configured={configured}
           connectionReady={connectionReady}
+          composerPlaceholder={composerPlaceholder}
           conversationSummaryOverride={
             usesKindroidGroupConversation
               ? mode === "voice"
@@ -175,9 +182,27 @@ export function App() {
           hotMicMuted={hotMicMuted}
           inputText={inputText}
           isRecording={isRecording}
+          kindroidManualTurnTaking={activeKindroidGroupMirror?.manualTurnTaking ?? false}
+          kindroidGroupAwaitingUserTurn={kindroidAwaitingUserTurn}
+          kindroidGroupParticipants={
+            usesKindroidGroupConversation
+              ? activeKindroidGroupParticipants.map((participant) => ({
+                  id: participant.id,
+                  label: participant.bubbleName
+                }))
+              : []
+          }
+          activeKindroidGroupSpeakerParticipantId={
+            usesKindroidGroupConversation
+              ? settingsSnapshot?.activeKindroidGroupSpeakerParticipantId ?? null
+              : null
+          }
           mode={mode}
           newChatPending={newChatPending}
           openChatBreakDialog={openChatBreakDialog}
+          onRequestKindroidGroupParticipantTurn={requestKindroidGroupParticipantTurn}
+          onSelectKindroidGroupSpeaker={selectKindroidGroupSpeaker}
+          pendingAssistantHint={pendingAssistantHint}
           textBackend={textBackend}
           ttsProvider={effectiveTtsProvider}
           turns={turns}

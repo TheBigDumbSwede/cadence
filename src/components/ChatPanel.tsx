@@ -7,16 +7,30 @@ import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 type ChatPanelProps = {
+  activeKindroidGroupSpeakerParticipantId?: string | null;
   canStartNewChat: boolean;
   configured: boolean;
   connectionReady: boolean;
+  composerPlaceholder?: string;
   conversationSummaryOverride?: string;
   hotMicMuted: boolean;
   inputText: string;
   isRecording: boolean;
+  kindroidManualTurnTaking?: boolean;
+  kindroidGroupAwaitingUserTurn?: boolean;
+  kindroidGroupParticipants: Array<{
+    id: string;
+    label: string;
+  }>;
   mode: InteractionMode;
   newChatPending: boolean;
   openChatBreakDialog: () => void;
+  onRequestKindroidGroupParticipantTurn: (participantId: string) => Promise<void>;
+  onSelectKindroidGroupSpeaker: (participantId: string) => Promise<void>;
+  pendingAssistantHint?: {
+    message: string;
+    speakerLabel: string;
+  } | null;
   textBackend: TextBackendProvider;
   ttsProvider: TtsProvider;
   turns: ConversationTurn[];
@@ -93,16 +107,24 @@ function buildVoiceSummary(voiceBackend: VoiceBackendProvider, ttsProvider: TtsP
 }
 
 export function ChatPanel({
+  activeKindroidGroupSpeakerParticipantId,
   canStartNewChat,
   configured,
   connectionReady,
+  composerPlaceholder,
   conversationSummaryOverride,
   hotMicMuted,
   inputText,
   isRecording,
+  kindroidManualTurnTaking,
+  kindroidGroupAwaitingUserTurn,
+  kindroidGroupParticipants,
   mode,
   newChatPending,
   openChatBreakDialog,
+  onRequestKindroidGroupParticipantTurn,
+  onSelectKindroidGroupSpeaker,
+  pendingAssistantHint,
   textBackend,
   ttsProvider,
   turns,
@@ -115,6 +137,14 @@ export function ChatPanel({
   submitText
 }: ChatPanelProps) {
   const canSendText = connectionReady && inputText.trim().length > 0;
+  const showsKindroidGroupControls = kindroidGroupParticipants.length > 0;
+  const manualKindroidGroupMode = Boolean(kindroidManualTurnTaking);
+  const canPassTurn = !manualKindroidGroupMode && Boolean(kindroidGroupAwaitingUserTurn);
+  const turnButtonTitle = manualKindroidGroupMode
+    ? "Select next speaker"
+    : canPassTurn
+      ? "Pass turn to this Kin"
+      : "Wait for Kindroid to return the turn";
   const conversationSummary =
     conversationSummaryOverride ??
     (mode === "voice"
@@ -127,8 +157,11 @@ export function ChatPanel({
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const lastTurnSignature = useMemo(() => {
     const lastTurn = turns.at(-1);
-    return lastTurn ? `${lastTurn.id}:${lastTurn.text.length}` : "empty";
-  }, [turns]);
+    const hintSignature = pendingAssistantHint
+      ? `${pendingAssistantHint.speakerLabel}:${pendingAssistantHint.message.length}`
+      : "none";
+    return lastTurn ? `${lastTurn.id}:${lastTurn.text.length}:${hintSignature}` : `empty:${hintSignature}`;
+  }, [pendingAssistantHint, turns]);
 
   useEffect(() => {
     const endCap = transcriptEndRef.current;
@@ -215,13 +248,63 @@ export function ChatPanel({
             </article>
           ))
         )}
+        {pendingAssistantHint ? (
+          <article
+            className="message-bubble message-bubble-pending"
+            data-speaker="assistant"
+            aria-live="polite"
+          >
+            <p className="message-meta">
+              <strong>{pendingAssistantHint.speakerLabel}</strong>
+            </p>
+            <p className="message-text message-text-pending">{pendingAssistantHint.message}</p>
+          </article>
+        ) : null}
         <div ref={transcriptEndRef} className="transcript-endcap" />
       </div>
 
       <footer className="chat-composer">
+        {showsKindroidGroupControls ? (
+          <div className="chat-turn-controls" aria-label="Kindroid group participants">
+            <div className="chat-turn-button-row">
+              {kindroidGroupParticipants.map((participant) => {
+                const active =
+                  manualKindroidGroupMode &&
+                  participant.id === activeKindroidGroupSpeakerParticipantId;
+                const disabled =
+                  !configured ||
+                  !connectionReady ||
+                  isRecording ||
+                  newChatPending ||
+                  (!manualKindroidGroupMode && !canPassTurn);
+
+                return (
+                  <button
+                    key={participant.id}
+                    type="button"
+                    className={`secondary-button chat-turn-button ${active ? "active" : ""}`}
+                    disabled={disabled}
+                    title={turnButtonTitle}
+                    aria-label={`${turnButtonTitle}: ${participant.label}`}
+                    onClick={() => {
+                      if (manualKindroidGroupMode) {
+                        void onSelectKindroidGroupSpeaker(participant.id);
+                        return;
+                      }
+
+                      void onRequestKindroidGroupParticipantTurn(participant.id);
+                    }}
+                  >
+                    {participant.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         <textarea
           className="compose-input composer-input"
-          placeholder="Type a message and press Enter to send."
+          placeholder={composerPlaceholder ?? "Type a message and press Enter to send."}
           rows={3}
           value={inputText}
           onChange={(event) => setInputText(event.target.value)}

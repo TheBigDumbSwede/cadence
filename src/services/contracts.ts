@@ -59,6 +59,7 @@ export interface LiveConversationTransport {
   disconnect(): Promise<void>;
   sendUserText(text: string, turns?: TextTurnInput[]): Promise<void>;
   sendUserAudio(audio: ArrayBuffer): Promise<void>;
+  requestKindroidGroupParticipantTurn?(kindroidParticipantId: string): Promise<void>;
   interruptAssistant(reason?: "user_barge_in" | "operator_stop"): Promise<void>;
   subscribe(listener: (event: CadenceEvent) => void): Unsubscribe;
 }

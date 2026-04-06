@@ -61,6 +61,17 @@ import {
 } from "../services/transportOptions";
 import { stripKindroidNarrationForSpeech } from "../services/transports/kindroid/speechText";
 
+type PendingConversationHint =
+  | {
+      kind: "assistant";
+      speakerLabel: string;
+      message: string;
+    }
+  | {
+      kind: "user";
+      message: string;
+    };
+
 export function useCadenceController() {
   const [voiceSession] = useState(() => createVoiceSession());
   const [openAiBatchVoiceSession] = useState(() => createOpenAiBatchVoiceSession());
@@ -106,6 +117,8 @@ export function useCadenceController() {
     timeToFirstSpeechMs: 0,
     interruptRecoveryMs: 0
   });
+  const [pendingConversationHint, setPendingConversationHint] =
+    useState<PendingConversationHint | null>(null);
   const recorderRef = useRef<PushToTalkRecorder | null>(null);
   const hotMicRecorderRef = useRef<HotMicRecorder | null>(null);
   const hotMicMutedRef = useRef(false);
@@ -461,6 +474,10 @@ export function useCadenceController() {
       "speaking",
       stagedTextReplyMode ? estimateAssistantReadMs(text) : estimateAssistantDeliveryMs(text, directive.pace)
     );
+  }
+
+  function clearPendingConversationHint(): void {
+    setPendingConversationHint(null);
   }
 
   useEffect(() => {
@@ -1015,6 +1032,7 @@ export function useCadenceController() {
               );
               break;
             case "disconnected":
+              clearPendingConversationHint();
               clearPlaybackSuppressionTimer();
               releaseHotMicSuppression();
               clearAvatarTimeline();
@@ -1027,6 +1045,7 @@ export function useCadenceController() {
           }
           break;
         case "transcript.final":
+          clearPendingConversationHint();
           if (stagedTextReplyMode) {
             if (!stageTimelineManagedRef.current) {
               beginVisualReplyPrelude(event.text);
@@ -1102,6 +1121,7 @@ export function useCadenceController() {
           });
           break;
         case "assistant.response.delta": {
+          clearPendingConversationHint();
           const assistantTurnMetadata = {
             ...getAssistantTurnMetadata(),
             speakerLabel: event.speakerLabel ?? getAssistantTurnMetadata().speakerLabel,
@@ -1171,6 +1191,22 @@ export function useCadenceController() {
           setStatusCopy("Response complete.");
           break;
         }
+        case "conversation.turn.pending":
+          if (event.turnOwner === "assistant" && event.speakerLabel) {
+            setStatusCopy(event.message ?? `${event.speakerLabel} is thinking...`);
+            setPendingConversationHint({
+              kind: "assistant",
+              speakerLabel: event.speakerLabel,
+              message: event.message ?? `${event.speakerLabel} is thinking...`
+            });
+          } else {
+            setStatusCopy(event.message ?? "Your turn.");
+            setPendingConversationHint({
+              kind: "user",
+              message: event.message ?? "Your turn."
+            });
+          }
+          break;
         case "assistant.audio.chunk":
           if (!responseClock.current.firstAudioAt && responseClock.current.startedAt) {
             const now = performance.now();
@@ -1182,6 +1218,7 @@ export function useCadenceController() {
           }
           break;
         case "assistant.interrupted":
+          clearPendingConversationHint();
           clearPlaybackSuppressionTimer();
           releaseHotMicSuppression();
           bufferedAssistantTurnRef.current = null;
@@ -1204,6 +1241,7 @@ export function useCadenceController() {
             setStatusCopy(buildListeningStatusCopy(voiceInputMode, hotMicMutedRef.current));
             break;
           }
+          clearPendingConversationHint();
           clearPlaybackSuppressionTimer();
           releaseHotMicSuppression();
           clearPendingUserTurn();
@@ -1350,6 +1388,7 @@ export function useCadenceController() {
           return;
         }
 
+        clearPendingConversationHint();
         responseClock.current.interruptionStartedAt = performance.now();
         if (assistantSpeakingRef.current) {
           void activeSession.interrupt();
@@ -1477,6 +1516,7 @@ export function useCadenceController() {
       return;
     }
 
+    clearPendingConversationHint();
     responseClock.current.interruptionStartedAt = performance.now();
     if (assistantSpeakingRef.current) {
       await activeSession.interrupt();
@@ -1528,6 +1568,7 @@ export function useCadenceController() {
       return;
     }
 
+    clearPendingConversationHint();
     responseClock.current.startedAt = performance.now();
     responseClock.current.firstAudioAt = null;
     const text = inputText.trim();
@@ -1612,6 +1653,7 @@ export function useCadenceController() {
 
     try {
       await activeSession.interrupt();
+      clearPendingConversationHint();
       await getCadenceBridge().kindroid.chatBreak(nextGreeting);
       clearPlaybackSuppressionTimer();
       releaseHotMicSuppression();
@@ -1721,6 +1763,44 @@ export function useCadenceController() {
     });
   }
 
+  async function selectKindroidGroupSpeaker(participantId: string): Promise<void> {
+    if (!settingsSnapshot || !activeKindroidGroupMirror) {
+      throw new Error("No active Kindroid group mirror is selected.");
+    }
+
+    if (!activeKindroidGroupMirror.participantIds.includes(participantId)) {
+      throw new Error("The selected Kindroid participant is not part of the active group.");
+    }
+
+    await saveKindroidConfig({
+      kindroidConversationMode,
+      kindroidParticipants: settingsSnapshot.kindroidParticipants,
+      activeKindroidParticipantId: settingsSnapshot.activeKindroidParticipantId,
+      kindroidGroupMirrors: settingsSnapshot.kindroidGroupMirrors,
+      activeKindroidGroupMirrorId: settingsSnapshot.activeKindroidGroupMirrorId,
+      activeKindroidGroupSpeakerParticipantId: participantId
+    });
+  }
+
+  async function requestKindroidGroupParticipantTurn(participantId: string): Promise<void> {
+    if (!usesKindroidGroupConversation || !activeKindroidGroupMirror) {
+      throw new Error("Direct participant turns are only available in Kindroid group mode.");
+    }
+
+    const participant = activeKindroidGroupParticipants.find(
+      (candidate) => candidate.id === participantId
+    );
+    if (!participant) {
+      throw new Error("The selected Kindroid participant is not part of the active group.");
+    }
+
+    clearPendingConversationHint();
+    responseClock.current.startedAt = performance.now();
+    responseClock.current.firstAudioAt = null;
+    setStatusCopy(`${participant.bubbleName} is thinking...`);
+    await activeSession.requestKindroidGroupParticipantTurn(participantId);
+  }
+
   async function chooseAvatarFile(): Promise<AvatarSelection | null> {
     const bridge = getCadenceBridge();
     return bridge.settings.chooseAvatarFile();
@@ -1756,11 +1836,16 @@ export function useCadenceController() {
   return {
     activeState,
     activeKindroidGroupMirror,
+    activeKindroidGroupParticipants,
     activeKindroidGroupSpeakerParticipant,
     activeKindroidParticipant,
     avatarPoseDebug,
     configured,
     connectionReady,
+    composerPlaceholder:
+      pendingConversationHint?.kind === "user"
+        ? "Kindroid is waiting for your turn."
+        : undefined,
     hotMicMuted,
     inputText,
     isRecording,
@@ -1769,9 +1854,15 @@ export function useCadenceController() {
     newChatPending,
     backendConfig,
     chooseAvatarFile,
+    pendingAssistantHint:
+      pendingConversationHint?.kind === "assistant"
+        ? pendingConversationHint
+        : null,
     performance: avatarPerformance,
+    requestKindroidGroupParticipantTurn,
     saveSettings,
     saveKindroidConfig,
+    selectKindroidGroupSpeaker,
     setAvatar,
     setAvatarPoseDebug,
     stageMode,
@@ -1780,6 +1871,7 @@ export function useCadenceController() {
     settingsSaveState,
     settingsSnapshot,
     kindroidConversationMode,
+    kindroidAwaitingUserTurn: pendingConversationHint?.kind === "user",
     usesKindroidGroupConversation,
     voiceBackend,
     voiceInputMode,

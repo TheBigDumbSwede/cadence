@@ -155,7 +155,8 @@ textarea {
 }
 
 .chat-action:disabled,
-.chat-send:disabled {
+.chat-send:disabled,
+.secondary-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
@@ -777,6 +778,14 @@ textarea {
   justify-self: start;
 }
 
+.message-bubble-pending {
+  opacity: 0.9;
+  border-style: dashed;
+  background:
+    linear-gradient(180deg, rgba(215, 149, 91, 0.08), rgba(255, 255, 255, 0.02)),
+    var(--bg-panel-soft);
+}
+
 .message-bubble[data-speaker="user"] {
   background: rgba(111, 132, 181, 0.12);
   border-color: rgba(111, 132, 181, 0.22);
@@ -801,6 +810,11 @@ textarea {
   margin: 0;
   white-space: pre-wrap;
   line-height: 1.45;
+}
+
+.message-text-pending {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .message-segment.dialogue {
@@ -836,6 +850,23 @@ textarea {
   gap: 10px;
   align-items: end;
   padding-top: 4px;
+}
+
+.chat-turn-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.chat-turn-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-turn-button {
+  padding-inline: 12px;
+  min-height: 36px;
 }
 
 .composer-input {

@@ -4,6 +4,11 @@ import {
 } from "./outputWaveformStore";
 
 const TARGET_SAMPLE_RATE = 24000;
+const DEFAULT_START_LEAD_SECONDS = 0.01;
+
+type EnqueuePlaybackOptions = {
+  boundaryGapSeconds?: number;
+};
 
 function pcm16ToFloat32(buffer: ArrayBuffer): Float32Array {
   const view = new DataView(buffer);
@@ -26,7 +31,10 @@ export class PcmAudioPlayer {
   private monitorFrameId = 0;
   private analyserBuffer: Uint8Array<ArrayBuffer> | null = null;
 
-  async enqueue(buffer: ArrayBuffer): Promise<void> {
+  async enqueue(
+    buffer: ArrayBuffer,
+    options?: EnqueuePlaybackOptions
+  ): Promise<void> {
     const context = this.getAudioContext();
     if (context.state === "suspended") {
       await context.resume();
@@ -39,32 +47,20 @@ export class PcmAudioPlayer {
     const source = context.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(this.getAnalyser(context));
-
-    const now = context.currentTime;
-    const startAt = Math.max(now + 0.01, this.nextStartTime);
-    source.start(startAt);
-    this.nextStartTime = startAt + audioBuffer.duration;
-    this.activeSources.add(source);
-
-    source.onended = () => {
-      this.activeSources.delete(source);
-      if (this.activeSources.size === 0) {
-        this.nextStartTime = 0;
-        this.stopMonitoring();
-      }
-    };
-
-    this.startMonitoring();
+    this.scheduleSource(source, audioBuffer.duration, options);
   }
 
-  async enqueueEncoded(buffer: ArrayBuffer): Promise<void> {
+  async enqueueEncoded(
+    buffer: ArrayBuffer,
+    options?: EnqueuePlaybackOptions
+  ): Promise<void> {
     const context = this.getAudioContext();
     if (context.state === "suspended") {
       await context.resume();
     }
 
     const decoded = await context.decodeAudioData(buffer.slice(0));
-    this.scheduleBuffer(decoded);
+    this.scheduleBuffer(decoded, options);
   }
 
   interrupt(): void {
@@ -103,16 +99,35 @@ export class PcmAudioPlayer {
     return this.analyser;
   }
 
-  private scheduleBuffer(audioBuffer: AudioBuffer): void {
+  private scheduleBuffer(
+    audioBuffer: AudioBuffer,
+    options?: EnqueuePlaybackOptions
+  ): void {
     const context = this.getAudioContext();
     const source = context.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(this.getAnalyser(context));
 
+    this.scheduleSource(source, audioBuffer.duration, options);
+  }
+
+  private scheduleSource(
+    source: AudioBufferSourceNode,
+    durationSeconds: number,
+    options?: EnqueuePlaybackOptions
+  ): void {
+    const context = this.getAudioContext();
     const now = context.currentTime;
-    const startAt = Math.max(now + 0.01, this.nextStartTime);
+    const hasQueuedAudio =
+      this.activeSources.size > 0 || this.nextStartTime > now + DEFAULT_START_LEAD_SECONDS;
+    const gapSeconds = hasQueuedAudio ? options?.boundaryGapSeconds ?? 0 : 0;
+    const startAt = Math.max(
+      now + DEFAULT_START_LEAD_SECONDS,
+      hasQueuedAudio ? this.nextStartTime + gapSeconds : now + DEFAULT_START_LEAD_SECONDS
+    );
+
     source.start(startAt);
-    this.nextStartTime = startAt + audioBuffer.duration;
+    this.nextStartTime = startAt + durationSeconds;
     this.activeSources.add(source);
 
     source.onended = () => {

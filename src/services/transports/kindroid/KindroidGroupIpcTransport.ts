@@ -6,6 +6,10 @@ import type {
 } from "../../contracts";
 import type { KindroidParticipant } from "../../../shared/kindroid-participants";
 import type { CadenceEvent } from "../../../shared/voice-events";
+import {
+  MAX_AUTOMATIC_KINDROID_GROUP_TURNS,
+  resolveKindroidGroupTurn
+} from "./groupTurn";
 
 export class KindroidGroupIpcTransport implements LiveConversationTransport {
   readonly id = "kindroid-group-text";
@@ -105,6 +109,15 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
     });
   }
 
+  async requestKindroidGroupParticipantTurn(kindroidParticipantId: string): Promise<void> {
+    this.emit({
+      type: "session.status",
+      provider: this.id,
+      status: "thinking"
+    });
+    await this.runGroupTurnCycle({ forcedParticipantId: kindroidParticipantId });
+  }
+
   async interruptAssistant(
     reason: "user_barge_in" | "operator_stop" = "operator_stop"
   ): Promise<void> {
@@ -133,35 +146,96 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
       message: input
     });
 
-    const respondingParticipant = await this.resolveRespondingParticipant();
-    const response = await bridge.kindroidExperimental.groupChats.aiResponse({
-      ai_id: respondingParticipant.aiId,
-      group_id: groupMirror.groupId
-    });
+    await this.runGroupTurnCycle();
+  }
 
-    const assistantTurnId = crypto.randomUUID();
-    this.emit({
-      type: "assistant.response.delta",
-      turnId: assistantTurnId,
-      text: response,
-      speakerLabel: respondingParticipant.bubbleName,
-      kindroidParticipantId: respondingParticipant.id
-    });
-    this.emit({
-      type: "assistant.response.completed",
-      turnId: assistantTurnId,
-      text: response,
-      speakerLabel: respondingParticipant.bubbleName,
-      kindroidParticipantId: respondingParticipant.id
-    });
+  private async runGroupTurnCycle(options?: {
+    forcedParticipantId?: string;
+  }): Promise<void> {
+    const groupMirror = this.config?.kindroidGroupMirror;
+    if (!groupMirror?.groupId) {
+      throw new Error("No active Kindroid group mirror is selected.");
+    }
+
+    const bridge = getCadenceBridge();
+    const maxTurns = groupMirror.manualTurnTaking ? 1 : MAX_AUTOMATIC_KINDROID_GROUP_TURNS;
+
+    for (let turnIndex = 0; turnIndex < maxTurns; turnIndex += 1) {
+      const forcedParticipant =
+        turnIndex === 0 && options?.forcedParticipantId
+          ? this.resolveParticipantById(options.forcedParticipantId)
+          : null;
+      const turnResolution = forcedParticipant
+        ? { type: "participant" as const, participant: forcedParticipant }
+        : await this.resolveTurn();
+
+      if (turnResolution.type === "user") {
+        this.emit({
+          type: "session.status",
+          provider: this.id,
+          status: "ready"
+        });
+        this.emit({
+          type: "conversation.turn.pending",
+          provider: this.id,
+          turnOwner: "user",
+          message: "Your turn."
+        });
+        return;
+      }
+
+      const respondingParticipant = turnResolution.participant;
+      this.emit({
+        type: "session.status",
+        provider: this.id,
+        status: "thinking"
+      });
+      this.emit({
+        type: "conversation.turn.pending",
+        provider: this.id,
+        turnOwner: "assistant",
+        speakerLabel: respondingParticipant.bubbleName,
+        kindroidParticipantId: respondingParticipant.id,
+        message: `${respondingParticipant.bubbleName} is thinking...`
+      });
+      const response = await bridge.kindroidExperimental.groupChats.aiResponse({
+        ai_id: respondingParticipant.aiId,
+        group_id: groupMirror.groupId
+      });
+
+      const assistantTurnId = crypto.randomUUID();
+      this.emit({
+        type: "assistant.response.delta",
+        turnId: assistantTurnId,
+        text: response,
+        speakerLabel: respondingParticipant.bubbleName,
+        kindroidParticipantId: respondingParticipant.id
+      });
+      this.emit({
+        type: "assistant.response.completed",
+        turnId: assistantTurnId,
+        text: response,
+        speakerLabel: respondingParticipant.bubbleName,
+        kindroidParticipantId: respondingParticipant.id
+      });
+    }
+
     this.emit({
       type: "session.status",
       provider: this.id,
       status: "ready"
     });
+    this.emit({
+      type: "conversation.turn.pending",
+      provider: this.id,
+      turnOwner: "user",
+      message: groupMirror.manualTurnTaking
+        ? "Your turn."
+        : `Paused after ${MAX_AUTOMATIC_KINDROID_GROUP_TURNS} turns. Your turn.`
+    });
   }
 
-  private async resolveRespondingParticipant(): Promise<KindroidParticipant> {
+  private async resolveTurn() {
     const groupMirror = this.config?.kindroidGroupMirror;
     const participants = this.config?.kindroidParticipants ?? [];
 
@@ -169,39 +243,33 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
       throw new Error("No active Kindroid group mirror is selected.");
     }
 
-    const groupParticipants = participants.filter((participant) =>
-      groupMirror.participantIds.includes(participant.id)
-    );
-
-    if (groupParticipants.length === 0) {
-      throw new Error("The active Kindroid group mirror has no valid local participants.");
-    }
-
-    if (groupMirror.manualTurnTaking) {
-      const manualParticipant =
-        groupParticipants.find(
-          (participant) =>
-            participant.id === this.config?.kindroidManualSpeakerParticipantId
-        ) ?? groupParticipants[0];
-
-      return manualParticipant;
-    }
-
-    const speakerAiId = await getCadenceBridge().kindroidExperimental.groupChats.getTurn({
-      group_id: groupMirror.groupId,
-      allow_user: false
+    return resolveKindroidGroupTurn({
+      groupMirror,
+      participants,
+      manualSpeakerParticipantId: this.config?.kindroidManualSpeakerParticipantId,
+      transportId: this.id
     });
-    const respondingParticipant = groupParticipants.find(
-      (participant) => participant.aiId === speakerAiId
-    );
+  }
 
-    if (!respondingParticipant) {
-      throw new Error(
-        `Kindroid returned a speaker (${speakerAiId}) that is not in the mirrored local roster.`
-      );
+  private resolveParticipantById(kindroidParticipantId: string): KindroidParticipant {
+    const groupMirror = this.config?.kindroidGroupMirror;
+    const participants = this.config?.kindroidParticipants ?? [];
+
+    if (!groupMirror) {
+      throw new Error("No active Kindroid group mirror is selected.");
     }
 
-    return respondingParticipant;
+    const participant = participants.find(
+      (candidate) =>
+        candidate.id === kindroidParticipantId &&
+        groupMirror.participantIds.includes(candidate.id)
+    );
+
+    if (!participant) {
+      throw new Error("The selected Kindroid participant is not part of the active group.");
+    }
+
+    return participant;
   }
 
   private emit(event: CadenceEvent): void {

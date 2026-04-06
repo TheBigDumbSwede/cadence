@@ -40,6 +40,14 @@ export type CadenceEvent =
       kindroidParticipantId?: string;
     }
   | {
+      type: "conversation.turn.pending";
+      provider: string;
+      turnOwner: "assistant" | "user";
+      speakerLabel?: string;
+      kindroidParticipantId?: string;
+      message?: string;
+    }
+  | {
       type: "assistant.audio.chunk";
       turnId: string;
       sequence: number;
