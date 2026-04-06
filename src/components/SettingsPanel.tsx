@@ -654,9 +654,16 @@ export function SettingsPanel({
                 kindroidBaseUrl,
                 kindroidExperimentalEnabled,
                 kindroidGreeting,
+                kindroidConversationMode:
+                  settingsSnapshot?.kindroidConversationMode ?? "solo",
                 kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
                 activeKindroidParticipantId:
                   settingsSnapshot?.activeKindroidParticipantId ?? null,
+                kindroidGroupMirrors: settingsSnapshot?.kindroidGroupMirrors ?? [],
+                activeKindroidGroupMirrorId:
+                  settingsSnapshot?.activeKindroidGroupMirrorId ?? null,
+                activeKindroidGroupSpeakerParticipantId:
+                  settingsSnapshot?.activeKindroidGroupSpeakerParticipantId ?? null,
                 clearOpenAiApiKey,
                 clearElevenLabsApiKey,
                 clearKindroidApiKey

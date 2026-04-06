@@ -10,6 +10,10 @@ import type {
   SettingsSnapshot,
   SettingsUpdate
 } from "../../src/shared/app-settings";
+import type {
+  KindroidConversationMode,
+  KindroidGroupMirror
+} from "../../src/shared/kindroid-group-mirrors";
 import type { KindroidParticipant } from "../../src/shared/kindroid-participants";
 
 type StoredSettings = {
@@ -21,8 +25,12 @@ type StoredSettings = {
   kindroidBaseUrl?: string;
   kindroidExperimentalEnabled?: boolean;
   kindroidGreeting?: string;
+  kindroidConversationMode?: KindroidConversationMode;
   kindroidParticipants?: KindroidParticipant[];
   activeKindroidParticipantId?: string;
+  kindroidGroupMirrors?: KindroidGroupMirror[];
+  activeKindroidGroupMirrorId?: string;
+  activeKindroidGroupSpeakerParticipantId?: string;
   avatarPath?: string;
   recentAvatarPaths?: string[];
   secrets?: {
@@ -43,6 +51,7 @@ const DEFAULT_PREFERENCES: SettingsPreferences = {
 
 const DEFAULT_KINDROID_BASE_URL = "https://api.kindroid.ai/v1";
 const DEFAULT_KINDROID_GREETING = "Hello.";
+const DEFAULT_KINDROID_CONVERSATION_MODE: KindroidConversationMode = "solo";
 const LEGACY_KINDROID_PARTICIPANT_ID = "legacy-kindroid";
 const MAX_RECENT_AVATARS = 6;
 
@@ -78,6 +87,17 @@ export class SettingsService {
     const stored = this.readStore();
     const kindroidParticipants = this.getKindroidParticipants();
     const activeKindroidParticipantId = this.getActiveKindroidParticipantId();
+    const kindroidGroupMirrors = this.getKindroidGroupMirrors(kindroidParticipants);
+    const activeKindroidGroupMirrorId = this.getActiveKindroidGroupMirrorId(
+      kindroidParticipants,
+      kindroidGroupMirrors
+    );
+    const activeKindroidGroupSpeakerParticipantId =
+      this.getActiveKindroidGroupSpeakerParticipantId(
+        kindroidParticipants,
+        kindroidGroupMirrors,
+        activeKindroidGroupMirrorId
+      );
 
     return {
       preferences: {
@@ -96,8 +116,12 @@ export class SettingsService {
       kindroidBaseUrl: this.getKindroidBaseUrl(),
       kindroidExperimentalEnabled: this.getKindroidExperimentalEnabled(),
       kindroidGreeting: this.getKindroidGreeting(),
+      kindroidConversationMode: this.getKindroidConversationMode(kindroidGroupMirrors),
       kindroidParticipants,
       activeKindroidParticipantId,
+      kindroidGroupMirrors,
+      activeKindroidGroupMirrorId,
+      activeKindroidGroupSpeakerParticipantId,
       avatar: this.getAvatarSelection(),
       recentAvatars: this.getRecentAvatarSelections(),
       hasOpenAiApiKey: Boolean(this.getOpenAiApiKey()),
@@ -111,6 +135,14 @@ export class SettingsService {
     const stored = this.readStore();
     const normalizedKindroidParticipants = this.normalizeKindroidParticipants(
       update.kindroidParticipants
+    );
+    const normalizedKindroidGroupMirrors = this.normalizeKindroidGroupMirrors(
+      update.kindroidGroupMirrors,
+      normalizedKindroidParticipants
+    );
+    const normalizedActiveKindroidGroupMirrorId = this.normalizeKindroidGroupMirrorId(
+      update.activeKindroidGroupMirrorId,
+      normalizedKindroidGroupMirrors
     );
 
     stored.preferences = {
@@ -128,11 +160,24 @@ export class SettingsService {
     stored.kindroidBaseUrl = normalizeValue(update.kindroidBaseUrl);
     stored.kindroidExperimentalEnabled = update.kindroidExperimentalEnabled;
     stored.kindroidGreeting = normalizeValue(update.kindroidGreeting);
+    stored.kindroidConversationMode = this.normalizeKindroidConversationMode(
+      update.kindroidConversationMode,
+      normalizedKindroidGroupMirrors
+    );
     stored.kindroidParticipants = normalizedKindroidParticipants;
     stored.activeKindroidParticipantId = this.normalizeKindroidParticipantId(
       update.activeKindroidParticipantId,
       normalizedKindroidParticipants
     );
+    stored.kindroidGroupMirrors = normalizedKindroidGroupMirrors;
+    stored.activeKindroidGroupMirrorId = normalizedActiveKindroidGroupMirrorId;
+    stored.activeKindroidGroupSpeakerParticipantId =
+      this.normalizeKindroidGroupSpeakerParticipantId(
+        update.activeKindroidGroupSpeakerParticipantId,
+        normalizedKindroidParticipants,
+        normalizedKindroidGroupMirrors,
+        normalizedActiveKindroidGroupMirrorId
+      );
     if (typeof update.avatarPath === "string") {
       const normalizedPath = normalizeValue(update.avatarPath);
       if (normalizedPath) {
@@ -257,6 +302,15 @@ export class SettingsService {
     );
   }
 
+  getKindroidConversationMode(
+    groupMirrors = this.getKindroidGroupMirrors()
+  ): KindroidConversationMode {
+    return this.normalizeKindroidConversationMode(
+      this.readStore().kindroidConversationMode,
+      groupMirrors
+    );
+  }
+
   getKindroidParticipants(): KindroidParticipant[] {
     const storedParticipants = this.normalizeKindroidParticipants(
       this.readStore().kindroidParticipants
@@ -295,6 +349,49 @@ export class SettingsService {
     }
 
     return participants.find((participant) => participant.id === activeId) ?? null;
+  }
+
+  getKindroidGroupMirrors(
+    participants = this.getKindroidParticipants()
+  ): KindroidGroupMirror[] {
+    return this.normalizeKindroidGroupMirrors(
+      this.readStore().kindroidGroupMirrors,
+      participants
+    );
+  }
+
+  getActiveKindroidGroupMirrorId(
+    participants = this.getKindroidParticipants(),
+    groupMirrors = this.getKindroidGroupMirrors(participants)
+  ): string | null {
+    return this.normalizeKindroidGroupMirrorId(
+      this.readStore().activeKindroidGroupMirrorId,
+      groupMirrors
+    );
+  }
+
+  getActiveKindroidGroupMirror(): KindroidGroupMirror | null {
+    const participants = this.getKindroidParticipants();
+    const groupMirrors = this.getKindroidGroupMirrors(participants);
+    const activeId = this.getActiveKindroidGroupMirrorId(participants, groupMirrors);
+    if (!activeId) {
+      return null;
+    }
+
+    return groupMirrors.find((groupMirror) => groupMirror.id === activeId) ?? null;
+  }
+
+  getActiveKindroidGroupSpeakerParticipantId(
+    participants = this.getKindroidParticipants(),
+    groupMirrors = this.getKindroidGroupMirrors(participants),
+    activeGroupMirrorId = this.getActiveKindroidGroupMirrorId(participants, groupMirrors)
+  ): string | null {
+    return this.normalizeKindroidGroupSpeakerParticipantId(
+      this.readStore().activeKindroidGroupSpeakerParticipantId,
+      participants,
+      groupMirrors,
+      activeGroupMirrorId
+    );
   }
 
   getAvatarSelection(): AvatarSelection | null {
@@ -416,6 +513,43 @@ export class SettingsService {
       );
   }
 
+  private normalizeKindroidGroupMirrors(
+    groupMirrors: KindroidGroupMirror[] | undefined,
+    participants: KindroidParticipant[]
+  ): KindroidGroupMirror[] {
+    const participantIds = new Set(participants.map((participant) => participant.id));
+
+    return (groupMirrors ?? [])
+      .map((groupMirror, index) => {
+        const id = normalizeValue(groupMirror?.id) || `kindroid-group-${index + 1}`;
+        const groupId = normalizeValue(groupMirror?.groupId);
+        const displayName = normalizeValue(groupMirror?.displayName);
+        const participantIdsForGroup = (groupMirror?.participantIds ?? [])
+          .map((participantId) => normalizeValue(participantId))
+          .filter(
+            (participantId, participantIndex, allParticipantIds) =>
+              Boolean(participantId) &&
+              participantIds.has(participantId) &&
+              allParticipantIds.indexOf(participantId) === participantIndex
+          );
+
+        if (!groupId || !displayName || participantIdsForGroup.length === 0) {
+          return null;
+        }
+
+        return {
+          id,
+          groupId,
+          displayName,
+          participantIds: participantIdsForGroup,
+          manualTurnTaking: Boolean(groupMirror?.manualTurnTaking)
+        };
+      })
+      .filter(
+        (groupMirror): groupMirror is KindroidGroupMirror => Boolean(groupMirror)
+      );
+  }
+
   private normalizeKindroidParticipantId(
     activeId: string | undefined | null,
     participants: KindroidParticipant[]
@@ -430,6 +564,66 @@ export class SettingsService {
     }
 
     return participants[0].id;
+  }
+
+  private normalizeKindroidGroupMirrorId(
+    activeId: string | undefined | null,
+    groupMirrors: KindroidGroupMirror[]
+  ): string | null {
+    const normalizedId = normalizeValue(activeId);
+    if (!groupMirrors.length) {
+      return null;
+    }
+
+    if (normalizedId && groupMirrors.some((groupMirror) => groupMirror.id === normalizedId)) {
+      return normalizedId;
+    }
+
+    return groupMirrors[0].id;
+  }
+
+  private normalizeKindroidGroupSpeakerParticipantId(
+    activeId: string | undefined | null,
+    participants: KindroidParticipant[],
+    groupMirrors: KindroidGroupMirror[],
+    activeGroupMirrorId: string | null
+  ): string | null {
+    const normalizedId = normalizeValue(activeId);
+    if (!activeGroupMirrorId) {
+      return null;
+    }
+
+    const activeGroupMirror = groupMirrors.find(
+      (groupMirror) => groupMirror.id === activeGroupMirrorId
+    );
+    if (!activeGroupMirror) {
+      return null;
+    }
+
+    const validParticipantIds = activeGroupMirror.participantIds.filter((participantId) =>
+      participants.some((participant) => participant.id === participantId)
+    );
+
+    if (validParticipantIds.length === 0) {
+      return null;
+    }
+
+    if (normalizedId && validParticipantIds.includes(normalizedId)) {
+      return normalizedId;
+    }
+
+    return validParticipantIds[0];
+  }
+
+  private normalizeKindroidConversationMode(
+    value: KindroidConversationMode | undefined,
+    groupMirrors: KindroidGroupMirror[]
+  ): KindroidConversationMode {
+    if (value === "group" && groupMirrors.length > 0) {
+      return "group";
+    }
+
+    return DEFAULT_KINDROID_CONVERSATION_MODE;
   }
 
   private buildLegacyKindroidParticipant(aiId: string): KindroidParticipant {

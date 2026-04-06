@@ -43,6 +43,8 @@ import {
 } from "./cadence/timing";
 import { appendOrUpdateAssistantTurn, isBenignInterruptError } from "./cadence/turns";
 import {
+  createKindroidGroupSession,
+  createKindroidGroupVoiceSession,
   createKindroidSession,
   createKindroidVoiceSession,
   createOpenAiBatchVoiceSession,
@@ -57,13 +59,16 @@ import {
   defaultTextTransportConfig,
   defaultVoiceTransportConfig
 } from "../services/transportOptions";
+import { stripKindroidNarrationForSpeech } from "../services/transports/kindroid/speechText";
 
 export function useCadenceController() {
   const [voiceSession] = useState(() => createVoiceSession());
   const [openAiBatchVoiceSession] = useState(() => createOpenAiBatchVoiceSession());
   const [kindroidVoiceSession] = useState(() => createKindroidVoiceSession());
+  const [kindroidGroupVoiceSession] = useState(() => createKindroidGroupVoiceSession());
   const [textSession] = useState(() => createTextSession());
   const [kindroidSession] = useState(() => createKindroidSession());
+  const [kindroidGroupSession] = useState(() => createKindroidGroupSession());
   const [mode, setMode] = useState<InteractionMode>("voice");
   const [stageMode, setStageMode] = useState<StageMode>("waveform");
   const [voiceBackend, setVoiceBackend] = useState<VoiceBackendProvider>("openai");
@@ -126,16 +131,6 @@ export function useCadenceController() {
     interruptionStartedAt: null
   });
 
-  const activeSession =
-    mode === "voice"
-      ? voiceBackend === "kindroid"
-        ? kindroidVoiceSession
-        : voiceBackend === "openai-batch"
-          ? openAiBatchVoiceSession
-          : voiceSession
-      : textBackend === "kindroid"
-        ? kindroidSession
-        : textSession;
   const activeKindroidParticipant = useMemo(() => {
     if (!settingsSnapshot) {
       return null;
@@ -153,15 +148,79 @@ export function useCadenceController() {
 
     return activeParticipant ?? null;
   }, [settingsSnapshot]);
+  const kindroidGroupMirrors = settingsSnapshot?.kindroidGroupMirrors ?? [];
+  const activeKindroidGroupMirror = useMemo(() => {
+    if (kindroidGroupMirrors.length === 0 || !settingsSnapshot?.activeKindroidGroupMirrorId) {
+      return kindroidGroupMirrors[0] ?? null;
+    }
+
+    return (
+      kindroidGroupMirrors.find(
+        (groupMirror) => groupMirror.id === settingsSnapshot.activeKindroidGroupMirrorId
+      ) ??
+      kindroidGroupMirrors[0] ??
+      null
+    );
+  }, [kindroidGroupMirrors, settingsSnapshot?.activeKindroidGroupMirrorId]);
+  const activeKindroidGroupSpeakerParticipant = useMemo(() => {
+    if (!settingsSnapshot?.activeKindroidGroupSpeakerParticipantId) {
+      return null;
+    }
+
+    return (
+      settingsSnapshot.kindroidParticipants.find(
+        (participant) =>
+          participant.id === settingsSnapshot.activeKindroidGroupSpeakerParticipantId
+      ) ?? null
+    );
+  }, [
+    settingsSnapshot?.activeKindroidGroupSpeakerParticipantId,
+    settingsSnapshot?.kindroidParticipants
+  ]);
+  const kindroidConversationMode =
+    settingsSnapshot?.kindroidConversationMode ?? "solo";
+  const usesKindroidGroupConversation =
+    kindroidConversationMode === "group" && Boolean(activeKindroidGroupMirror);
+  const activeKindroidGroupParticipants = useMemo(
+    () =>
+      settingsSnapshot?.kindroidParticipants.filter((participant) =>
+        activeKindroidGroupMirror?.participantIds.includes(participant.id)
+      ) ?? [],
+    [activeKindroidGroupMirror?.participantIds, settingsSnapshot?.kindroidParticipants]
+  );
+  const groupKindroidUsesOpenAiSpeech = activeKindroidGroupParticipants.some(
+    (participant) => participant.ttsProvider === "openai"
+  );
+  const groupKindroidUsesElevenLabsSpeech = activeKindroidGroupParticipants.some(
+    (participant) => participant.ttsProvider === "elevenlabs"
+  );
+  const groupKindroidHasAnySpeech =
+    groupKindroidUsesOpenAiSpeech || groupKindroidUsesElevenLabsSpeech;
+  const activeSession =
+    mode === "voice"
+      ? voiceBackend === "kindroid"
+        ? usesKindroidGroupConversation
+          ? kindroidGroupVoiceSession
+          : kindroidVoiceSession
+        : voiceBackend === "openai-batch"
+          ? openAiBatchVoiceSession
+          : voiceSession
+      : textBackend === "kindroid"
+        ? usesKindroidGroupConversation
+          ? kindroidGroupSession
+          : kindroidSession
+        : textSession;
   const effectiveKindroidTtsProvider = activeKindroidParticipant?.ttsProvider ?? ttsProvider;
   const effectiveTtsProvider =
-    mode === "voice" && voiceBackend === "kindroid"
+    mode === "voice" && voiceBackend === "kindroid" && !usesKindroidGroupConversation
       ? effectiveKindroidTtsProvider
       : ttsProvider;
   const stagedTextReplyMode =
     mode === "text" ||
     (mode === "voice" &&
-      ((voiceBackend === "kindroid" && effectiveKindroidTtsProvider === "none") ||
+      ((voiceBackend === "kindroid" &&
+        ((usesKindroidGroupConversation && !groupKindroidHasAnySpeech) ||
+          (!usesKindroidGroupConversation && effectiveKindroidTtsProvider === "none"))) ||
         (voiceBackend === "openai-batch" && ttsProvider === "none")));
   const visualReplyPoseMode = stageMode === "avatar" && stagedTextReplyMode;
   const topology = useMemo(() => activeSession.describeTopology(), [activeSession]);
@@ -174,14 +233,48 @@ export function useCadenceController() {
       (mode === "voice" && voiceBackend === "kindroid") ||
       (mode === "text" && textBackend === "kindroid");
 
-    if (!usesKindroid || !activeKindroidParticipant) {
+    if (!usesKindroid) {
+      return {};
+    }
+
+    const participant =
+      usesKindroidGroupConversation && activeKindroidGroupMirror?.manualTurnTaking
+        ? activeKindroidGroupSpeakerParticipant
+        : activeKindroidParticipant;
+
+    if (!participant) {
       return {};
     }
 
     return {
-      speakerLabel: activeKindroidParticipant.bubbleName,
-      kindroidParticipantId: activeKindroidParticipant.id
+      speakerLabel: participant.bubbleName,
+      kindroidParticipantId: participant.id
     };
+  }
+
+  function shouldSpeakAssistantTurn(kindroidParticipantId?: string): boolean {
+    if (mode !== "voice") {
+      return false;
+    }
+
+    if (voiceBackend === "openai") {
+      return true;
+    }
+
+    if (voiceBackend === "openai-batch") {
+      return ttsProvider !== "none";
+    }
+
+    if (usesKindroidGroupConversation) {
+      const speakingParticipant =
+        settingsSnapshot?.kindroidParticipants.find(
+          (participant) => participant.id === kindroidParticipantId
+        ) ?? activeKindroidGroupSpeakerParticipant;
+
+      return (speakingParticipant?.ttsProvider ?? "none") !== "none";
+    }
+
+    return effectiveKindroidTtsProvider !== "none";
   }
 
   useEffect(() => {
@@ -241,19 +334,25 @@ export function useCadenceController() {
     hotMicRecorderRef.current?.setSuppressed(hotMicMutedRef.current);
   }
 
-  function scheduleHotMicPlaybackRelease(text: string): void {
+  function scheduleHotMicPlaybackRelease(
+    text: string,
+    kindroidParticipantId?: string
+  ): void {
+    const speechText =
+      voiceBackend === "kindroid" ? stripKindroidNarrationForSpeech(text) : text.trim();
+
     if (
       mode !== "voice" ||
       voiceInputMode !== "hot_mic" ||
-      ((voiceBackend === "kindroid" && effectiveKindroidTtsProvider === "none") ||
-        (voiceBackend === "openai-batch" && ttsProvider === "none"))
+      !speechText ||
+      !shouldSpeakAssistantTurn(kindroidParticipantId)
     ) {
       return;
     }
 
     clearPlaybackSuppressionTimer();
-    const directive = inferPerformanceDirective(text);
-    const releaseInMs = estimateAssistantDeliveryMs(text, directive.pace) + 450;
+    const directive = inferPerformanceDirective(speechText);
+    const releaseInMs = estimateAssistantDeliveryMs(speechText, directive.pace) + 450;
     assistantSpeakingRef.current = true;
     hotMicRecorderRef.current?.setSuppressed(true);
     playbackSuppressionTimerRef.current = window.setTimeout(() => {
@@ -503,6 +602,116 @@ export function useCadenceController() {
           ]
         });
       });
+    } else if (mode === "voice" && voiceBackend === "kindroid" && usesKindroidGroupConversation) {
+      void Promise.all([
+        bridge.openaiAudio.getState(),
+        bridge.kindroidExperimental.getState(),
+        bridge.elevenlabs.getState(),
+        bridge.openaiSpeech.getState()
+      ]).then(([openAiState, kindroidExperimentalState, elevenLabsState, openAiSpeechState]) => {
+        const groupParticipantCount = activeKindroidGroupParticipants.length;
+        const ttsConfigured =
+          !groupKindroidHasAnySpeech
+            ? true
+            : (!groupKindroidUsesOpenAiSpeech || openAiSpeechState.configured) &&
+              (!groupKindroidUsesElevenLabsSpeech || elevenLabsState.configured);
+        const isConfigured =
+          openAiState.configured &&
+          kindroidExperimentalState.enabled &&
+          kindroidExperimentalState.configured &&
+          Boolean(activeKindroidGroupMirror?.groupId) &&
+          groupParticipantCount > 0 &&
+          ttsConfigured;
+
+        setConfigured(isConfigured);
+        setBackendConfig({
+          mode,
+          providerLabel:
+            !groupKindroidHasAnySpeech
+              ? "Kindroid Group Voice + Text Reply"
+              : "Kindroid Group Voice + Participant TTS",
+          configured: isConfigured,
+          items: [
+            {
+              label: "Group",
+              present: Boolean(activeKindroidGroupMirror),
+              value: activeKindroidGroupMirror?.displayName ?? undefined
+            },
+            {
+              label: "GROUP_ID",
+              present: Boolean(activeKindroidGroupMirror?.groupId),
+              value: activeKindroidGroupMirror?.groupId ?? undefined
+            },
+            {
+              label: "Turn-taking",
+              present: Boolean(activeKindroidGroupMirror),
+              value: activeKindroidGroupMirror?.manualTurnTaking ? "Manual" : "Automatic"
+            },
+            {
+              label: "Manual speaker",
+              present:
+                !activeKindroidGroupMirror?.manualTurnTaking ||
+                Boolean(activeKindroidGroupSpeakerParticipant),
+              value: activeKindroidGroupMirror?.manualTurnTaking
+                ? activeKindroidGroupSpeakerParticipant?.displayName ?? undefined
+                : "Not required"
+            },
+            {
+              label: "OPENAI_API_KEY",
+              present: openAiState.apiKeyPresent
+            },
+            {
+              label: "STT model",
+              present: Boolean(openAiState.model),
+              value: openAiState.model ?? undefined
+            },
+            {
+              label: "KINDROID_EXPERIMENTAL",
+              present: kindroidExperimentalState.enabled
+            },
+            {
+              label: "KINDROID_API_KEY",
+              present: kindroidExperimentalState.apiKeyPresent
+            },
+            ...(!groupKindroidHasAnySpeech
+              ? [
+                  {
+                    label: "Speech output",
+                    present: true,
+                    value: "Disabled"
+                  }
+                ]
+              : [
+                  ...(groupKindroidUsesOpenAiSpeech
+                    ? [
+                    {
+                      label: "OPENAI_API_KEY (TTS)",
+                      present: openAiSpeechState.apiKeyPresent
+                    },
+                    {
+                      label: "TTS model",
+                      present: Boolean(openAiSpeechState.model),
+                      value: openAiSpeechState.model ?? undefined
+                    }
+                    ]
+                    : []),
+                  ...(groupKindroidUsesElevenLabsSpeech
+                    ? [
+                    {
+                      label: "ELEVENLABS_API_KEY",
+                      present: elevenLabsState.apiKeyPresent
+                    },
+                    {
+                      label: "TTS model",
+                      present: Boolean(elevenLabsState.model),
+                      value: elevenLabsState.model
+                    }
+                    ]
+                    : [])
+                ])
+          ]
+        });
+      });
     } else if (mode === "voice" && voiceBackend === "kindroid") {
       void Promise.all([
         bridge.openaiAudio.getState(),
@@ -612,6 +821,54 @@ export function useCadenceController() {
                     value: elevenLabsState.model
                   }
                 ])
+          ]
+        });
+      });
+    } else if (textBackend === "kindroid" && usesKindroidGroupConversation) {
+      void bridge.kindroidExperimental.getState().then((state) => {
+        const isConfigured =
+          state.enabled &&
+          state.configured &&
+          Boolean(activeKindroidGroupMirror?.groupId) &&
+          (activeKindroidGroupMirror?.participantIds.length ?? 0) > 0;
+        setConfigured(isConfigured);
+        setBackendConfig({
+          mode,
+          providerLabel: "Kindroid Group",
+          configured: isConfigured,
+          items: [
+            {
+              label: "Group",
+              present: Boolean(activeKindroidGroupMirror),
+              value: activeKindroidGroupMirror?.displayName ?? undefined
+            },
+            {
+              label: "GROUP_ID",
+              present: Boolean(activeKindroidGroupMirror?.groupId),
+              value: activeKindroidGroupMirror?.groupId ?? undefined
+            },
+            {
+              label: "Turn-taking",
+              present: Boolean(activeKindroidGroupMirror),
+              value: activeKindroidGroupMirror?.manualTurnTaking ? "Manual" : "Automatic"
+            },
+            {
+              label: "Manual speaker",
+              present:
+                !activeKindroidGroupMirror?.manualTurnTaking ||
+                Boolean(activeKindroidGroupSpeakerParticipant),
+              value: activeKindroidGroupMirror?.manualTurnTaking
+                ? activeKindroidGroupSpeakerParticipant?.displayName ?? undefined
+                : "Not required"
+            },
+            {
+              label: "KINDROID_EXPERIMENTAL",
+              present: state.enabled
+            },
+            {
+              label: "KINDROID_API_KEY",
+              present: state.apiKeyPresent
+            }
           ]
         });
       });
@@ -818,8 +1075,12 @@ export function useCadenceController() {
                 bufferedAssistantTurn.text,
                 "replace",
                 {
-                  speakerLabel: bufferedAssistantTurn.speakerLabel,
-                  kindroidParticipantId: bufferedAssistantTurn.kindroidParticipantId
+                  speakerLabel:
+                    bufferedAssistantTurn.speakerLabel ??
+                    getAssistantTurnMetadata().speakerLabel,
+                  kindroidParticipantId:
+                    bufferedAssistantTurn.kindroidParticipantId ??
+                    getAssistantTurnMetadata().kindroidParticipantId
                 }
               );
             }
@@ -828,7 +1089,12 @@ export function useCadenceController() {
           });
           break;
         case "assistant.response.delta": {
-          const assistantTurnMetadata = getAssistantTurnMetadata();
+          const assistantTurnMetadata = {
+            ...getAssistantTurnMetadata(),
+            speakerLabel: event.speakerLabel ?? getAssistantTurnMetadata().speakerLabel,
+            kindroidParticipantId:
+              event.kindroidParticipantId ?? getAssistantTurnMetadata().kindroidParticipantId
+          };
           if (stagedTextReplyMode) {
             beginVisualReplyDelivery(event.text);
           }
@@ -857,7 +1123,12 @@ export function useCadenceController() {
           break;
         }
         case "assistant.response.completed": {
-          const completedAssistantTurnMetadata = getAssistantTurnMetadata();
+          const completedAssistantTurnMetadata = {
+            ...getAssistantTurnMetadata(),
+            speakerLabel: event.speakerLabel ?? getAssistantTurnMetadata().speakerLabel,
+            kindroidParticipantId:
+              event.kindroidParticipantId ?? getAssistantTurnMetadata().kindroidParticipantId
+          };
           if (stagedTextReplyMode) {
             beginVisualReplyDelivery(event.text);
           } else {
@@ -865,7 +1136,7 @@ export function useCadenceController() {
               retriggerGesture: true
             });
           }
-          scheduleHotMicPlaybackRelease(event.text);
+          scheduleHotMicPlaybackRelease(event.text, event.kindroidParticipantId);
           if (pendingUserTurnIdRef.current) {
             bufferedAssistantTurnRef.current = {
               turnId: event.turnId,
@@ -949,21 +1220,41 @@ export function useCadenceController() {
     const config =
       mode === "voice"
         ? voiceBackend === "kindroid"
-          ? effectiveKindroidTtsProvider === "none"
-            ? {
-                ...defaultKindroidVoiceTextOnlyConfig
-              }
-            : effectiveKindroidTtsProvider === "openai"
+          ? usesKindroidGroupConversation
+            ? !groupKindroidHasAnySpeech
               ? {
-                  ...defaultKindroidVoiceOpenAiTtsConfig,
-                  voice: activeKindroidParticipant?.openAiVoice ?? "",
-                  speechInstructions:
-                    activeKindroidParticipant?.openAiInstructions || undefined
+                  ...defaultKindroidVoiceTextOnlyConfig,
+                  kindroidConversationMode,
+                  kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
+                  kindroidGroupMirror: activeKindroidGroupMirror,
+                  kindroidManualSpeakerParticipantId:
+                    activeKindroidGroupSpeakerParticipant?.id ?? null
                 }
               : {
-                  ...defaultKindroidVoiceTransportConfig,
-                  voice: activeKindroidParticipant?.elevenLabsVoiceId ?? ""
+                  ...(groupKindroidUsesOpenAiSpeech && !groupKindroidUsesElevenLabsSpeech
+                    ? defaultKindroidVoiceOpenAiTtsConfig
+                    : defaultKindroidVoiceTransportConfig),
+                  kindroidConversationMode,
+                  kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
+                  kindroidGroupMirror: activeKindroidGroupMirror,
+                  kindroidManualSpeakerParticipantId:
+                    activeKindroidGroupSpeakerParticipant?.id ?? null
                 }
+            : effectiveKindroidTtsProvider === "none"
+              ? {
+                  ...defaultKindroidVoiceTextOnlyConfig
+                }
+              : effectiveKindroidTtsProvider === "openai"
+                ? {
+                    ...defaultKindroidVoiceOpenAiTtsConfig,
+                    voice: activeKindroidParticipant?.openAiVoice ?? "",
+                    speechInstructions:
+                      activeKindroidParticipant?.openAiInstructions || undefined
+                  }
+                : {
+                    ...defaultKindroidVoiceTransportConfig,
+                    voice: activeKindroidParticipant?.elevenLabsVoiceId ?? ""
+                  }
           : voiceBackend === "openai-batch"
             ? ttsProvider === "none"
               ? {
@@ -979,9 +1270,18 @@ export function useCadenceController() {
           : {
               ...defaultVoiceTransportConfig
             }
-        : {
-            ...defaultTextTransportConfig
-          };
+        : textBackend === "kindroid" && usesKindroidGroupConversation
+          ? {
+              ...defaultTextTransportConfig,
+              kindroidConversationMode,
+              kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
+              kindroidGroupMirror: activeKindroidGroupMirror,
+              kindroidManualSpeakerParticipantId:
+                activeKindroidGroupSpeakerParticipant?.id ?? null
+            }
+          : {
+              ...defaultTextTransportConfig
+            };
 
     void activeSession.connect(config).catch((error: Error) => {
       setConfigured(false);
@@ -995,15 +1295,21 @@ export function useCadenceController() {
       void activeSession.disconnect();
     };
   }, [
+    activeKindroidGroupMirror,
+    activeKindroidGroupSpeakerParticipant,
     activeKindroidParticipant,
     activeSession,
+    effectiveTtsProvider,
     effectiveKindroidTtsProvider,
+    kindroidConversationMode,
     mode,
+    settingsSnapshot,
     settingsLoaded,
     settingsRevision,
     stagedTextReplyMode,
     textBackend,
     ttsProvider,
+    usesKindroidGroupConversation,
     visualReplyPoseMode,
     voiceBackend,
     voiceInputMode
@@ -1234,6 +1540,7 @@ export function useCadenceController() {
     const usesSpokenKindroidGreeting =
       mode === "voice" &&
       voiceBackend === "kindroid" &&
+      !usesKindroidGroupConversation &&
       effectiveKindroidTtsProvider !== "none";
 
     if (!usesSpokenKindroidGreeting) {
@@ -1267,6 +1574,10 @@ export function useCadenceController() {
 
     if (!usesKindroid) {
       throw new Error("Chat Break is only available when Kindroid is the active backend.");
+    }
+
+    if (usesKindroidGroupConversation) {
+      throw new Error("Chat Break is only available for solo Kindroid conversations.");
     }
 
     if (!settingsSnapshot) {
@@ -1364,9 +1675,13 @@ export function useCadenceController() {
     }
   }
 
-  async function saveKindroidParticipants(update: {
+  async function saveKindroidConfig(update: {
+    kindroidConversationMode: SettingsSnapshot["kindroidConversationMode"];
     kindroidParticipants: SettingsSnapshot["kindroidParticipants"];
     activeKindroidParticipantId: string | null;
+    kindroidGroupMirrors: SettingsSnapshot["kindroidGroupMirrors"];
+    activeKindroidGroupMirrorId: string | null;
+    activeKindroidGroupSpeakerParticipantId: string | null;
   }): Promise<void> {
     if (!settingsSnapshot) {
       throw new Error("Settings are still loading.");
@@ -1380,8 +1695,13 @@ export function useCadenceController() {
       kindroidBaseUrl: settingsSnapshot.kindroidBaseUrl,
       kindroidExperimentalEnabled: settingsSnapshot.kindroidExperimentalEnabled,
       kindroidGreeting: settingsSnapshot.kindroidGreeting,
+      kindroidConversationMode: update.kindroidConversationMode,
       kindroidParticipants: update.kindroidParticipants,
-      activeKindroidParticipantId: update.activeKindroidParticipantId
+      activeKindroidParticipantId: update.activeKindroidParticipantId,
+      kindroidGroupMirrors: update.kindroidGroupMirrors,
+      activeKindroidGroupMirrorId: update.activeKindroidGroupMirrorId,
+      activeKindroidGroupSpeakerParticipantId:
+        update.activeKindroidGroupSpeakerParticipantId
     });
   }
 
@@ -1419,6 +1739,8 @@ export function useCadenceController() {
 
   return {
     activeState,
+    activeKindroidGroupMirror,
+    activeKindroidGroupSpeakerParticipant,
     activeKindroidParticipant,
     avatarPoseDebug,
     configured,
@@ -1433,7 +1755,7 @@ export function useCadenceController() {
     chooseAvatarFile,
     performance: avatarPerformance,
     saveSettings,
-    saveKindroidParticipants,
+    saveKindroidConfig,
     setAvatar,
     setAvatarPoseDebug,
     stageMode,
@@ -1441,6 +1763,8 @@ export function useCadenceController() {
     settingsLoaded,
     settingsSaveState,
     settingsSnapshot,
+    kindroidConversationMode,
+    usesKindroidGroupConversation,
     voiceBackend,
     voiceInputMode,
     setInputText,

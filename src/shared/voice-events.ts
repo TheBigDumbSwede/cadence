@@ -29,11 +29,15 @@ export type CadenceEvent =
       type: "assistant.response.delta";
       turnId: string;
       text: string;
+      speakerLabel?: string;
+      kindroidParticipantId?: string;
     }
   | {
       type: "assistant.response.completed";
       turnId: string;
       text: string;
+      speakerLabel?: string;
+      kindroidParticipantId?: string;
     }
   | {
       type: "assistant.audio.chunk";

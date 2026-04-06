@@ -24,6 +24,7 @@ export function App() {
   const [systemOpen, setSystemOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
+    activeKindroidGroupMirror,
     activeKindroidParticipant,
     activeState,
     avatarPoseDebug,
@@ -39,7 +40,7 @@ export function App() {
     mode,
     performance,
     saveSettings,
-    saveKindroidParticipants,
+    saveKindroidConfig,
     setAvatar,
     setAvatarPoseDebug,
     stageMode,
@@ -50,6 +51,7 @@ export function App() {
     textBackend,
     ttsProvider,
     effectiveTtsProvider,
+    usesKindroidGroupConversation,
     voiceBackend,
     voiceInputMode,
     setInputText,
@@ -103,9 +105,12 @@ export function App() {
   }, [newChatPending]);
 
   const canStartChatBreak =
+    !usesKindroidGroupConversation &&
+    ((mode === "voice" && voiceBackend === "kindroid") ||
+      (mode === "text" && textBackend === "kindroid"));
+  const kindroidMenuVisible =
     (mode === "voice" && voiceBackend === "kindroid") ||
     (mode === "text" && textBackend === "kindroid");
-  const kindroidMenuVisible = canStartChatBreak;
 
   function openChatBreakDialog(): void {
     setChatBreakGreeting(settingsSnapshot?.kindroidGreeting ?? "");
@@ -160,6 +165,13 @@ export function App() {
           canStartNewChat={canStartChatBreak}
           configured={configured}
           connectionReady={connectionReady}
+          conversationSummaryOverride={
+            usesKindroidGroupConversation
+              ? mode === "voice"
+                ? "Kindroid Group Voice"
+                : "Kindroid Group"
+              : undefined
+          }
           hotMicMuted={hotMicMuted}
           inputText={inputText}
           isRecording={isRecording}
@@ -199,8 +211,10 @@ export function App() {
         <MenuWindow
           title="Kindroid"
           subtitle={
-            activeKindroidParticipant
-              ? `${activeKindroidParticipant.displayName} is active`
+            usesKindroidGroupConversation && activeKindroidGroupMirror
+              ? `${activeKindroidGroupMirror.displayName} is active`
+              : activeKindroidParticipant
+                ? `${activeKindroidParticipant.displayName} is active`
               : "Participant roster and routing"
           }
           onClose={() => setKindroidOpen(false)}
@@ -210,7 +224,7 @@ export function App() {
             settingsLoaded={settingsLoaded}
             settingsSaveState={settingsSaveState}
             settingsSnapshot={settingsSnapshot}
-            onSaveParticipants={saveKindroidParticipants}
+            onSaveKindroidConfig={saveKindroidConfig}
           />
         </MenuWindow>
       ) : null}

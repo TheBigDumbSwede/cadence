@@ -148,6 +148,12 @@ textarea {
   background: var(--accent-soft);
 }
 
+.secondary-button.active,
+.menu-button.active {
+  border-color: rgba(215, 149, 91, 0.55);
+  background: var(--accent-soft);
+}
+
 .chat-action:disabled,
 .chat-send:disabled {
   cursor: not-allowed;
@@ -700,6 +706,27 @@ textarea {
   gap: 10px;
 }
 
+.kindroid-group-participant-picks {
+  display: grid;
+  gap: 8px;
+}
+
+.kindroid-group-participant-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.kindroid-group-participant-pick.active {
+  border-color: rgba(215, 149, 91, 0.55);
+  background: var(--accent-soft);
+}
+
 .preview-button {
   padding: 12px 14px;
   text-align: left;
@@ -773,6 +800,16 @@ textarea {
 .message-text {
   margin: 0;
   white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.message-segment.dialogue {
+  color: var(--text);
+}
+
+.message-segment.narration {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .preview-button strong,

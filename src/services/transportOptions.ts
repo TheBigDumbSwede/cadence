@@ -1,6 +1,8 @@
 import { CadenceSession } from "./CadenceSession";
 import { RendererSpeechOutputAdapter } from "./audio/RendererSpeechOutputAdapter";
 import type { TransportConfig } from "./contracts";
+import { KindroidGroupIpcTransport } from "./transports/kindroid/KindroidGroupIpcTransport";
+import { KindroidGroupVoiceIpcTransport } from "./transports/kindroid/KindroidGroupVoiceIpcTransport";
 import { KindroidIpcTransport } from "./transports/kindroid/KindroidIpcTransport";
 import { KindroidVoiceIpcTransport } from "./transports/kindroid/KindroidVoiceIpcTransport";
 import { OpenAIBatchVoiceIpcTransport } from "./transports/openai/OpenAIBatchVoiceIpcTransport";
@@ -75,6 +77,13 @@ export function createKindroidVoiceSession(): CadenceSession {
   });
 }
 
+export function createKindroidGroupVoiceSession(): CadenceSession {
+  return new CadenceSession({
+    transport: new KindroidGroupVoiceIpcTransport(),
+    speechOutputAdapter: new RendererSpeechOutputAdapter()
+  });
+}
+
 export function createOpenAiBatchVoiceSession(): CadenceSession {
   return new CadenceSession({
     transport: new OpenAIBatchVoiceIpcTransport(),
@@ -91,6 +100,12 @@ export function createTextSession(): CadenceSession {
 export function createKindroidSession(): CadenceSession {
   return new CadenceSession({
     transport: new KindroidIpcTransport()
+  });
+}
+
+export function createKindroidGroupSession(): CadenceSession {
+  return new CadenceSession({
+    transport: new KindroidGroupIpcTransport()
   });
 }
 

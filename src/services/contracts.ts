@@ -1,3 +1,8 @@
+import type {
+  KindroidConversationMode,
+  KindroidGroupMirror
+} from "../shared/kindroid-group-mirrors";
+import type { KindroidParticipant } from "../shared/kindroid-participants";
 import type { AssistantStateSnapshot } from "../shared/assistant-state";
 import type { ConversationTurn } from "../shared/conversation-types";
 import type { AudioFormat, CadenceEvent } from "../shared/voice-events";
@@ -9,6 +14,10 @@ export type TransportConfig = {
   voice: string;
   instructions: string;
   speechInstructions?: string;
+  kindroidConversationMode?: KindroidConversationMode;
+  kindroidParticipants?: KindroidParticipant[];
+  kindroidGroupMirror?: KindroidGroupMirror | null;
+  kindroidManualSpeakerParticipantId?: string | null;
   modalities: Array<"text" | "audio">;
 };
 

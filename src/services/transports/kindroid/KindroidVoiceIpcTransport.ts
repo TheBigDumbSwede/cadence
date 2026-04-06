@@ -6,6 +6,7 @@ import type {
   Unsubscribe
 } from "../../contracts";
 import type { CadenceEvent } from "../../../shared/voice-events";
+import { stripKindroidNarrationForSpeech } from "./speechText";
 
 export class KindroidVoiceIpcTransport implements LiveConversationTransport {
   readonly id = "kindroid-voice";
@@ -173,6 +174,16 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       return;
     }
 
+    const speechText = stripKindroidNarrationForSpeech(kindroidResponse.text);
+    if (!speechText) {
+      this.emit({
+        type: "session.status",
+        provider: this.id,
+        status: "ready"
+      });
+      return;
+    }
+
     this.emit({
       type: "session.status",
       provider: this.id,
@@ -180,11 +191,11 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
     });
 
     const synthesis = this.config?.model.includes("openai-tts")
-      ? await bridge.openaiSpeech.synthesize(kindroidResponse.text, {
+      ? await bridge.openaiSpeech.synthesize(speechText, {
           voice: this.config?.voice || undefined,
           instructions: this.config?.speechInstructions || undefined
         })
-      : await bridge.elevenlabs.synthesize(kindroidResponse.text, {
+      : await bridge.elevenlabs.synthesize(speechText, {
           voiceId: this.config?.voice || undefined
         });
 

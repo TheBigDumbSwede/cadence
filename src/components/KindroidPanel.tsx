@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SettingsSnapshot } from "../shared/app-settings";
+import type {
+  KindroidConversationMode,
+  KindroidGroupMirror
+} from "../shared/kindroid-group-mirrors";
 import type { KindroidParticipant } from "../shared/kindroid-participants";
 
 type KindroidPanelProps = {
@@ -7,9 +11,13 @@ type KindroidPanelProps = {
   settingsSaveState: "idle" | "saving" | "saved" | "error";
   settingsFeedback: string;
   settingsSnapshot: SettingsSnapshot | null;
-  onSaveParticipants: (update: {
+  onSaveKindroidConfig: (update: {
+    kindroidConversationMode: KindroidConversationMode;
     kindroidParticipants: KindroidParticipant[];
     activeKindroidParticipantId: string | null;
+    kindroidGroupMirrors: KindroidGroupMirror[];
+    activeKindroidGroupMirrorId: string | null;
+    activeKindroidGroupSpeakerParticipantId: string | null;
   }) => Promise<void>;
 };
 
@@ -42,17 +50,35 @@ function createParticipant(defaultTtsProvider: KindroidParticipant["ttsProvider"
   };
 }
 
+function createGroupMirror(): KindroidGroupMirror {
+  return {
+    id: crypto.randomUUID(),
+    groupId: "",
+    displayName: "",
+    participantIds: [],
+    manualTurnTaking: false
+  };
+}
+
 export function KindroidPanel({
   settingsLoaded,
   settingsSaveState,
   settingsFeedback,
   settingsSnapshot,
-  onSaveParticipants
+  onSaveKindroidConfig
 }: KindroidPanelProps) {
+  const [kindroidConversationMode, setKindroidConversationMode] =
+    useState<KindroidConversationMode>("solo");
   const [participants, setParticipants] = useState<KindroidParticipant[]>([]);
   const [activeKindroidParticipantId, setActiveKindroidParticipantId] = useState<string | null>(
     null
   );
+  const [groupMirrors, setGroupMirrors] = useState<KindroidGroupMirror[]>([]);
+  const [activeKindroidGroupMirrorId, setActiveKindroidGroupMirrorId] = useState<string | null>(
+    null
+  );
+  const [activeKindroidGroupSpeakerParticipantId, setActiveKindroidGroupSpeakerParticipantId] =
+    useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState("");
 
   useEffect(() => {
@@ -60,14 +86,19 @@ export function KindroidPanel({
       return;
     }
 
+    setKindroidConversationMode(settingsSnapshot.kindroidConversationMode);
     setParticipants(settingsSnapshot.kindroidParticipants);
     setActiveKindroidParticipantId(settingsSnapshot.activeKindroidParticipantId);
+    setGroupMirrors(settingsSnapshot.kindroidGroupMirrors);
+    setActiveKindroidGroupMirrorId(settingsSnapshot.activeKindroidGroupMirrorId);
+    setActiveKindroidGroupSpeakerParticipantId(
+      settingsSnapshot.activeKindroidGroupSpeakerParticipantId
+    );
     setValidationMessage("");
   }, [settingsSnapshot]);
 
   const saveDisabled = !settingsLoaded || settingsSaveState === "saving";
   const defaultTtsProvider = settingsSnapshot?.preferences.ttsProvider ?? "none";
-  const activeParticipantValue = activeKindroidParticipantId ?? "";
   const participantNames = useMemo(
     () =>
       participants.map((participant, index) => ({
@@ -75,6 +106,11 @@ export function KindroidPanel({
         label: participant.displayName.trim() || `Participant ${index + 1}`
       })),
     [participants]
+  );
+  const activeGroupMirror =
+    groupMirrors.find((groupMirror) => groupMirror.id === activeKindroidGroupMirrorId) ?? null;
+  const activeGroupParticipants = participants.filter((participant) =>
+    activeGroupMirror?.participantIds.includes(participant.id)
   );
 
   function updateParticipant(
@@ -102,12 +138,48 @@ export function KindroidPanel({
       );
 
       setActiveKindroidParticipantId((currentActiveId) =>
-        currentActiveId === participantId
-          ? nextParticipants[0]?.id ?? null
-          : currentActiveId
+        currentActiveId === participantId ? nextParticipants[0]?.id ?? null : currentActiveId
+      );
+      setGroupMirrors((currentGroups) =>
+        currentGroups.map((groupMirror) => ({
+          ...groupMirror,
+          participantIds: groupMirror.participantIds.filter((id) => id !== participantId)
+        }))
+      );
+      setActiveKindroidGroupSpeakerParticipantId((currentSpeakerId) =>
+        currentSpeakerId === participantId ? null : currentSpeakerId
       );
 
       return nextParticipants;
+    });
+    setValidationMessage("");
+  }
+
+  function updateGroupMirror(
+    groupMirrorId: string,
+    updater: (groupMirror: KindroidGroupMirror) => KindroidGroupMirror
+  ): void {
+    setGroupMirrors((previous) =>
+      previous.map((groupMirror) =>
+        groupMirror.id === groupMirrorId ? updater(groupMirror) : groupMirror
+      )
+    );
+  }
+
+  function addGroupMirror(): void {
+    const nextGroupMirror = createGroupMirror();
+    setGroupMirrors((previous) => [...previous, nextGroupMirror]);
+    setActiveKindroidGroupMirrorId((previous) => previous ?? nextGroupMirror.id);
+    setValidationMessage("");
+  }
+
+  function removeGroupMirror(groupMirrorId: string): void {
+    setGroupMirrors((previous) => {
+      const nextGroups = previous.filter((groupMirror) => groupMirror.id !== groupMirrorId);
+      setActiveKindroidGroupMirrorId((currentActiveId) =>
+        currentActiveId === groupMirrorId ? nextGroups[0]?.id ?? null : currentActiveId
+      );
+      return nextGroups;
     });
     setValidationMessage("");
   }
@@ -127,18 +199,54 @@ export function KindroidPanel({
       return;
     }
 
-    setValidationMessage("");
+    const invalidGroupMirror = groupMirrors.find(
+      (groupMirror) =>
+        !groupMirror.displayName.trim() ||
+        !groupMirror.groupId.trim() ||
+        groupMirror.participantIds.length === 0
+    );
 
+    if (invalidGroupMirror) {
+      setValidationMessage(
+        "Each mirrored group needs a display name, group ID, and at least one participant."
+      );
+      return;
+    }
+
+    const nextConversationMode =
+      kindroidConversationMode === "group" && groupMirrors.length === 0 ? "solo" : kindroidConversationMode;
     const nextActiveParticipantId =
       participants.length === 0
         ? null
         : participants.some((participant) => participant.id === activeKindroidParticipantId)
           ? activeKindroidParticipantId
           : participants[0].id;
+    const nextActiveGroupMirrorId =
+      groupMirrors.length === 0
+        ? null
+        : groupMirrors.some((groupMirror) => groupMirror.id === activeKindroidGroupMirrorId)
+          ? activeKindroidGroupMirrorId
+          : groupMirrors[0].id;
+    const nextActiveGroupMirror =
+      groupMirrors.find((groupMirror) => groupMirror.id === nextActiveGroupMirrorId) ?? null;
+    const nextManualSpeakerParticipantId =
+      nextActiveGroupMirror?.manualTurnTaking
+        ? nextActiveGroupMirror.participantIds.includes(
+            activeKindroidGroupSpeakerParticipantId ?? ""
+          )
+          ? activeKindroidGroupSpeakerParticipantId
+          : nextActiveGroupMirror.participantIds[0] ?? null
+        : null;
 
-    await onSaveParticipants({
+    setValidationMessage("");
+
+    await onSaveKindroidConfig({
+      kindroidConversationMode: nextConversationMode,
       kindroidParticipants: participants,
-      activeKindroidParticipantId: nextActiveParticipantId
+      activeKindroidParticipantId: nextActiveParticipantId,
+      kindroidGroupMirrors: groupMirrors,
+      activeKindroidGroupMirrorId: nextActiveGroupMirrorId,
+      activeKindroidGroupSpeakerParticipantId: nextManualSpeakerParticipantId
     });
   }
 
@@ -148,46 +256,115 @@ export function KindroidPanel({
         <div className="menu-section-header">
           <div>
             <p className="eyebrow">Kindroid</p>
-            <h3 className="panel-title">Participants</h3>
+            <h3 className="panel-title">Conversation routing</h3>
+          </div>
+        </div>
+        <div className="settings-field">
+          <label htmlFor="kindroid-conversation-mode">Conversation mode</label>
+          <select
+            id="kindroid-conversation-mode"
+            className="settings-input"
+            value={kindroidConversationMode}
+            onChange={(event) =>
+              setKindroidConversationMode(event.target.value as KindroidConversationMode)
+            }
+          >
+            <option value="solo">Solo participant</option>
+            <option value="group" disabled={groupMirrors.length === 0}>
+              Mirrored group chat
+            </option>
+          </select>
+          <p className="field-status">
+            Group mode mirrors an existing Kindroid group locally. Cadence does not create or
+            manage the group itself.
+          </p>
+        </div>
+
+        {kindroidConversationMode === "solo" ? (
+          <div className="settings-field">
+            <label htmlFor="active-kindroid-participant">Active Kindroid</label>
+            <select
+              id="active-kindroid-participant"
+              className="settings-input"
+              value={activeKindroidParticipantId ?? ""}
+              onChange={(event) => setActiveKindroidParticipantId(event.target.value || null)}
+            >
+              <option value="">No active participant</option>
+              {participantNames.map((participant) => (
+                <option key={participant.id} value={participant.id}>
+                  {participant.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <>
+            <div className="settings-field">
+              <label htmlFor="active-kindroid-group">Active mirrored group</label>
+              <select
+                id="active-kindroid-group"
+                className="settings-input"
+                value={activeKindroidGroupMirrorId ?? ""}
+                onChange={(event) => setActiveKindroidGroupMirrorId(event.target.value || null)}
+              >
+                <option value="">No active group</option>
+                {groupMirrors.map((groupMirror) => (
+                  <option key={groupMirror.id} value={groupMirror.id}>
+                    {groupMirror.displayName.trim() || groupMirror.groupId}
+                  </option>
+                ))}
+              </select>
+              <p className="field-status">
+                This must match the real Kindroid group roster exactly, including participant
+                membership.
+              </p>
+            </div>
+            {activeGroupMirror?.manualTurnTaking ? (
+              <div className="settings-field">
+                <label htmlFor="active-kindroid-group-speaker">Manual next speaker</label>
+                <select
+                  id="active-kindroid-group-speaker"
+                  className="settings-input"
+                  value={activeKindroidGroupSpeakerParticipantId ?? ""}
+                  onChange={(event) =>
+                    setActiveKindroidGroupSpeakerParticipantId(event.target.value || null)
+                  }
+                >
+                  <option value="">No speaker selected</option>
+                  {activeGroupParticipants.map((participant) => (
+                    <option key={participant.id} value={participant.id}>
+                      {participant.displayName}
+                    </option>
+                  ))}
+                </select>
+                <p className="field-status">
+                  Manual-turn groups use this participant for the next reply.
+                </p>
+              </div>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      <section className="menu-section">
+        <div className="menu-section-header">
+          <div>
+            <p className="eyebrow">Participants</p>
+            <h3 className="panel-title">Roster</h3>
           </div>
           <button type="button" className="secondary-button" onClick={addParticipant}>
             Add Participant
           </button>
         </div>
         <p className="setting-copy">
-          Configure the active Kindroid roster here. Solo chat is just the one-participant case;
-          future group routing will reuse the same entries.
+          Solo chat and group mirrors both reference this local participant roster.
         </p>
-        <div className="settings-field">
-          <label htmlFor="active-kindroid-participant">Active Kindroid</label>
-          <select
-            id="active-kindroid-participant"
-            className="settings-input"
-            value={activeParticipantValue}
-            onChange={(event) =>
-              setActiveKindroidParticipantId(event.target.value || null)
-            }
-          >
-            <option value="">No active participant</option>
-            {participantNames.map((participant) => (
-              <option key={participant.id} value={participant.id}>
-                {participant.label}
-              </option>
-            ))}
-          </select>
-          <p className="field-status">
-            This participant drives the current Kindroid solo conversation and bubble naming.
-          </p>
-        </div>
-      </section>
-
-      <section className="menu-section">
         <div className="kindroid-participant-list">
           {participants.length === 0 ? (
             <article className="setting-card">
               <strong>No participants yet</strong>
               <p className="setting-copy">
-                Add one or more Kindroids here, then select the active one by name.
+                Add one or more Kindroids here before creating mirrored groups.
               </p>
             </article>
           ) : (
@@ -357,10 +534,157 @@ export function KindroidPanel({
       </section>
 
       <section className="menu-section">
+        <div className="menu-section-header">
+          <div>
+            <p className="eyebrow">Groups</p>
+            <h3 className="panel-title">Mirrored group chats</h3>
+          </div>
+          <button type="button" className="secondary-button" onClick={addGroupMirror}>
+            Add Group Mirror
+          </button>
+        </div>
+        <p className="setting-copy">
+          Mirror the Kindroid group locally by storing the exact group ID and exact participant
+          roster Cadence should expect.
+        </p>
+        <div className="kindroid-participant-list">
+          {groupMirrors.length === 0 ? (
+            <article className="setting-card">
+              <strong>No mirrored groups yet</strong>
+              <p className="setting-copy">
+                Create a group in Kindroid first, then mirror its ID and roster here.
+              </p>
+            </article>
+          ) : (
+            groupMirrors.map((groupMirror, index) => (
+              <article key={groupMirror.id} className="setting-card kindroid-participant-card">
+                <div className="kindroid-participant-header">
+                  <strong>{groupMirror.displayName.trim() || `Group ${index + 1}`}</strong>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => removeGroupMirror(groupMirror.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div className="settings-field">
+                  <label htmlFor={`kindroid-group-display-name-${groupMirror.id}`}>
+                    Display name
+                  </label>
+                  <input
+                    id={`kindroid-group-display-name-${groupMirror.id}`}
+                    className="settings-input"
+                    type="text"
+                    value={groupMirror.displayName}
+                    onChange={(event) =>
+                      updateGroupMirror(groupMirror.id, (current) => ({
+                        ...current,
+                        displayName: event.target.value
+                      }))
+                    }
+                    placeholder="Wizards of the Glass House"
+                  />
+                </div>
+
+                <div className="settings-field">
+                  <label htmlFor={`kindroid-group-id-${groupMirror.id}`}>Group ID</label>
+                  <input
+                    id={`kindroid-group-id-${groupMirror.id}`}
+                    className="settings-input"
+                    type="text"
+                    value={groupMirror.groupId}
+                    onChange={(event) =>
+                      updateGroupMirror(groupMirror.id, (current) => ({
+                        ...current,
+                        groupId: event.target.value
+                      }))
+                    }
+                    placeholder="group ID"
+                  />
+                </div>
+
+                <div className="settings-field">
+                  <label>Turn-taking</label>
+                  <div className="settings-inline-actions">
+                    <button
+                      type="button"
+                      className={`secondary-button ${!groupMirror.manualTurnTaking ? "active" : ""}`}
+                      onClick={() =>
+                        updateGroupMirror(groupMirror.id, (current) => ({
+                          ...current,
+                          manualTurnTaking: false
+                        }))
+                      }
+                    >
+                      Automatic
+                    </button>
+                    <button
+                      type="button"
+                      className={`secondary-button ${groupMirror.manualTurnTaking ? "active" : ""}`}
+                      onClick={() =>
+                        updateGroupMirror(groupMirror.id, (current) => ({
+                          ...current,
+                          manualTurnTaking: true
+                        }))
+                      }
+                    >
+                      Manual
+                    </button>
+                  </div>
+                </div>
+
+                <div className="settings-field">
+                  <label>Participants</label>
+                  <div className="kindroid-group-participant-picks">
+                    {participantNames.length === 0 ? (
+                      <p className="field-status">
+                        Add participants first, then mirror the group membership here.
+                      </p>
+                    ) : (
+                      participantNames.map((participant) => {
+                        const selected = groupMirror.participantIds.includes(participant.id);
+
+                        return (
+                          <label
+                            key={participant.id}
+                            className={`kindroid-group-participant-pick ${selected ? "active" : ""}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={(event) =>
+                                updateGroupMirror(groupMirror.id, (current) => ({
+                                  ...current,
+                                  participantIds: event.target.checked
+                                    ? [...current.participantIds, participant.id]
+                                    : current.participantIds.filter((id) => id !== participant.id)
+                                }))
+                              }
+                            />
+                            <span>{participant.label}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="menu-section">
         <div className="settings-toolbar">
           <div className="settings-feedback">
             <strong>{settingsSaveState === "error" ? "Save failed" : "Kindroid"}</strong>
-            <span>{validationMessage || settingsFeedback || "Save the current participant roster."}</span>
+            <span>
+              {validationMessage ||
+                settingsFeedback ||
+                "Save the current participant roster and mirrored groups."}
+            </span>
           </div>
           <button
             type="button"

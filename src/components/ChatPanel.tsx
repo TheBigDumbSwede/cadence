@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import type { ConversationTurn } from "../shared/conversation-types";
 import type { InteractionMode } from "../shared/interaction-mode";
 import type { TextBackendProvider } from "../shared/backend-provider";
@@ -10,6 +10,7 @@ type ChatPanelProps = {
   canStartNewChat: boolean;
   configured: boolean;
   connectionReady: boolean;
+  conversationSummaryOverride?: string;
   hotMicMuted: boolean;
   inputText: string;
   isRecording: boolean;
@@ -27,6 +28,49 @@ type ChatPanelProps = {
   stopRecording: () => Promise<void>;
   submitText: () => Promise<void>;
 };
+
+type MessageSegment = {
+  text: string;
+  narration: boolean;
+};
+
+function parseMessageSegments(text: string): MessageSegment[] {
+  const matches = text.match(/\*[^*]+\*|[^*]+/g);
+  if (!matches) {
+    return [];
+  }
+
+  return matches.map((segment) => {
+    const narration = segment.startsWith("*") && segment.endsWith("*") && segment.length >= 2;
+
+    return {
+      text: narration ? segment.slice(1, -1) : segment,
+      narration
+    };
+  });
+}
+
+function renderMessageText(text: string) {
+  const segments = parseMessageSegments(text);
+
+  return segments.map((segment, segmentIndex) => {
+    const lines = segment.text.split("\n");
+
+    return (
+      <span
+        key={`segment-${segmentIndex}`}
+        className={`message-segment ${segment.narration ? "narration" : "dialogue"}`}
+      >
+        {lines.map((line, lineIndex) => (
+          <Fragment key={`line-${segmentIndex}-${lineIndex}`}>
+            {line}
+            {lineIndex < lines.length - 1 ? <br /> : null}
+          </Fragment>
+        ))}
+      </span>
+    );
+  });
+}
 
 function buildVoiceSummary(voiceBackend: VoiceBackendProvider, ttsProvider: TtsProvider): string {
   if (voiceBackend === "openai") {
@@ -52,6 +96,7 @@ export function ChatPanel({
   canStartNewChat,
   configured,
   connectionReady,
+  conversationSummaryOverride,
   hotMicMuted,
   inputText,
   isRecording,
@@ -71,11 +116,12 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const canSendText = connectionReady && inputText.trim().length > 0;
   const conversationSummary =
-    mode === "voice"
+    conversationSummaryOverride ??
+    (mode === "voice"
       ? buildVoiceSummary(voiceBackend, ttsProvider)
       : textBackend === "kindroid"
         ? "Kindroid"
-        : "Text-only";
+        : "Text-only");
   const pushToTalkEnabled = mode === "voice" && voiceInputMode === "push_to_talk";
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
@@ -165,7 +211,7 @@ export function ChatPanel({
                 <strong>{turn.speakerLabel ?? (turn.speaker === "assistant" ? "Cadence" : "You")}</strong>
                 <span>{turn.timestamp}</span>
               </p>
-              <p className="message-text">{turn.text}</p>
+              <p className="message-text">{renderMessageText(turn.text)}</p>
             </article>
           ))
         )}
