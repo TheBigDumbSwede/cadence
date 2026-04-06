@@ -239,7 +239,10 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       return;
     }
 
-    const speechText = stripKindroidNarrationForSpeech(response);
+    const speechText = stripKindroidNarrationForSpeech(response, {
+      enabled: respondingParticipant.filterNarrationForTts,
+      delimiter: respondingParticipant.narrationDelimiter
+    });
     if (!speechText) {
       this.emit({
         type: "session.status",

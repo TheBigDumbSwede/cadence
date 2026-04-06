@@ -15,6 +15,7 @@ export type TransportConfig = {
   instructions: string;
   speechInstructions?: string;
   kindroidConversationMode?: KindroidConversationMode;
+  kindroidActiveParticipant?: KindroidParticipant | null;
   kindroidParticipants?: KindroidParticipant[];
   kindroidGroupMirror?: KindroidGroupMirror | null;
   kindroidManualSpeakerParticipantId?: string | null;

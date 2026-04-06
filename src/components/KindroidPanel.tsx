@@ -44,6 +44,8 @@ function createParticipant(defaultTtsProvider: KindroidParticipant["ttsProvider"
     displayName: "",
     bubbleName: "",
     ttsProvider: defaultTtsProvider,
+    filterNarrationForTts: true,
+    narrationDelimiter: "*",
     openAiVoice: "",
     openAiInstructions: "",
     elevenLabsVoiceId: ""
@@ -458,6 +460,62 @@ export function KindroidPanel({
                       <option value="openai">OpenAI speech</option>
                       <option value="elevenlabs">ElevenLabs speech</option>
                     </select>
+                  </div>
+
+                  <div className="settings-field">
+                    <label>Narration filter</label>
+                    <div className="settings-inline-actions">
+                      <button
+                        type="button"
+                        className={`secondary-button ${participant.filterNarrationForTts ? "active" : ""}`}
+                        onClick={() =>
+                          updateParticipant(participant.id, (current) => ({
+                            ...current,
+                            filterNarrationForTts: true
+                          }))
+                        }
+                      >
+                        Enabled
+                      </button>
+                      <button
+                        type="button"
+                        className={`secondary-button ${!participant.filterNarrationForTts ? "active" : ""}`}
+                        onClick={() =>
+                          updateParticipant(participant.id, (current) => ({
+                            ...current,
+                            filterNarrationForTts: false
+                          }))
+                        }
+                      >
+                        Disabled
+                      </button>
+                    </div>
+                    <p className="field-status">
+                      Strips narration from this Kin’s speech output only. Transcript text stays
+                      intact.
+                    </p>
+                  </div>
+
+                  <div className="settings-field">
+                    <label htmlFor={`kindroid-narration-delimiter-${participant.id}`}>
+                      Narration delimiter
+                    </label>
+                    <input
+                      id={`kindroid-narration-delimiter-${participant.id}`}
+                      className="settings-input"
+                      type="text"
+                      value={participant.narrationDelimiter}
+                      onChange={(event) =>
+                        updateParticipant(participant.id, (current) => ({
+                          ...current,
+                          narrationDelimiter: event.target.value
+                        }))
+                      }
+                      placeholder="*"
+                    />
+                    <p className="field-status">
+                      Single delimiter token used on both sides, for example `*narration*`.
+                    </p>
                   </div>
 
                   {participant.ttsProvider === "openai" ? (

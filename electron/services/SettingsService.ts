@@ -52,6 +52,7 @@ const DEFAULT_PREFERENCES: SettingsPreferences = {
 const DEFAULT_KINDROID_BASE_URL = "https://api.kindroid.ai/v1";
 const DEFAULT_KINDROID_GREETING = "Hello.";
 const DEFAULT_KINDROID_CONVERSATION_MODE: KindroidConversationMode = "solo";
+const DEFAULT_KINDROID_NARRATION_DELIMITER = "*";
 const LEGACY_KINDROID_PARTICIPANT_ID = "legacy-kindroid";
 const MAX_RECENT_AVATARS = 6;
 
@@ -502,6 +503,10 @@ export class SettingsService {
           displayName,
           bubbleName,
           ttsProvider,
+          filterNarrationForTts: participant?.filterNarrationForTts ?? true,
+          narrationDelimiter:
+            normalizeValue(participant?.narrationDelimiter) ||
+            DEFAULT_KINDROID_NARRATION_DELIMITER,
           openAiVoice: normalizeValue(participant?.openAiVoice),
           openAiInstructions: normalizeValue(participant?.openAiInstructions),
           elevenLabsVoiceId: normalizeValue(participant?.elevenLabsVoiceId)
@@ -635,6 +640,8 @@ export class SettingsService {
       displayName: "Kindroid",
       bubbleName: "Kindroid",
       ttsProvider,
+      filterNarrationForTts: true,
+      narrationDelimiter: DEFAULT_KINDROID_NARRATION_DELIMITER,
       openAiVoice: this.getOpenAiTtsVoice(),
       openAiInstructions: this.getOpenAiTtsInstructions(),
       elevenLabsVoiceId: this.getElevenLabsVoiceId() ?? ""

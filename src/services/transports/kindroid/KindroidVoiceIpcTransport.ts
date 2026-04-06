@@ -174,7 +174,11 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       return;
     }
 
-    const speechText = stripKindroidNarrationForSpeech(kindroidResponse.text);
+    const speechText = stripKindroidNarrationForSpeech(kindroidResponse.text, {
+      enabled: this.config?.kindroidActiveParticipant?.filterNarrationForTts ?? true,
+      delimiter:
+        this.config?.kindroidActiveParticipant?.narrationDelimiter || "*"
+    });
     if (!speechText) {
       this.emit({
         type: "session.status",

@@ -338,8 +338,21 @@ export function useCadenceController() {
     text: string,
     kindroidParticipantId?: string
   ): void {
+    const speakingParticipant =
+      voiceBackend === "kindroid"
+        ? usesKindroidGroupConversation
+          ? settingsSnapshot?.kindroidParticipants.find(
+              (participant) => participant.id === kindroidParticipantId
+            ) ?? activeKindroidGroupSpeakerParticipant
+          : activeKindroidParticipant
+        : null;
     const speechText =
-      voiceBackend === "kindroid" ? stripKindroidNarrationForSpeech(text) : text.trim();
+      voiceBackend === "kindroid"
+        ? stripKindroidNarrationForSpeech(text, {
+            enabled: speakingParticipant?.filterNarrationForTts ?? true,
+            delimiter: speakingParticipant?.narrationDelimiter || "*"
+          })
+        : text.trim();
 
     if (
       mode !== "voice" ||
@@ -1242,17 +1255,20 @@ export function useCadenceController() {
                 }
             : effectiveKindroidTtsProvider === "none"
               ? {
-                  ...defaultKindroidVoiceTextOnlyConfig
+                  ...defaultKindroidVoiceTextOnlyConfig,
+                  kindroidActiveParticipant: activeKindroidParticipant
                 }
               : effectiveKindroidTtsProvider === "openai"
                 ? {
                     ...defaultKindroidVoiceOpenAiTtsConfig,
+                    kindroidActiveParticipant: activeKindroidParticipant,
                     voice: activeKindroidParticipant?.openAiVoice ?? "",
                     speechInstructions:
                       activeKindroidParticipant?.openAiInstructions || undefined
                   }
                 : {
                     ...defaultKindroidVoiceTransportConfig,
+                    kindroidActiveParticipant: activeKindroidParticipant,
                     voice: activeKindroidParticipant?.elevenLabsVoiceId ?? ""
                   }
           : voiceBackend === "openai-batch"
