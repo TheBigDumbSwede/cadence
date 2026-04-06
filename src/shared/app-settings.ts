@@ -23,9 +23,11 @@ export type AvatarSelection = {
 export type SettingsSnapshot = {
   preferences: SettingsPreferences;
   openAiTtsVoice: string;
+  openAiTtsInstructions: string;
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;
+  kindroidExperimentalEnabled: boolean;
   kindroidGreeting: string;
   avatar: AvatarSelection | null;
   recentAvatars: AvatarSelection[];
@@ -38,9 +40,11 @@ export type SettingsSnapshot = {
 export type SettingsUpdate = {
   preferences: SettingsPreferences;
   openAiTtsVoice: string;
+  openAiTtsInstructions: string;
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;
+  kindroidExperimentalEnabled: boolean;
   kindroidGreeting: string;
   openAiApiKey?: string;
   elevenLabsApiKey?: string;

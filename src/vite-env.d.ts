@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import type { ElevenLabsBridge } from "./shared/elevenlabs-control";
+import type { KindroidExperimentalBridge } from "./shared/kindroid-experimental-control";
 import type { KindroidBridge } from "./shared/kindroid-control";
 import type { OpenAiAudioBridge } from "./shared/openai-audio-control";
 import type { OpenAiSpeechBridge } from "./shared/openai-speech-control";
@@ -15,6 +16,7 @@ declare global {
       elevenlabs: ElevenLabsBridge;
       getRuntimeInfo: () => Promise<RuntimeInfo>;
       kindroid: KindroidBridge;
+      kindroidExperimental: KindroidExperimentalBridge;
       openaiAudio: OpenAiAudioBridge;
       openaiSpeech: OpenAiSpeechBridge;
       realtime: RealtimeBridge;

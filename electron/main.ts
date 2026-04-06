@@ -4,6 +4,7 @@ import { app, BrowserWindow } from "electron";
 import path from "node:path";
 import { registerAppIpc } from "./ipc/app";
 import { registerElevenLabsIpc } from "./ipc/elevenlabs";
+import { registerKindroidExperimentalIpc } from "./ipc/kindroid-experimental";
 import { registerKindroidIpc } from "./ipc/kindroid";
 import { registerOpenAiAudioIpc } from "./ipc/openai-audio";
 import { registerOpenAiSpeechIpc } from "./ipc/openai-speech";
@@ -64,6 +65,7 @@ function createMainWindow(): BrowserWindow {
 app.whenReady().then(() => {
   registerAppIpc();
   registerElevenLabsIpc();
+  registerKindroidExperimentalIpc();
   registerKindroidIpc();
   registerOpenAiAudioIpc();
   registerOpenAiSpeechIpc();

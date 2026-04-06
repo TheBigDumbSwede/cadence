@@ -431,6 +431,11 @@ export function useCadenceController() {
                       value: openAiSpeechState.voice ?? undefined
                     },
                     {
+                      label: "OPENAI_TTS_INSTRUCTIONS",
+                      present: Boolean(openAiSpeechState.instructions),
+                      value: openAiSpeechState.instructions || undefined
+                    },
+                    {
                       label: "TTS model",
                       present: Boolean(openAiSpeechState.model),
                       value: openAiSpeechState.model ?? undefined
@@ -516,6 +521,11 @@ export function useCadenceController() {
                     label: "OPENAI_TTS_VOICE",
                     present: Boolean(openAiSpeechState.voice),
                     value: openAiSpeechState.voice ?? undefined
+                  },
+                  {
+                    label: "OPENAI_TTS_INSTRUCTIONS",
+                    present: Boolean(openAiSpeechState.instructions),
+                    value: openAiSpeechState.instructions || undefined
                   },
                   {
                     label: "TTS model",

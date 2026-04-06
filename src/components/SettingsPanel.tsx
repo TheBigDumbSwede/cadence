@@ -80,6 +80,7 @@ export function SettingsPanel({
   const [openAiApiKey, setOpenAiApiKey] = useState("");
   const [clearOpenAiApiKey, setClearOpenAiApiKey] = useState(false);
   const [openAiTtsVoice, setOpenAiTtsVoice] = useState("");
+  const [openAiTtsInstructions, setOpenAiTtsInstructions] = useState("");
   const [elevenLabsApiKey, setElevenLabsApiKey] = useState("");
   const [clearElevenLabsApiKey, setClearElevenLabsApiKey] = useState(false);
   const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState("");
@@ -87,6 +88,7 @@ export function SettingsPanel({
   const [clearKindroidApiKey, setClearKindroidApiKey] = useState(false);
   const [kindroidAiId, setKindroidAiId] = useState("");
   const [kindroidBaseUrl, setKindroidBaseUrl] = useState("");
+  const [kindroidExperimentalEnabled, setKindroidExperimentalEnabled] = useState(false);
   const [kindroidGreeting, setKindroidGreeting] = useState("");
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function SettingsPanel({
     setOpenAiApiKey("");
     setClearOpenAiApiKey(false);
     setOpenAiTtsVoice(settingsSnapshot.openAiTtsVoice);
+    setOpenAiTtsInstructions(settingsSnapshot.openAiTtsInstructions);
     setElevenLabsApiKey("");
     setClearElevenLabsApiKey(false);
     setElevenLabsVoiceId(settingsSnapshot.elevenLabsVoiceId);
@@ -104,6 +107,7 @@ export function SettingsPanel({
     setClearKindroidApiKey(false);
     setKindroidAiId(settingsSnapshot.kindroidAiId);
     setKindroidBaseUrl(settingsSnapshot.kindroidBaseUrl);
+    setKindroidExperimentalEnabled(settingsSnapshot.kindroidExperimentalEnabled);
     setKindroidGreeting(settingsSnapshot.kindroidGreeting);
   }, [settingsSnapshot]);
 
@@ -459,6 +463,21 @@ export function SettingsPanel({
                 ))}
               </select>
             </div>
+            <div className="settings-field">
+              <label htmlFor="openai-tts-instructions">TTS instructions</label>
+              <textarea
+                id="openai-tts-instructions"
+                className="settings-input"
+                rows={4}
+                value={openAiTtsInstructions}
+                onChange={(event) => setOpenAiTtsInstructions(event.target.value)}
+                placeholder="Speak in a calm, warm, lightly accented tone."
+              />
+              <p className="field-status">
+                Optional delivery guidance for OpenAI batch speech output, such as tone, pacing,
+                accent, or affect.
+              </p>
+            </div>
           </article>
 
           <article className="setting-card">
@@ -583,6 +602,24 @@ export function SettingsPanel({
               />
             </div>
             <div className="settings-field">
+              <label>Experimental endpoints</label>
+              <div className="settings-inline-actions">
+                <button
+                  type="button"
+                  className={`secondary-button ${kindroidExperimentalEnabled ? "active" : ""}`}
+                  onClick={() =>
+                    setKindroidExperimentalEnabled((previous) => !previous)
+                  }
+                >
+                  {kindroidExperimentalEnabled ? "Enabled" : "Disabled"}
+                </button>
+              </div>
+              <p className="field-status">
+                Undocumented Kindroid endpoints discovered from community tooling. Keep this off
+                unless you are intentionally using the experimental bridge.
+              </p>
+            </div>
+            <div className="settings-field">
               <label htmlFor="kindroid-greeting">Default chat-break greeting</label>
               <textarea
                 id="kindroid-greeting"
@@ -618,11 +655,13 @@ export function SettingsPanel({
               void onSaveSettings({
                 openAiApiKey: openAiApiKey.trim() || undefined,
                 openAiTtsVoice,
+                openAiTtsInstructions,
                 elevenLabsApiKey: elevenLabsApiKey.trim() || undefined,
                 elevenLabsVoiceId,
                 kindroidAiId,
                 kindroidApiKey: kindroidApiKey.trim() || undefined,
                 kindroidBaseUrl,
+                kindroidExperimentalEnabled,
                 kindroidGreeting,
                 clearOpenAiApiKey,
                 clearElevenLabsApiKey,

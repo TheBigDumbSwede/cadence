@@ -1,8 +1,8 @@
 import { ipcMain } from "electron";
-import { KindroidClient } from "../services/KindroidClient";
+import { OfficialKindroidClient } from "../services/kindroid/official/OfficialKindroidClient";
 
 export function registerKindroidIpc(): void {
-  const client = new KindroidClient();
+  const client = new OfficialKindroidClient();
 
   ipcMain.handle("kindroid:get-state", () => client.getState());
   ipcMain.handle(

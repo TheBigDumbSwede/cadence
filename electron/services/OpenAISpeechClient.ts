@@ -11,6 +11,10 @@ export class OpenAISpeechClient {
     return getSettingsService().getOpenAiTtsVoice() ?? DEFAULT_VOICE;
   }
 
+  private getInstructions(): string {
+    return getSettingsService().getOpenAiTtsInstructions();
+  }
+
   isConfigured(): boolean {
     return Boolean(getSettingsService().getOpenAiApiKey());
   }
@@ -20,13 +24,14 @@ export class OpenAISpeechClient {
       configured: this.isConfigured(),
       apiKeyPresent: this.isConfigured(),
       model: DEFAULT_MODEL,
-      voice: this.getVoice()
+      voice: this.getVoice(),
+      instructions: this.getInstructions()
     };
   }
 
   async synthesize(
     text: string,
-    options?: { voice?: string }
+    options?: { voice?: string; instructions?: string }
   ): Promise<{ audio: ArrayBuffer; format: "mp3"; model: string; voice: string }> {
     if (!this.isConfigured()) {
       throw new Error("OPENAI_API_KEY is not configured.");
@@ -34,6 +39,7 @@ export class OpenAISpeechClient {
     const apiKey = getSettingsService().getOpenAiApiKey();
 
     const voice = options?.voice || this.getVoice();
+    const instructions = options?.instructions ?? this.getInstructions();
     const response = await fetch(SPEECH_URL, {
       method: "POST",
       headers: {
@@ -44,7 +50,8 @@ export class OpenAISpeechClient {
         model: DEFAULT_MODEL,
         voice,
         input: text,
-        format: "mp3"
+        format: "mp3",
+        ...(instructions ? { instructions } : {})
       })
     });
 

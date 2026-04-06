@@ -1,5 +1,23 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { ElevenLabsBridge, ElevenLabsControlState } from "../src/shared/elevenlabs-control";
+import type {
+  CreateGroupChatOptions,
+  CreateJournalEntryOptions,
+  CreateKinOptions,
+  GroupChatAiResponseOptions,
+  GroupChatGetTurnOptions,
+  KindroidExperimentalBridge,
+  KindroidExperimentalControlState,
+  RequestGroupSelfieOptions,
+  RequestSelfieOptions,
+  SendGroupChatMessageOptions,
+  SubscriptionInfo,
+  SuggestUserGroupMessageOptions,
+  SuggestUserMessageOptions,
+  UpdateGroupChatOptions,
+  UpdateKinOptions,
+  UpdateUserProfileOptions
+} from "../src/shared/kindroid-experimental-control";
 import type { KindroidBridge, KindroidControlState } from "../src/shared/kindroid-control";
 import type { OpenAiAudioBridge, OpenAiAudioControlState } from "../src/shared/openai-audio-control";
 import type { OpenAiSpeechBridge, OpenAiSpeechControlState } from "../src/shared/openai-speech-control";
@@ -34,6 +52,50 @@ const cadenceBridge = {
     chatBreak: (greeting: string) =>
       ipcRenderer.invoke("kindroid:chat-break", greeting) as Promise<void>
   } satisfies KindroidBridge,
+  kindroidExperimental: {
+    getState: () =>
+      ipcRenderer.invoke("kindroid-experimental:get-state") as Promise<KindroidExperimentalControlState>,
+    account: {
+      checkSubscription: () =>
+        ipcRenderer.invoke("kindroid-experimental:account:check-subscription") as Promise<SubscriptionInfo>
+    },
+    profile: {
+      updateUserProfile: (options: UpdateUserProfileOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:profile:update-user-profile", options) as Promise<void>
+    },
+    kin: {
+      create: (options: CreateKinOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:kin:create", options) as Promise<string>,
+      update: (options: UpdateKinOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:kin:update", options) as Promise<void>,
+      createJournalEntry: (options: CreateJournalEntryOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:kin:create-journal-entry", options) as Promise<void>
+    },
+    media: {
+      requestSelfie: (options: RequestSelfieOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:media:request-selfie", options) as Promise<void>,
+      requestGroupSelfie: (options: RequestGroupSelfieOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:media:request-group-selfie", options) as Promise<void>
+    },
+    groupChats: {
+      create: (options: CreateGroupChatOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:group-chats:create", options) as Promise<string>,
+      update: (options: UpdateGroupChatOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:group-chats:update", options) as Promise<void>,
+      sendMessage: (options: SendGroupChatMessageOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:group-chats:send-message", options) as Promise<string>,
+      getTurn: (options: GroupChatGetTurnOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:group-chats:get-turn", options) as Promise<string>,
+      aiResponse: (options: GroupChatAiResponseOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:group-chats:ai-response", options) as Promise<string>
+    },
+    suggestions: {
+      userMessage: (options: SuggestUserMessageOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:suggestions:user-message", options) as Promise<string>,
+      userGroupMessage: (options: SuggestUserGroupMessageOptions) =>
+        ipcRenderer.invoke("kindroid-experimental:suggestions:user-group-message", options) as Promise<string>
+    }
+  } satisfies KindroidExperimentalBridge,
   openaiAudio: {
     getState: () =>
       ipcRenderer.invoke("openai-audio:get-state") as Promise<OpenAiAudioControlState>,
@@ -46,7 +108,7 @@ const cadenceBridge = {
   openaiSpeech: {
     getState: () =>
       ipcRenderer.invoke("openai-speech:get-state") as Promise<OpenAiSpeechControlState>,
-    synthesize: (text: string, options?: { voice?: string }) =>
+    synthesize: (text: string, options?: { voice?: string; instructions?: string }) =>
       ipcRenderer.invoke("openai-speech:synthesize", text, options) as Promise<{
         audio: ArrayBuffer;
         format: "mp3";

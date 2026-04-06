@@ -1,5 +1,3 @@
-import type { TextTurnInput } from "../services/contracts";
-
 export type KindroidControlState = {
   configured: boolean;
   apiKeyPresent: boolean;

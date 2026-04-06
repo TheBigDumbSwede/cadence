@@ -14,9 +14,11 @@ import type {
 type StoredSettings = {
   preferences?: Partial<SettingsPreferences>;
   openAiTtsVoice?: string;
+  openAiTtsInstructions?: string;
   elevenLabsVoiceId?: string;
   kindroidAiId?: string;
   kindroidBaseUrl?: string;
+  kindroidExperimentalEnabled?: boolean;
   kindroidGreeting?: string;
   avatarPath?: string;
   recentAvatarPaths?: string[];
@@ -44,6 +46,27 @@ function normalizeValue(value: string | undefined | null): string {
   return value?.trim() ?? "";
 }
 
+function parseBooleanEnv(value: string | null): boolean | null {
+  if (!value) {
+    return null;
+  }
+
+  switch (value.trim().toLowerCase()) {
+    case "1":
+    case "true":
+    case "yes":
+    case "on":
+      return true;
+    case "0":
+    case "false":
+    case "no":
+    case "off":
+      return false;
+    default:
+      return null;
+  }
+}
+
 export class SettingsService {
   private cache: StoredSettings | null = null;
 
@@ -61,9 +84,11 @@ export class SettingsService {
         voiceBackend: stored.preferences?.voiceBackend ?? DEFAULT_PREFERENCES.voiceBackend
       },
       openAiTtsVoice: this.getOpenAiTtsVoice(),
+      openAiTtsInstructions: this.getOpenAiTtsInstructions(),
       elevenLabsVoiceId: this.getElevenLabsVoiceId() ?? "",
       kindroidAiId: this.getKindroidAiId() ?? "",
       kindroidBaseUrl: this.getKindroidBaseUrl(),
+      kindroidExperimentalEnabled: this.getKindroidExperimentalEnabled(),
       kindroidGreeting: this.getKindroidGreeting(),
       avatar: this.getAvatarSelection(),
       recentAvatars: this.getRecentAvatarSelections(),
@@ -86,9 +111,11 @@ export class SettingsService {
       voiceBackend: update.preferences.voiceBackend
     };
     stored.openAiTtsVoice = normalizeValue(update.openAiTtsVoice);
+    stored.openAiTtsInstructions = normalizeValue(update.openAiTtsInstructions);
     stored.elevenLabsVoiceId = normalizeValue(update.elevenLabsVoiceId);
     stored.kindroidAiId = normalizeValue(update.kindroidAiId);
     stored.kindroidBaseUrl = normalizeValue(update.kindroidBaseUrl);
+    stored.kindroidExperimentalEnabled = update.kindroidExperimentalEnabled;
     stored.kindroidGreeting = normalizeValue(update.kindroidGreeting);
     if (typeof update.avatarPath === "string") {
       const normalizedPath = normalizeValue(update.avatarPath);
@@ -160,6 +187,10 @@ export class SettingsService {
     );
   }
 
+  getOpenAiTtsInstructions(): string {
+    return this.getStoredNonSecret("openAiTtsInstructions") ?? this.getEnv("OPENAI_TTS_INSTRUCTIONS") ?? "";
+  }
+
   getElevenLabsApiKey(): string | null {
     return this.getResolvedSecret("elevenLabsApiKey", "ELEVENLABS_API_KEY");
   }
@@ -186,6 +217,15 @@ export class SettingsService {
       this.getEnv("KINDROID_BASE_URL") ??
       DEFAULT_KINDROID_BASE_URL
     );
+  }
+
+  getKindroidExperimentalEnabled(): boolean {
+    const stored = this.readStore().kindroidExperimentalEnabled;
+    if (typeof stored === "boolean") {
+      return stored;
+    }
+
+    return parseBooleanEnv(this.getEnv("KINDROID_EXPERIMENTAL_ENABLED")) ?? false;
   }
 
   getKindroidGreeting(): string {

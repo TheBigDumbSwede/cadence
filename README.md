@@ -94,6 +94,7 @@ Cadence now prefers profile-backed settings stored through the app itself.
 That includes:
 - API keys
 - AI IDs
+- OpenAI batch TTS voice instructions
 - Kindroid new-chat greeting
 - selected stage mode
 - selected voice mode/backend
@@ -101,6 +102,32 @@ That includes:
 - avatar selection
 
 `.env` still works as a fallback for development, but it is no longer the preferred runtime path.
+
+## Kindroid Boundaries
+
+Cadence keeps Kindroid integration in two layers:
+
+- official
+  documented messaging endpoints used by the normal app path
+- experimental
+  undocumented endpoints isolated behind an explicit opt-in flag
+
+That split is intentional. If Kindroid changes undocumented behavior, experimental support should be removable without disturbing the main conversation path.
+
+Experimental capabilities are grouped by responsibility:
+
+- `account`
+  subscription and account-state helpers
+- `profile`
+  user persona/profile updates
+- `kin`
+  Kin creation, Kin updates, and journal entry writes
+- `media`
+  selfie and group selfie requests
+- `groupChats`
+  group chat creation, mutation, and turn orchestration
+- `suggestions`
+  suggested user-message helpers
 
 ## VRM / Stage Notes
 
