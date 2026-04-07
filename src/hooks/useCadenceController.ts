@@ -128,6 +128,7 @@ export function useCadenceController() {
   const recorderRef = useRef<PushToTalkRecorder | null>(null);
   const hotMicRecorderRef = useRef<HotMicRecorder | null>(null);
   const hotMicMutedRef = useRef(false);
+  const settingsFeedbackTimerRef = useRef<number | null>(null);
   const assistantSpeakingRef = useRef(false);
   const playbackSuppressionTimerRef = useRef<number | null>(null);
   const poseHoldTimerRef = useRef<number | null>(null);
@@ -361,6 +362,9 @@ export function useCadenceController() {
       if (playbackSuppressionTimerRef.current !== null) {
         window.clearTimeout(playbackSuppressionTimerRef.current);
       }
+      if (settingsFeedbackTimerRef.current !== null) {
+        window.clearTimeout(settingsFeedbackTimerRef.current);
+      }
     },
     []
   );
@@ -550,6 +554,22 @@ export function useCadenceController() {
 
   function clearPendingConversationHint(): void {
     setPendingConversationHint(null);
+  }
+
+  function clearSettingsFeedbackTimer(): void {
+    if (settingsFeedbackTimerRef.current !== null) {
+      window.clearTimeout(settingsFeedbackTimerRef.current);
+      settingsFeedbackTimerRef.current = null;
+    }
+  }
+
+  function scheduleSettingsFeedbackReset(): void {
+    clearSettingsFeedbackTimer();
+    settingsFeedbackTimerRef.current = window.setTimeout(() => {
+      settingsFeedbackTimerRef.current = null;
+      setSettingsSaveState((previous) => (previous === "saved" ? "idle" : previous));
+      setSettingsFeedback("");
+    }, 1400);
   }
 
   useEffect(() => {
@@ -1782,6 +1802,7 @@ export function useCadenceController() {
   ): Promise<void> {
     const bridge = getCadenceBridge();
 
+    clearSettingsFeedbackTimer();
     setSettingsSaveState("saving");
     setSettingsFeedback("Saving settings...");
 
@@ -1800,9 +1821,11 @@ export function useCadenceController() {
 
       setSettingsSnapshot(snapshot);
       setSettingsSaveState("saved");
-      setSettingsFeedback("Settings saved.");
+      setSettingsFeedback("Saved.");
       setSettingsRevision((previous) => previous + 1);
+      scheduleSettingsFeedbackReset();
     } catch (error) {
+      clearSettingsFeedbackTimer();
       setSettingsSaveState("error");
       setSettingsFeedback(
         error instanceof Error ? error.message : "Failed to save settings."
@@ -1871,6 +1894,19 @@ export function useCadenceController() {
     }
   }
 
+  async function takeBackKindroidGroupTurn(): Promise<void> {
+    if (!usesKindroidGroupConversation || activeKindroidGroupMirror?.manualTurnTaking) {
+      throw new Error("Take Turn Back is only available during automatic Kindroid group turns.");
+    }
+
+    if (pendingConversationHint?.kind === "user") {
+      return;
+    }
+
+    setStatusCopy("Taking the turn back...");
+    await activeSession.interrupt();
+  }
+
   async function chooseAvatarFile(): Promise<AvatarSelection | null> {
     const bridge = getCadenceBridge();
     return bridge.settings.chooseAvatarFile();
@@ -1879,6 +1915,7 @@ export function useCadenceController() {
   async function setAvatar(filePath: string | null): Promise<void> {
     const bridge = getCadenceBridge();
 
+    clearSettingsFeedbackTimer();
     setSettingsSaveState("saving");
     setSettingsFeedback(filePath ? "Updating avatar..." : "Clearing avatar...");
 
@@ -1887,7 +1924,9 @@ export function useCadenceController() {
       setSettingsSnapshot(snapshot);
       setSettingsSaveState("saved");
       setSettingsFeedback(filePath ? "Avatar updated." : "Avatar cleared.");
+      scheduleSettingsFeedbackReset();
     } catch (error) {
+      clearSettingsFeedbackTimer();
       setSettingsSaveState("error");
       setSettingsFeedback(
         error instanceof Error ? error.message : "Failed to update avatar."
@@ -1930,6 +1969,10 @@ export function useCadenceController() {
       pendingConversationHint?.kind === "assistant"
         ? pendingConversationHint
         : null,
+    pendingSceneBreakLabel:
+      usesKindroidGroupConversation && pendingConversationHint?.kind === "user"
+        ? pendingConversationHint.message
+        : null,
     performance: avatarPerformance,
     requestKindroidGroupParticipantTurn,
     saveSettings,
@@ -1943,6 +1986,10 @@ export function useCadenceController() {
     settingsSnapshot,
     kindroidConversationMode,
     kindroidAwaitingUserTurn: pendingConversationHint?.kind === "user",
+    kindroidAutoTurnInProgress:
+      usesKindroidGroupConversation &&
+      !activeKindroidGroupMirror?.manualTurnTaking &&
+      pendingConversationHint?.kind === "assistant",
     usesKindroidGroupConversation,
     voiceBackend,
     voiceInputMode,
@@ -1959,6 +2006,7 @@ export function useCadenceController() {
     stopRecording,
     startNewChat,
     submitText,
+    takeBackKindroidGroupTurn,
     textBackend,
     ttsProvider,
     effectiveTtsProvider,

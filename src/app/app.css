@@ -901,6 +901,30 @@ textarea {
   font-style: italic;
 }
 
+.transcript-scene-break {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 2px 2px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.transcript-scene-break::before,
+.transcript-scene-break::after {
+  content: "";
+  height: 1px;
+  background: rgba(231, 209, 187, 0.1);
+}
+
+.transcript-scene-break span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(231, 209, 187, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+}
+
 .message-segment.dialogue {
   color: var(--text);
 }

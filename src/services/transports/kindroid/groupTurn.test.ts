@@ -55,6 +55,8 @@ function createGroupMirror(overrides?: Partial<KindroidGroupMirror>): KindroidGr
     displayName: "Test Group",
     participantIds: participants.map((participant) => participant.id),
     manualTurnTaking: false,
+    autoTurnLimit: 30,
+    turnPauseMs: 0,
     ...overrides
   };
 }
@@ -125,6 +127,6 @@ describe("resolveKindroidGroupTurn", () => {
         participants,
         transportId: "kindroid-group-text"
       })
-    ).rejects.toThrow("local mirror is out of sync");
+    ).rejects.toThrow("Update the local mirror so it matches the real Kindroid group.");
   });
 });

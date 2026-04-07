@@ -21,14 +21,18 @@ type ChatPanelProps = {
     id: string;
     label: string;
   }>;
+  kindroidShowTakeTurnBack?: boolean;
   mode: InteractionMode;
   newChatPending: boolean;
   openChatBreakDialog: () => void;
   onRequestKindroidGroupParticipantTurn: (participantId: string) => Promise<void>;
+  onTakeKindroidGroupTurnBack: () => Promise<void>;
   pendingAssistantHint?: {
     message: string;
     speakerLabel: string;
   } | null;
+  pendingSceneBreakLabel?: string | null;
+  transcriptDelimiterByParticipantId?: Record<string, string>;
   textBackend: TextBackendProvider;
   ttsProvider: TtsProvider;
   turns: ConversationTurn[];
@@ -46,24 +50,62 @@ type MessageSegment = {
   narration: boolean;
 };
 
-function parseMessageSegments(text: string): MessageSegment[] {
-  const matches = text.match(/\*[^*]+\*|[^*]+/g);
-  if (!matches) {
-    return [];
+function parseMessageSegmentsWithDelimiter(
+  text: string,
+  delimiter: string
+): MessageSegment[] {
+  if (!delimiter) {
+    return text
+      ? [
+          {
+            text,
+            narration: false
+          }
+        ]
+      : [];
   }
 
-  return matches.map((segment) => {
-    const narration = segment.startsWith("*") && segment.endsWith("*") && segment.length >= 2;
+  const segments: MessageSegment[] = [];
+  let cursor = 0;
 
-    return {
-      text: narration ? segment.slice(1, -1) : segment,
-      narration
-    };
-  });
+  while (cursor < text.length) {
+    const start = text.indexOf(delimiter, cursor);
+    if (start < 0) {
+      segments.push({
+        text: text.slice(cursor),
+        narration: false
+      });
+      break;
+    }
+
+    const end = text.indexOf(delimiter, start + delimiter.length);
+    if (end < 0) {
+      segments.push({
+        text: text.slice(cursor),
+        narration: false
+      });
+      break;
+    }
+
+    if (start > cursor) {
+      segments.push({
+        text: text.slice(cursor, start),
+        narration: false
+      });
+    }
+
+    segments.push({
+      text: text.slice(start + delimiter.length, end),
+      narration: true
+    });
+    cursor = end + delimiter.length;
+  }
+
+  return segments.filter((segment) => segment.text.length > 0);
 }
 
-function renderMessageText(text: string) {
-  const segments = parseMessageSegments(text);
+function renderMessageText(text: string, delimiter = "*") {
+  const segments = parseMessageSegmentsWithDelimiter(text, delimiter);
 
   return segments.map((segment, segmentIndex) => {
     const lines = segment.text.split("\n");
@@ -116,11 +158,15 @@ export function ChatPanel({
   kindroidManualTurnTaking,
   kindroidGroupAwaitingUserTurn,
   kindroidGroupParticipants,
+  kindroidShowTakeTurnBack,
   mode,
   newChatPending,
   openChatBreakDialog,
   onRequestKindroidGroupParticipantTurn,
+  onTakeKindroidGroupTurnBack,
   pendingAssistantHint,
+  pendingSceneBreakLabel,
+  transcriptDelimiterByParticipantId,
   textBackend,
   ttsProvider,
   turns,
@@ -136,6 +182,7 @@ export function ChatPanel({
   const showsKindroidGroupControls = kindroidGroupParticipants.length > 0;
   const manualKindroidGroupMode = Boolean(kindroidManualTurnTaking);
   const canTriggerGroupTurn = Boolean(kindroidGroupAwaitingUserTurn);
+  const canTakeTurnBack = Boolean(kindroidShowTakeTurnBack);
   const turnButtonTitle = manualKindroidGroupMode
     ? canTriggerGroupTurn
       ? "Have this Kin reply"
@@ -242,7 +289,14 @@ export function ChatPanel({
                 <strong>{turn.speakerLabel ?? (turn.speaker === "assistant" ? "Cadence" : "You")}</strong>
                 <span>{turn.timestamp}</span>
               </p>
-              <p className="message-text">{renderMessageText(turn.text)}</p>
+              <p className="message-text">
+                {renderMessageText(
+                  turn.text,
+                  turn.kindroidParticipantId
+                    ? transcriptDelimiterByParticipantId?.[turn.kindroidParticipantId] || "*"
+                    : "*"
+                )}
+              </p>
             </article>
           ))
         )}
@@ -257,6 +311,11 @@ export function ChatPanel({
             </p>
             <p className="message-text message-text-pending">{pendingAssistantHint.message}</p>
           </article>
+        ) : null}
+        {pendingSceneBreakLabel ? (
+          <div className="transcript-scene-break" aria-live="polite">
+            <span>{pendingSceneBreakLabel}</span>
+          </div>
         ) : null}
         <div ref={transcriptEndRef} className="transcript-endcap" />
       </div>
@@ -287,6 +346,18 @@ export function ChatPanel({
                   </button>
                 );
               })}
+              {canTakeTurnBack ? (
+                <button
+                  type="button"
+                  className="secondary-button chat-turn-button"
+                  disabled={!configured || !connectionReady || isRecording || newChatPending}
+                  title="Stop automatic chaining and return the floor to you"
+                  aria-label="Take the turn back"
+                  onClick={() => void onTakeKindroidGroupTurnBack()}
+                >
+                  Take Turn Back
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}

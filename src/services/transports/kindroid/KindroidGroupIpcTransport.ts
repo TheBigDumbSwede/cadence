@@ -17,6 +17,7 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
 
   private readonly listeners = new Set<(event: CadenceEvent) => void>();
   private config: TransportConfig | null = null;
+  private cycleToken = 0;
 
   async connect(config: TransportConfig): Promise<void> {
     this.config = config;
@@ -134,10 +135,17 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
   async interruptAssistant(
     reason: "user_barge_in" | "operator_stop" = "operator_stop"
   ): Promise<void> {
+    this.cycleToken += 1;
     this.emit({
       type: "assistant.interrupted",
       reason
     });
+    this.emit({
+      type: "session.status",
+      provider: this.id,
+      status: "ready"
+    });
+    this.emitUserTurnPending(this.getUserTurnMessage());
   }
 
   subscribe(listener: (event: CadenceEvent) => void): Unsubscribe {
@@ -186,9 +194,16 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
     }
 
     const bridge = getCadenceBridge();
-    const maxTurns = groupMirror.manualTurnTaking ? 1 : MAX_AUTOMATIC_KINDROID_GROUP_TURNS;
+    const maxTurns = groupMirror.manualTurnTaking
+      ? 1
+      : Math.max(1, groupMirror.autoTurnLimit || MAX_AUTOMATIC_KINDROID_GROUP_TURNS);
+    const cycleToken = ++this.cycleToken;
 
     for (let turnIndex = 0; turnIndex < maxTurns; turnIndex += 1) {
+      if (this.isCycleInterrupted(cycleToken)) {
+        return;
+      }
+
       const forcedParticipant =
         turnIndex === 0 && options?.forcedParticipantId
           ? this.resolveParticipantById(options.forcedParticipantId)
@@ -197,18 +212,17 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
         ? { type: "participant" as const, participant: forcedParticipant }
         : await this.resolveTurn();
 
+      if (this.isCycleInterrupted(cycleToken)) {
+        return;
+      }
+
       if (turnResolution.type === "user") {
         this.emit({
           type: "session.status",
           provider: this.id,
           status: "ready"
         });
-        this.emit({
-          type: "conversation.turn.pending",
-          provider: this.id,
-          turnOwner: "user",
-          message: "Your turn."
-        });
+        this.emitUserTurnPending("Your turn.");
         return;
       }
 
@@ -230,6 +244,10 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
         ai_id: respondingParticipant.aiId,
         group_id: groupMirror.groupId
       });
+
+      if (this.isCycleInterrupted(cycleToken)) {
+        return;
+      }
 
       const assistantTurnId = crypto.randomUUID();
       this.emit({
@@ -253,14 +271,11 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
       provider: this.id,
       status: "ready"
     });
-    this.emit({
-      type: "conversation.turn.pending",
-      provider: this.id,
-      turnOwner: "user",
-      message: groupMirror.manualTurnTaking
+    this.emitUserTurnPending(
+      groupMirror.manualTurnTaking
         ? "Choose who replies next."
-        : `Paused after ${MAX_AUTOMATIC_KINDROID_GROUP_TURNS} turns. Your turn.`
-    });
+        : `Paused after ${maxTurns} turns. Your turn.`
+    );
   }
 
   private async resolveTurn() {
@@ -290,11 +305,25 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
       provider: this.id,
       status: "ready"
     });
+    this.emitUserTurnPending(fallbackMessage);
+  }
+
+  private isCycleInterrupted(cycleToken: number): boolean {
+    return this.cycleToken !== cycleToken;
+  }
+
+  private getUserTurnMessage(): string {
+    return this.config?.kindroidGroupMirror?.manualTurnTaking
+      ? "Choose who replies next."
+      : "Your turn.";
+  }
+
+  private emitUserTurnPending(message: string): void {
     this.emit({
       type: "conversation.turn.pending",
       provider: this.id,
       turnOwner: "user",
-      message: fallbackMessage
+      message
     });
   }
 

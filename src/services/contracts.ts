@@ -75,7 +75,8 @@ export interface SpeechOutputAdapter {
     turnId: string,
     sequence: number,
     format: AudioFormat,
-    data: ArrayBuffer
+    data: ArrayBuffer,
+    boundaryGapMs?: number
   ): Promise<void>;
   interrupt(): Promise<void>;
 }

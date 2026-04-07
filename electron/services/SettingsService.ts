@@ -15,6 +15,10 @@ import type {
   KindroidGroupMirror
 } from "../../src/shared/kindroid-group-mirrors";
 import {
+  DEFAULT_KINDROID_GROUP_AUTO_TURN_LIMIT,
+  DEFAULT_KINDROID_GROUP_TURN_PAUSE_MS
+} from "../../src/shared/kindroid-group-mirrors";
+import {
   getDefaultKindroidWaveformAccent,
   getDefaultKindroidWaveformColor,
   KINDROID_WAVEFORM_ACCENT_OPTIONS,
@@ -68,6 +72,26 @@ function normalizeValue(value: string | undefined | null): string {
 function normalizeHexColor(value: string | undefined | null, fallback: string): string {
   const normalized = normalizeValue(value);
   return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : fallback;
+}
+
+function normalizeInteger(
+  value: number | string | undefined | null,
+  fallback: number,
+  minimum: number,
+  maximum: number
+): number {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim()
+        ? Number(value)
+        : Number.NaN;
+
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+
+  return Math.min(maximum, Math.max(minimum, Math.round(numericValue)));
 }
 
 export class SettingsService {
@@ -534,7 +558,19 @@ export class SettingsService {
           groupId,
           displayName,
           participantIds: participantIdsForGroup,
-          manualTurnTaking: Boolean(groupMirror?.manualTurnTaking)
+          manualTurnTaking: Boolean(groupMirror?.manualTurnTaking),
+          autoTurnLimit: normalizeInteger(
+            groupMirror?.autoTurnLimit,
+            DEFAULT_KINDROID_GROUP_AUTO_TURN_LIMIT,
+            1,
+            60
+          ),
+          turnPauseMs: normalizeInteger(
+            groupMirror?.turnPauseMs,
+            DEFAULT_KINDROID_GROUP_TURN_PAUSE_MS,
+            0,
+            5000
+          )
         };
       })
       .filter(

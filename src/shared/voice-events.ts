@@ -53,6 +53,7 @@ export type CadenceEvent =
       sequence: number;
       format: AudioFormat;
       data: ArrayBuffer;
+      boundaryGapMs?: number;
     }
   | {
       type: "assistant.interrupted";

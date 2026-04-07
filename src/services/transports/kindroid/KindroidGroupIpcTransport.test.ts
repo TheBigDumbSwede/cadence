@@ -53,7 +53,9 @@ function createConfig(overrides?: Partial<TransportConfig>): TransportConfig {
       groupId: "kindroid-group-1",
       displayName: "Test Group",
       participantIds: ["participant-1"],
-      manualTurnTaking: true
+      manualTurnTaking: true,
+      autoTurnLimit: 30,
+      turnPauseMs: 0
     },
     ...overrides
   };
@@ -125,6 +127,64 @@ describe("KindroidGroupIpcTransport", () => {
           type: "conversation.turn.pending",
           turnOwner: "user",
           message: "Choose who replies next."
+        })
+      ])
+    );
+  });
+
+  it("returns the floor to the user when automatic chaining is interrupted", async () => {
+    const transport = new KindroidGroupIpcTransport();
+    const events: CadenceEvent[] = [];
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    let resolveFirstResponse!: (value: string) => void;
+    const firstResponse = new Promise<string>((resolve) => {
+      resolveFirstResponse = resolve;
+    });
+    bridgeState.getTurn.mockResolvedValue("ai-1");
+    bridgeState.aiResponse.mockImplementation(() => firstResponse);
+
+    await transport.connect(
+      createConfig({
+        kindroidGroupMirror: {
+          id: "group-1",
+          groupId: "kindroid-group-1",
+          displayName: "Test Group",
+          participantIds: ["participant-1"],
+          manualTurnTaking: false,
+          autoTurnLimit: 30,
+          turnPauseMs: 0
+        }
+      })
+    );
+    events.length = 0;
+
+    const sendPromise = transport.sendUserText("Keep going");
+    await Promise.resolve();
+    await transport.interruptAssistant("operator_stop");
+    resolveFirstResponse("This should not land");
+    await sendPromise;
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "assistant.interrupted",
+          reason: "operator_stop"
+        }),
+        expect.objectContaining({
+          type: "conversation.turn.pending",
+          turnOwner: "user",
+          message: "Your turn."
+        })
+      ])
+    );
+    expect(events).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "assistant.response.completed",
+          text: "This should not land"
         })
       ])
     );

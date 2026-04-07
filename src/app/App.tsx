@@ -39,11 +39,13 @@ export function App() {
     hotMicMuted,
     inputText,
     isRecording,
+    kindroidAutoTurnInProgress,
     kindroidAwaitingUserTurn,
     metrics,
     mode,
     performance,
     pendingAssistantHint,
+    pendingSceneBreakLabel,
     requestKindroidGroupParticipantTurn,
     saveSettings,
     saveKindroidConfig,
@@ -73,6 +75,7 @@ export function App() {
     statusCopy,
     stopRecording,
     submitText,
+    takeBackKindroidGroupTurn,
     topology,
     turns
   } = useCadenceController();
@@ -211,11 +214,28 @@ export function App() {
                 }))
               : []
           }
+          kindroidShowTakeTurnBack={
+            usesKindroidGroupConversation && kindroidBackendActive
+              ? kindroidAutoTurnInProgress
+              : false
+          }
           mode={mode}
           newChatPending={newChatPending}
           openChatBreakDialog={openChatBreakDialog}
           onRequestKindroidGroupParticipantTurn={requestKindroidGroupParticipantTurn}
+          onTakeKindroidGroupTurnBack={takeBackKindroidGroupTurn}
           pendingAssistantHint={pendingAssistantHint}
+          pendingSceneBreakLabel={pendingSceneBreakLabel}
+          transcriptDelimiterByParticipantId={
+            settingsSnapshot
+              ? Object.fromEntries(
+                  settingsSnapshot.kindroidParticipants.map((participant) => [
+                    participant.id,
+                    participant.narrationDelimiter || "*"
+                  ])
+                )
+              : undefined
+          }
           textBackend={textBackend}
           ttsProvider={effectiveTtsProvider}
           turns={turns}

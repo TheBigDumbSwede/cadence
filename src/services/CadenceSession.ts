@@ -32,7 +32,8 @@ export class CadenceSession {
           event.turnId,
           event.sequence,
           event.format,
-          event.data
+          event.data,
+          event.boundaryGapMs
         );
       }
 
@@ -77,7 +78,8 @@ export class CadenceSession {
         event.turnId,
         event.sequence,
         event.format,
-        event.data
+        event.data,
+        event.boundaryGapMs
       );
     }
 

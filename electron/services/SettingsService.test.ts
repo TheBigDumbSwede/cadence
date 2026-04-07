@@ -65,7 +65,9 @@ function createSettingsUpdate() {
         groupId: "kindroid-group-1",
         displayName: "Roster",
         participantIds: ["participant-1", "missing"],
-        manualTurnTaking: true
+        manualTurnTaking: true,
+        autoTurnLimit: 90,
+        turnPauseMs: -50
       }
     ],
     activeKindroidGroupMirrorId: "group-1",
@@ -93,6 +95,8 @@ describe("SettingsService", () => {
     expect(snapshot.kindroidParticipants[0].waveformColor).toBe("#d7955b");
     expect(snapshot.kindroidParticipants[0].waveformAccent).toBe("halo");
     expect(snapshot.kindroidGroupMirrors[0].participantIds).toEqual(["participant-1"]);
+    expect(snapshot.kindroidGroupMirrors[0].autoTurnLimit).toBe(60);
+    expect(snapshot.kindroidGroupMirrors[0].turnPauseMs).toBe(0);
     expect(snapshot.activeKindroidGroupSpeakerParticipantId).toBe("participant-1");
   });
 

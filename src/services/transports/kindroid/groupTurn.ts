@@ -13,7 +13,7 @@ export type KindroidGroupTurnResolution =
       rawTurn: string;
     };
 
-export const MAX_AUTOMATIC_KINDROID_GROUP_TURNS = 5;
+export const MAX_AUTOMATIC_KINDROID_GROUP_TURNS = 30;
 
 export async function resolveKindroidGroupTurn(options: {
   groupMirror: KindroidGroupMirror;
@@ -62,7 +62,10 @@ export async function resolveKindroidGroupTurn(options: {
   }
 
   throw new Error(
-    `Kindroid returned an unknown speaker (${rawTurn}) for group ${groupMirror.groupId}. ` +
-      "The local mirror is out of sync with the real Kindroid group."
+    `Kindroid returned an unknown speaker (${rawTurn}) for mirrored group ` +
+      `"${groupMirror.displayName}" (${groupMirror.groupId}). ` +
+      `Local roster expects one of: ${groupParticipants
+        .map((participant) => `${participant.bubbleName} [${participant.aiId}]`)
+        .join(", ")}. Update the local mirror so it matches the real Kindroid group.`
   );
 }

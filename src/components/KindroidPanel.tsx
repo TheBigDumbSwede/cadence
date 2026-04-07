@@ -5,6 +5,10 @@ import type {
   KindroidGroupMirror
 } from "../shared/kindroid-group-mirrors";
 import {
+  DEFAULT_KINDROID_GROUP_AUTO_TURN_LIMIT,
+  DEFAULT_KINDROID_GROUP_TURN_PAUSE_MS
+} from "../shared/kindroid-group-mirrors";
+import {
   getDefaultKindroidWaveformAccent,
   getDefaultKindroidWaveformColor,
   KINDROID_WAVEFORM_ACCENT_OPTIONS,
@@ -68,7 +72,9 @@ function createGroupMirror(): KindroidGroupMirror {
     groupId: "",
     displayName: "",
     participantIds: [],
-    manualTurnTaking: false
+    manualTurnTaking: false,
+    autoTurnLimit: DEFAULT_KINDROID_GROUP_AUTO_TURN_LIMIT,
+    turnPauseMs: DEFAULT_KINDROID_GROUP_TURN_PAUSE_MS
   };
 }
 
@@ -725,6 +731,58 @@ export function KindroidPanel({
                     </button>
                   </div>
                 </div>
+
+                {!groupMirror.manualTurnTaking ? (
+                  <div className="settings-grid">
+                    <div className="settings-field">
+                      <label htmlFor={`kindroid-group-turn-limit-${groupMirror.id}`}>
+                        Automatic turn cap
+                      </label>
+                      <input
+                        id={`kindroid-group-turn-limit-${groupMirror.id}`}
+                        className="settings-input"
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={groupMirror.autoTurnLimit}
+                        onChange={(event) =>
+                          updateGroupMirror(groupMirror.id, (current) => ({
+                            ...current,
+                            autoTurnLimit: Number(event.target.value) || 1
+                          }))
+                        }
+                      />
+                      <p className="field-status">
+                        Safety ceiling for one automatic scene run before control returns to you.
+                      </p>
+                    </div>
+
+                    <div className="settings-field">
+                      <label htmlFor={`kindroid-group-turn-pause-${groupMirror.id}`}>
+                        Audio turn pause (ms)
+                      </label>
+                      <input
+                        id={`kindroid-group-turn-pause-${groupMirror.id}`}
+                        className="settings-input"
+                        type="number"
+                        min={0}
+                        max={5000}
+                        step={50}
+                        value={groupMirror.turnPauseMs}
+                        onChange={(event) =>
+                          updateGroupMirror(groupMirror.id, (current) => ({
+                            ...current,
+                            turnPauseMs: Number(event.target.value) || 0
+                          }))
+                        }
+                      />
+                      <p className="field-status">
+                        Gap before the next spoken Kin begins playback. This does not slow
+                        Kindroid turn generation.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="settings-field">
                   <label>Participants</label>

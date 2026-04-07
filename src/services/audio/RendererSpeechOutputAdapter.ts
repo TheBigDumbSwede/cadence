@@ -2,11 +2,8 @@ import type { AudioFormat } from "../../shared/voice-events";
 import type { SpeechOutputAdapter, SpeechRequest } from "../contracts";
 import { PcmAudioPlayer } from "./PcmAudioPlayer";
 
-const MINIMUM_TURN_GAP_SECONDS = 0.5;
-
 export class RendererSpeechOutputAdapter implements SpeechOutputAdapter {
   readonly id = "renderer-pcm-output";
-  private lastTurnId: string | null = null;
 
   constructor(private readonly player = new PcmAudioPlayer()) {}
 
@@ -18,11 +15,10 @@ export class RendererSpeechOutputAdapter implements SpeechOutputAdapter {
     turnId: string,
     _sequence: number,
     format: AudioFormat,
-    data: ArrayBuffer
+    data: ArrayBuffer,
+    boundaryGapMs = 0
   ): Promise<void> {
-    const boundaryGapSeconds =
-      this.lastTurnId && this.lastTurnId !== turnId ? MINIMUM_TURN_GAP_SECONDS : 0;
-    this.lastTurnId = turnId;
+    const boundaryGapSeconds = Math.max(0, boundaryGapMs) / 1000;
 
     if (format === "pcm16") {
       await this.player.enqueue(data, { boundaryGapSeconds, turnId });
@@ -35,7 +31,6 @@ export class RendererSpeechOutputAdapter implements SpeechOutputAdapter {
   }
 
   async interrupt(): Promise<void> {
-    this.lastTurnId = null;
     this.player.interrupt();
   }
 }
