@@ -9,6 +9,7 @@ const { bridgeState } = vi.hoisted(() => ({
     kindroidExperimentalGetState: vi.fn(),
     elevenLabsGetState: vi.fn(),
     openAiSpeechGetState: vi.fn(),
+    textCreateResponse: vi.fn(),
     sendMessage: vi.fn(),
     aiResponse: vi.fn(),
     getTurn: vi.fn(),
@@ -37,6 +38,9 @@ vi.mock("../../bridge", () => ({
     openaiSpeech: {
       getState: bridgeState.openAiSpeechGetState,
       synthesize: bridgeState.synthesize
+    },
+    text: {
+      createResponse: bridgeState.textCreateResponse
     }
   })
 }));
@@ -98,6 +102,7 @@ describe("KindroidGroupVoiceIpcTransport", () => {
     bridgeState.kindroidExperimentalGetState.mockReset();
     bridgeState.elevenLabsGetState.mockReset();
     bridgeState.openAiSpeechGetState.mockReset();
+    bridgeState.textCreateResponse.mockReset();
     bridgeState.sendMessage.mockReset();
     bridgeState.aiResponse.mockReset();
     bridgeState.getTurn.mockReset();
@@ -111,6 +116,10 @@ describe("KindroidGroupVoiceIpcTransport", () => {
     });
     bridgeState.elevenLabsGetState.mockResolvedValue({ configured: true, apiKeyPresent: true });
     bridgeState.openAiSpeechGetState.mockResolvedValue({ configured: true });
+    bridgeState.textCreateResponse.mockResolvedValue({
+      text: "not-json",
+      model: "gpt-5-nano"
+    });
   });
 
   it("chains automatic group replies through the voice path until Kindroid returns the user turn", async () => {
@@ -218,6 +227,11 @@ describe("KindroidGroupVoiceIpcTransport", () => {
       audio: new Uint8Array([9, 9, 9]).buffer,
       model: "eleven_sound_effects"
     });
+    bridgeState.synthesizeSoundEffect.mockResolvedValue({
+      format: "mp3",
+      audio: new Uint8Array([9, 9, 9]).buffer,
+      model: "eleven_text_to_sound_v2"
+    });
 
     await transport.connect(config);
     events.length = 0;
@@ -256,7 +270,7 @@ describe("KindroidGroupVoiceIpcTransport", () => {
     config.kindroidParticipants[0].narrationFxEnabled = true;
 
     bridgeState.getTurn.mockResolvedValueOnce("");
-    bridgeState.synthesizeSoundEffect.mockResolvedValueOnce({
+    bridgeState.synthesizeSoundEffect.mockResolvedValue({
       format: "mp3",
       audio: new Uint8Array([7, 7, 7]).buffer,
       model: "eleven_text_to_sound_v2"
@@ -270,7 +284,7 @@ describe("KindroidGroupVoiceIpcTransport", () => {
     );
     await Promise.resolve();
 
-    expect(bridgeState.synthesizeSoundEffect).toHaveBeenCalledTimes(1);
+    expect(bridgeState.synthesizeSoundEffect).toHaveBeenCalledTimes(2);
     expect(events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

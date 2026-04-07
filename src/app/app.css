@@ -532,6 +532,38 @@ textarea {
   text-align: center;
 }
 
+.stage-effect-caption {
+  position: relative;
+  z-index: 1;
+  width: min(580px, calc(100% - 48px));
+  justify-self: center;
+  align-self: start;
+  margin: 18px 0 0;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(11, 9, 8, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.stage-effect-caption.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.stage-effect-caption span {
+  color: var(--text-muted);
+  font-size: 0.94rem;
+  line-height: 1.35;
+  font-style: italic;
+}
+
 .stage-caption strong {
   font-size: 0.78rem;
   color: var(--text-muted);

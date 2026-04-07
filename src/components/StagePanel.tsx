@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { AvatarSelection } from "../shared/app-settings";
 import type { AssistantStateSnapshot } from "../shared/assistant-state";
 import type { AvatarPerformanceSnapshot } from "../shared/performance-directive";
@@ -11,6 +12,7 @@ type StagePanelProps = {
   avatar: AvatarSelection | null;
   avatarPoseDebug: boolean;
   performance: AvatarPerformanceSnapshot;
+  effectCaption: string | null;
   speechCaption: {
     speakerLabel?: string;
     text: string;
@@ -26,11 +28,34 @@ export function StagePanel({
   activeState,
   avatar,
   avatarPoseDebug,
+  effectCaption,
   performance,
   speechCaption,
   stageMode,
   waveformTheme
 }: StagePanelProps) {
+  const [displayedEffectCaption, setDisplayedEffectCaption] = useState(effectCaption);
+  const [effectCaptionVisible, setEffectCaptionVisible] = useState(Boolean(effectCaption));
+
+  useEffect(() => {
+    if (effectCaption) {
+      setDisplayedEffectCaption(effectCaption);
+      setEffectCaptionVisible(true);
+      return;
+    }
+
+    if (!displayedEffectCaption) {
+      return;
+    }
+
+    setEffectCaptionVisible(false);
+    const timer = window.setTimeout(() => {
+      setDisplayedEffectCaption(null);
+    }, 240);
+
+    return () => window.clearTimeout(timer);
+  }, [displayedEffectCaption, effectCaption]);
+
   return (
     <section className={`panel stage stage-state-${activeState.type}`}>
       <div className="stage-header">
@@ -49,6 +74,14 @@ export function StagePanel({
             performance={performance}
           />
         )}
+        {displayedEffectCaption ? (
+          <div
+            className={`stage-effect-caption${effectCaptionVisible ? " is-visible" : ""}`}
+            aria-live="polite"
+          >
+            <span>{displayedEffectCaption}</span>
+          </div>
+        ) : null}
         {speechCaption ? (
           <div className="stage-caption" aria-live="polite">
             {speechCaption.speakerLabel ? (

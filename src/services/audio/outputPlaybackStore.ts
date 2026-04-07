@@ -2,12 +2,14 @@ export type OutputPlaybackSnapshot = {
   activeTurnId: string | null;
   startedAtMs: number | null;
   durationMs: number | null;
+  speechOffsetMs: number | null;
 };
 
 let snapshot: OutputPlaybackSnapshot = {
   activeTurnId: null,
   startedAtMs: null,
-  durationMs: null
+  durationMs: null,
+  speechOffsetMs: null
 };
 
 const listeners = new Set<(next: OutputPlaybackSnapshot) => void>();
@@ -37,6 +39,7 @@ export function resetOutputPlayback(): void {
   publishOutputPlayback({
     activeTurnId: null,
     startedAtMs: null,
-    durationMs: null
+    durationMs: null,
+    speechOffsetMs: null
   });
 }

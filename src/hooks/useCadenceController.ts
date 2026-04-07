@@ -144,6 +144,7 @@ export function useCadenceController() {
     speakerLabel?: string;
     text: string;
   } | null>(null);
+  const [activeEffectCaption, setActiveEffectCaption] = useState<string | null>(null);
   const recorderRef = useRef<PushToTalkRecorder | null>(null);
   const hotMicRecorderRef = useRef<HotMicRecorder | null>(null);
   const hotMicMutedRef = useRef(false);
@@ -155,6 +156,7 @@ export function useCadenceController() {
   const stageTimelineManagedRef = useRef(false);
   const assistantTurnParticipantIdsRef = useRef(new Map<string, string>());
   const assistantTurnCaptionCuesRef = useRef(new Map<string, TurnCaptionTrack>());
+  const assistantTurnEffectCaptionsRef = useRef(new Map<string, string>());
   const pendingUserTurnIdRef = useRef<string | null>(null);
   const bufferedAssistantTurnRef = useRef<{
     turnId: string;
@@ -394,6 +396,7 @@ export function useCadenceController() {
   useEffect(() => {
     const nextEntries = new Map<string, string>();
     const nextCaptionEntries = new Map<string, TurnCaptionTrack>();
+    const nextEffectCaptionEntries = new Map<string, string>();
 
     for (const turn of turns) {
       if (turn.speaker === "assistant" && turn.kindroidParticipantId) {
@@ -402,6 +405,10 @@ export function useCadenceController() {
       const captionTrack = assistantTurnCaptionCuesRef.current.get(turn.id);
       if (turn.speaker === "assistant" && captionTrack) {
         nextCaptionEntries.set(turn.id, captionTrack);
+      }
+      const effectCaption = assistantTurnEffectCaptionsRef.current.get(turn.id);
+      if (turn.speaker === "assistant" && effectCaption) {
+        nextEffectCaptionEntries.set(turn.id, effectCaption);
       }
     }
 
@@ -415,15 +422,22 @@ export function useCadenceController() {
       if (activeCaptionTrack) {
         nextCaptionEntries.set(outputPlayback.activeTurnId, activeCaptionTrack);
       }
+      const activeEffectCaption =
+        assistantTurnEffectCaptionsRef.current.get(outputPlayback.activeTurnId);
+      if (activeEffectCaption) {
+        nextEffectCaptionEntries.set(outputPlayback.activeTurnId, activeEffectCaption);
+      }
     }
 
     assistantTurnParticipantIdsRef.current = nextEntries;
     assistantTurnCaptionCuesRef.current = nextCaptionEntries;
+    assistantTurnEffectCaptionsRef.current = nextEffectCaptionEntries;
   }, [outputPlayback.activeTurnId, turns]);
 
   useEffect(() => {
     if (!outputPlayback.activeTurnId || outputPlayback.startedAtMs === null) {
       setActiveSpeechCaption(null);
+      setActiveEffectCaption(null);
       return;
     }
 
@@ -433,16 +447,17 @@ export function useCadenceController() {
       const captionTrack =
         assistantTurnCaptionCuesRef.current.get(outputPlayback.activeTurnId ?? "") ?? null;
       const elapsedMs = Math.max(0, performance.now() - (outputPlayback.startedAtMs ?? 0));
+      const captionOffsetMs = outputPlayback.speechOffsetMs ?? captionTrack?.offsetMs ?? 0;
       const captionCues =
         captionTrack?.mode === "estimated"
           ? offsetSpeechCaptionCues(
               scaleSpeechCaptionCues(
                 captionTrack.cues,
-                Math.max(0, (outputPlayback.durationMs ?? 0) - captionTrack.offsetMs)
+                Math.max(0, (outputPlayback.durationMs ?? 0) - captionOffsetMs)
               ),
-              captionTrack.offsetMs
+              captionOffsetMs
             )
-          : offsetSpeechCaptionCues(captionTrack?.cues ?? [], captionTrack?.offsetMs ?? 0);
+          : offsetSpeechCaptionCues(captionTrack?.cues ?? [], captionOffsetMs);
       const activeCue = findActiveSpeechCaptionCue(captionCues, elapsedMs);
       const speakerLabel =
         turns.find((turn) => turn.id === outputPlayback.activeTurnId)?.speakerLabel;
@@ -465,6 +480,16 @@ export function useCadenceController() {
         return nextCaption;
       });
 
+      const effectCaption = assistantTurnEffectCaptionsRef.current.get(
+        outputPlayback.activeTurnId ?? ""
+      );
+      const speechOffsetMs = outputPlayback.speechOffsetMs ?? 0;
+      const nextEffectCaption =
+        effectCaption && speechOffsetMs > 0 && elapsedMs < speechOffsetMs ? effectCaption : null;
+      setActiveEffectCaption((previous) =>
+        previous === nextEffectCaption ? previous : nextEffectCaption
+      );
+
       frameId = window.requestAnimationFrame(updateCaption);
     };
 
@@ -472,8 +497,15 @@ export function useCadenceController() {
     return () => {
       window.cancelAnimationFrame(frameId);
       setActiveSpeechCaption(null);
+      setActiveEffectCaption(null);
     };
-  }, [outputPlayback.activeTurnId, outputPlayback.durationMs, outputPlayback.startedAtMs, turns]);
+  }, [
+    outputPlayback.activeTurnId,
+    outputPlayback.durationMs,
+    outputPlayback.speechOffsetMs,
+    outputPlayback.startedAtMs,
+    turns
+  ]);
 
   function clearStagePhaseTimer(): void {
     if (stagePhaseTimerRef.current !== null) {
@@ -1411,10 +1443,14 @@ export function useCadenceController() {
           }
           break;
         case "assistant.audio.effect":
+          if (event.captionText) {
+            assistantTurnEffectCaptionsRef.current.set(event.turnId, event.captionText);
+          }
           break;
         case "assistant.interrupted":
           clearPendingConversationHint();
           clearPlaybackSuppressionTimer();
+          assistantTurnEffectCaptionsRef.current.clear();
           releaseHotMicSuppression();
           bufferedAssistantTurnRef.current = null;
           clearAvatarTimeline();
@@ -1440,6 +1476,7 @@ export function useCadenceController() {
           clearPlaybackSuppressionTimer();
           assistantTurnParticipantIdsRef.current.clear();
           assistantTurnCaptionCuesRef.current.clear();
+          assistantTurnEffectCaptionsRef.current.clear();
           releaseHotMicSuppression();
           clearPendingUserTurn();
           bufferedAssistantTurnRef.current = null;
@@ -1847,6 +1884,7 @@ export function useCadenceController() {
       await activeSession.interrupt();
       clearPendingConversationHint();
       assistantTurnParticipantIdsRef.current.clear();
+      assistantTurnEffectCaptionsRef.current.clear();
       await getCadenceBridge().kindroid.chatBreak(nextGreeting);
       clearPlaybackSuppressionTimer();
       releaseHotMicSuppression();
@@ -2041,6 +2079,7 @@ export function useCadenceController() {
   return {
     activeState,
     activeSpeechCaption,
+    activeEffectCaption,
     activeKindroidGroupMirror,
     activeKindroidGroupParticipants,
     activeKindroidParticipant,

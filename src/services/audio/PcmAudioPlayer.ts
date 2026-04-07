@@ -9,7 +9,7 @@ import {
 
 const TARGET_SAMPLE_RATE = 24000;
 const DEFAULT_START_LEAD_SECONDS = 0.01;
-const DEFAULT_FX_GAIN = 0.34;
+const DEFAULT_FX_GAIN = 0.75;
 const MASTER_HEADROOM_GAIN = 0.96;
 
 type EnqueuePlaybackOptions = {
@@ -17,6 +17,7 @@ type EnqueuePlaybackOptions = {
   startDelaySeconds?: number;
   turnId?: string | null;
   gain?: number;
+  speechOffsetSeconds?: number;
 };
 
 type EncodedAudioPart = {
@@ -33,6 +34,7 @@ type ScheduledPlayback = {
   startTimerId: number | null;
   startedAtMs: number | null;
   durationMs: number;
+  speechOffsetMs: number | null;
 };
 
 function pcm16ToFloat32(buffer: ArrayBuffer): Float32Array {
@@ -115,7 +117,7 @@ export class PcmAudioPlayer {
 
   async enqueueCompositeEncoded(
     parts: EncodedAudioPart[],
-    options?: Omit<EnqueuePlaybackOptions, "gain">
+    options?: Omit<EnqueuePlaybackOptions, "gain"> & { speechPartIndex?: number }
   ): Promise<void> {
     const context = this.getAudioContext();
     if (context.state === "suspended") {
@@ -145,8 +147,13 @@ export class PcmAudioPlayer {
 
     const output = context.createBuffer(channelCount, totalLength, context.sampleRate);
     let cursor = 0;
+    let speechOffsetSeconds = 0;
 
-    for (const part of decodedParts) {
+    for (const [index, part] of decodedParts.entries()) {
+      if (index === (options?.speechPartIndex ?? decodedParts.length - 1)) {
+        speechOffsetSeconds = cursor / context.sampleRate;
+      }
+
       for (let channel = 0; channel < channelCount; channel += 1) {
         const target = output.getChannelData(channel);
         const source = part.buffer.getChannelData(
@@ -161,7 +168,10 @@ export class PcmAudioPlayer {
       cursor += Math.round(part.silenceAfterSeconds * context.sampleRate);
     }
 
-    this.scheduleBuffer(output, options);
+    this.scheduleBuffer(output, {
+      ...options,
+      speechOffsetSeconds
+    });
   }
 
   interrupt(): void {
@@ -250,7 +260,8 @@ export class PcmAudioPlayer {
       started: false,
       startTimerId: null,
       startedAtMs: null,
-      durationMs: Math.round(durationSeconds * 1000)
+      durationMs: Math.round(durationSeconds * 1000),
+      speechOffsetMs: Math.max(0, Math.round((options?.speechOffsetSeconds ?? 0) * 1000))
     };
     this.scheduledPlaybacks.set(source, playback);
     this.schedulePlaybackStart(playback);
@@ -365,7 +376,8 @@ export class PcmAudioPlayer {
     publishOutputPlayback({
       activeTurnId: this.activeTurnId,
       startedAtMs: nextPlayback?.startedAtMs ?? null,
-      durationMs: nextPlayback?.durationMs ?? null
+      durationMs: nextPlayback?.durationMs ?? null,
+      speechOffsetMs: nextPlayback?.speechOffsetMs ?? null
     });
   }
 

@@ -7,7 +7,7 @@ export class RendererSpeechOutputAdapter implements SpeechOutputAdapter {
   readonly id = "renderer-pcm-output";
   private readonly pendingSpeechEffects = new Map<
     string,
-    { format: AudioFormat; data: ArrayBuffer; gain?: number }
+    Array<{ format: AudioFormat; data: ArrayBuffer; gain?: number }>
   >();
 
   constructor(private readonly player = new PcmAudioPlayer()) {}
@@ -28,15 +28,15 @@ export class RendererSpeechOutputAdapter implements SpeechOutputAdapter {
     const startDelaySeconds = Math.max(0, startDelayMs) / 1000;
     const pendingEffect = this.pendingSpeechEffects.get(turnId);
 
-    if (pendingEffect && (format === "mp3" || format === "wav")) {
+    if (pendingEffect && pendingEffect.length > 0 && (format === "mp3" || format === "wav")) {
       this.pendingSpeechEffects.delete(turnId);
       await this.player.enqueueCompositeEncoded(
         [
-          {
-            buffer: pendingEffect.data,
-            gain: pendingEffect.gain,
-            silenceAfterSeconds: 0.12
-          },
+          ...pendingEffect.map((effectPart, index) => ({
+            buffer: effectPart.data,
+            gain: effectPart.gain,
+            silenceAfterSeconds: index === pendingEffect.length - 1 ? 0.12 : 0.08
+          })),
           {
             buffer: data,
             gain: 1
@@ -45,7 +45,8 @@ export class RendererSpeechOutputAdapter implements SpeechOutputAdapter {
         {
           boundaryGapSeconds,
           startDelaySeconds,
-          turnId
+          turnId,
+          speechPartIndex: pendingEffect.length
         }
       );
       return;
@@ -82,23 +83,14 @@ export class RendererSpeechOutputAdapter implements SpeechOutputAdapter {
         : 0;
     const remainingOffsetMs = Math.max(0, (options?.offsetMs ?? 0) - elapsedMs);
 
-    console.info("[RendererSpeechOutputAdapter] enqueueEffectChunk", {
-      turnId,
-      format,
-      byteLength: data.byteLength,
-      gain: options?.gain ?? null,
-      offsetMs: options?.offsetMs ?? null,
-      stitchWithSpeech: options?.stitchWithSpeech ?? false,
-      elapsedMs,
-      remainingOffsetMs
-    });
-
     if (options?.stitchWithSpeech && remainingOffsetMs === 0) {
-      this.pendingSpeechEffects.set(turnId, {
+      const existing = this.pendingSpeechEffects.get(turnId) ?? [];
+      existing.push({
         format,
         data,
         gain: options?.gain
       });
+      this.pendingSpeechEffects.set(turnId, existing);
       return;
     }
 

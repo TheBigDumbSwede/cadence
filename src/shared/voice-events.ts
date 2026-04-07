@@ -69,6 +69,7 @@ export type CadenceEvent =
       gain?: number;
       offsetMs?: number;
       stitchWithSpeech?: boolean;
+      captionText?: string;
     }
   | {
       type: "assistant.interrupted";
