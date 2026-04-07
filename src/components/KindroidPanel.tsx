@@ -89,8 +89,6 @@ export function KindroidPanel({
   const [activeKindroidGroupMirrorId, setActiveKindroidGroupMirrorId] = useState<string | null>(
     null
   );
-  const [activeKindroidGroupSpeakerParticipantId, setActiveKindroidGroupSpeakerParticipantId] =
-    useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState("");
 
   useEffect(() => {
@@ -103,9 +101,6 @@ export function KindroidPanel({
     setActiveKindroidParticipantId(settingsSnapshot.activeKindroidParticipantId);
     setGroupMirrors(settingsSnapshot.kindroidGroupMirrors);
     setActiveKindroidGroupMirrorId(settingsSnapshot.activeKindroidGroupMirrorId);
-    setActiveKindroidGroupSpeakerParticipantId(
-      settingsSnapshot.activeKindroidGroupSpeakerParticipantId
-    );
     setValidationMessage("");
   }, [settingsSnapshot]);
 
@@ -121,10 +116,6 @@ export function KindroidPanel({
   );
   const activeGroupMirror =
     groupMirrors.find((groupMirror) => groupMirror.id === activeKindroidGroupMirrorId) ?? null;
-  const activeGroupParticipants = participants.filter((participant) =>
-    activeGroupMirror?.participantIds.includes(participant.id)
-  );
-
   function updateParticipant(
     participantId: string,
     updater: (participant: KindroidParticipant) => KindroidParticipant
@@ -157,9 +148,6 @@ export function KindroidPanel({
           ...groupMirror,
           participantIds: groupMirror.participantIds.filter((id) => id !== participantId)
         }))
-      );
-      setActiveKindroidGroupSpeakerParticipantId((currentSpeakerId) =>
-        currentSpeakerId === participantId ? null : currentSpeakerId
       );
 
       return nextParticipants;
@@ -241,15 +229,6 @@ export function KindroidPanel({
           : groupMirrors[0].id;
     const nextActiveGroupMirror =
       groupMirrors.find((groupMirror) => groupMirror.id === nextActiveGroupMirrorId) ?? null;
-    const nextManualSpeakerParticipantId =
-      nextActiveGroupMirror?.manualTurnTaking
-        ? nextActiveGroupMirror.participantIds.includes(
-            activeKindroidGroupSpeakerParticipantId ?? ""
-          )
-          ? activeKindroidGroupSpeakerParticipantId
-          : nextActiveGroupMirror.participantIds[0] ?? null
-        : null;
-
     setValidationMessage("");
 
     await onSaveKindroidConfig({
@@ -258,7 +237,7 @@ export function KindroidPanel({
       activeKindroidParticipantId: nextActiveParticipantId,
       kindroidGroupMirrors: groupMirrors,
       activeKindroidGroupMirrorId: nextActiveGroupMirrorId,
-      activeKindroidGroupSpeakerParticipantId: nextManualSpeakerParticipantId
+      activeKindroidGroupSpeakerParticipantId: null
     });
   }
 
@@ -332,27 +311,9 @@ export function KindroidPanel({
               </p>
             </div>
             {activeGroupMirror?.manualTurnTaking ? (
-              <div className="settings-field">
-                <label htmlFor="active-kindroid-group-speaker">Manual next speaker</label>
-                <select
-                  id="active-kindroid-group-speaker"
-                  className="settings-input"
-                  value={activeKindroidGroupSpeakerParticipantId ?? ""}
-                  onChange={(event) =>
-                    setActiveKindroidGroupSpeakerParticipantId(event.target.value || null)
-                  }
-                >
-                  <option value="">No speaker selected</option>
-                  {activeGroupParticipants.map((participant) => (
-                    <option key={participant.id} value={participant.id}>
-                      {participant.displayName}
-                    </option>
-                  ))}
-                </select>
-                <p className="field-status">
-                  Manual-turn groups use this participant for the next reply.
-                </p>
-              </div>
+              <p className="field-status">
+                Manual-turn groups use the in-chat roster buttons to trigger the next Kin reply.
+              </p>
             ) : null}
           </>
         )}

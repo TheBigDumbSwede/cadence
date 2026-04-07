@@ -47,7 +47,6 @@ export function App() {
     requestKindroidGroupParticipantTurn,
     saveSettings,
     saveKindroidConfig,
-    selectKindroidGroupSpeaker,
     setAvatar,
     setAvatarPoseDebug,
     stageMode,
@@ -201,16 +200,10 @@ export function App() {
                 }))
               : []
           }
-          activeKindroidGroupSpeakerParticipantId={
-            usesKindroidGroupConversation
-              ? settingsSnapshot?.activeKindroidGroupSpeakerParticipantId ?? null
-              : null
-          }
           mode={mode}
           newChatPending={newChatPending}
           openChatBreakDialog={openChatBreakDialog}
           onRequestKindroidGroupParticipantTurn={requestKindroidGroupParticipantTurn}
-          onSelectKindroidGroupSpeaker={selectKindroidGroupSpeaker}
           pendingAssistantHint={pendingAssistantHint}
           textBackend={textBackend}
           ttsProvider={effectiveTtsProvider}

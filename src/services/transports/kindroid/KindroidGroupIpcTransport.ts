@@ -146,6 +146,21 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
       message: input
     });
 
+    if (groupMirror.manualTurnTaking) {
+      this.emit({
+        type: "session.status",
+        provider: this.id,
+        status: "ready"
+      });
+      this.emit({
+        type: "conversation.turn.pending",
+        provider: this.id,
+        turnOwner: "user",
+        message: "Choose who replies next."
+      });
+      return;
+    }
+
     await this.runGroupTurnCycle();
   }
 
@@ -230,7 +245,7 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
       provider: this.id,
       turnOwner: "user",
       message: groupMirror.manualTurnTaking
-        ? "Your turn."
+        ? "Choose who replies next."
         : `Paused after ${MAX_AUTOMATIC_KINDROID_GROUP_TURNS} turns. Your turn.`
     });
   }

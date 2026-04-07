@@ -750,11 +750,9 @@ export function useCadenceController() {
             },
             {
               label: "Manual speaker",
-              present:
-                !activeKindroidGroupMirror?.manualTurnTaking ||
-                Boolean(activeKindroidGroupSpeakerParticipant),
+              present: Boolean(activeKindroidGroupMirror),
               value: activeKindroidGroupMirror?.manualTurnTaking
-                ? activeKindroidGroupSpeakerParticipant?.displayName ?? undefined
+                ? "In-chat roster buttons"
                 : "Not required"
             },
             {
@@ -955,11 +953,9 @@ export function useCadenceController() {
             },
             {
               label: "Manual speaker",
-              present:
-                !activeKindroidGroupMirror?.manualTurnTaking ||
-                Boolean(activeKindroidGroupSpeakerParticipant),
+              present: Boolean(activeKindroidGroupMirror),
               value: activeKindroidGroupMirror?.manualTurnTaking
-                ? activeKindroidGroupSpeakerParticipant?.displayName ?? undefined
+                ? "In-chat roster buttons"
                 : "Not required"
             },
             {
@@ -1850,25 +1846,6 @@ export function useCadenceController() {
     });
   }
 
-  async function selectKindroidGroupSpeaker(participantId: string): Promise<void> {
-    if (!settingsSnapshot || !activeKindroidGroupMirror) {
-      throw new Error("No active Kindroid group mirror is selected.");
-    }
-
-    if (!activeKindroidGroupMirror.participantIds.includes(participantId)) {
-      throw new Error("The selected Kindroid participant is not part of the active group.");
-    }
-
-    await saveKindroidConfig({
-      kindroidConversationMode,
-      kindroidParticipants: settingsSnapshot.kindroidParticipants,
-      activeKindroidParticipantId: settingsSnapshot.activeKindroidParticipantId,
-      kindroidGroupMirrors: settingsSnapshot.kindroidGroupMirrors,
-      activeKindroidGroupMirrorId: settingsSnapshot.activeKindroidGroupMirrorId,
-      activeKindroidGroupSpeakerParticipantId: participantId
-    });
-  }
-
   async function requestKindroidGroupParticipantTurn(participantId: string): Promise<void> {
     if (!usesKindroidGroupConversation || !activeKindroidGroupMirror) {
       throw new Error("Direct participant turns are only available in Kindroid group mode.");
@@ -1879,6 +1856,9 @@ export function useCadenceController() {
     );
     if (!participant) {
       throw new Error("The selected Kindroid participant is not part of the active group.");
+    }
+    if (pendingConversationHint?.kind !== "user") {
+      throw new Error("Wait until the group returns the turn before choosing a Kin.");
     }
 
     clearPendingConversationHint();
@@ -1932,7 +1912,9 @@ export function useCadenceController() {
     connectionReady,
     composerPlaceholder:
       pendingConversationHint?.kind === "user"
-        ? "Kindroid is waiting for your turn."
+        ? pendingConversationHint.message === "Your turn."
+          ? "Kindroid is waiting for your turn."
+          : pendingConversationHint.message
         : undefined,
     hotMicMuted,
     inputText,
@@ -1950,7 +1932,6 @@ export function useCadenceController() {
     requestKindroidGroupParticipantTurn,
     saveSettings,
     saveKindroidConfig,
-    selectKindroidGroupSpeaker,
     setAvatar,
     setAvatarPoseDebug,
     stageMode,

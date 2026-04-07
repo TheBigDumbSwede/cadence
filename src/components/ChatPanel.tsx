@@ -7,7 +7,6 @@ import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 type ChatPanelProps = {
-  activeKindroidGroupSpeakerParticipantId?: string | null;
   canStartNewChat: boolean;
   configured: boolean;
   connectionReady: boolean;
@@ -26,7 +25,6 @@ type ChatPanelProps = {
   newChatPending: boolean;
   openChatBreakDialog: () => void;
   onRequestKindroidGroupParticipantTurn: (participantId: string) => Promise<void>;
-  onSelectKindroidGroupSpeaker: (participantId: string) => Promise<void>;
   pendingAssistantHint?: {
     message: string;
     speakerLabel: string;
@@ -107,7 +105,6 @@ function buildVoiceSummary(voiceBackend: VoiceBackendProvider, ttsProvider: TtsP
 }
 
 export function ChatPanel({
-  activeKindroidGroupSpeakerParticipantId,
   canStartNewChat,
   configured,
   connectionReady,
@@ -123,7 +120,6 @@ export function ChatPanel({
   newChatPending,
   openChatBreakDialog,
   onRequestKindroidGroupParticipantTurn,
-  onSelectKindroidGroupSpeaker,
   pendingAssistantHint,
   textBackend,
   ttsProvider,
@@ -139,10 +135,12 @@ export function ChatPanel({
   const canSendText = connectionReady && inputText.trim().length > 0;
   const showsKindroidGroupControls = kindroidGroupParticipants.length > 0;
   const manualKindroidGroupMode = Boolean(kindroidManualTurnTaking);
-  const canPassTurn = !manualKindroidGroupMode && Boolean(kindroidGroupAwaitingUserTurn);
+  const canTriggerGroupTurn = Boolean(kindroidGroupAwaitingUserTurn);
   const turnButtonTitle = manualKindroidGroupMode
-    ? "Select next speaker"
-    : canPassTurn
+    ? canTriggerGroupTurn
+      ? "Have this Kin reply"
+      : "Wait until the group is ready for your choice"
+    : canTriggerGroupTurn
       ? "Pass turn to this Kin"
       : "Wait for Kindroid to return the turn";
   const conversationSummary =
@@ -268,32 +266,22 @@ export function ChatPanel({
           <div className="chat-turn-controls" aria-label="Kindroid group participants">
             <div className="chat-turn-button-row">
               {kindroidGroupParticipants.map((participant) => {
-                const active =
-                  manualKindroidGroupMode &&
-                  participant.id === activeKindroidGroupSpeakerParticipantId;
                 const disabled =
                   !configured ||
                   !connectionReady ||
                   isRecording ||
                   newChatPending ||
-                  (!manualKindroidGroupMode && !canPassTurn);
+                  !canTriggerGroupTurn;
 
                 return (
                   <button
                     key={participant.id}
                     type="button"
-                    className={`secondary-button chat-turn-button ${active ? "active" : ""}`}
+                    className="secondary-button chat-turn-button"
                     disabled={disabled}
                     title={turnButtonTitle}
                     aria-label={`${turnButtonTitle}: ${participant.label}`}
-                    onClick={() => {
-                      if (manualKindroidGroupMode) {
-                        void onSelectKindroidGroupSpeaker(participant.id);
-                        return;
-                      }
-
-                      void onRequestKindroidGroupParticipantTurn(participant.id);
-                    }}
+                    onClick={() => void onRequestKindroidGroupParticipantTurn(participant.id)}
                   >
                     {participant.label}
                   </button>
