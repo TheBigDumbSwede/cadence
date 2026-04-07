@@ -28,6 +28,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
   private readonly listeners = new Set<(event: CadenceEvent) => void>();
   private config: TransportConfig | null = null;
   private cycleToken = 0;
+  private canPlayNarrationFx = false;
 
   async connect(config: TransportConfig): Promise<void> {
     this.config = config;
@@ -128,15 +129,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       throw new Error("OpenAI speech is not configured.");
     }
 
-    if (usesNarrationFx && !elevenLabsState.apiKeyPresent) {
-      this.emit({
-        type: "transport.error",
-        provider: this.id,
-        message: "Narration FX requires an ElevenLabs API key.",
-        recoverable: false
-      });
-      throw new Error("Narration FX requires an ElevenLabs API key.");
-    }
+    this.canPlayNarrationFx = usesNarrationFx && elevenLabsState.apiKeyPresent;
 
     this.emit({
       type: "session.status",
@@ -413,6 +406,8 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         boundaryGapMs: groupMirror.turnPauseMs,
         startDelayMs: narrationTiming.startDelayMs,
         captionOffsetMs: narrationTiming.captionOffsetMs,
+        effectCaptionText: narrationTiming.effectCaptionText,
+        effectCaptionDurationMs: narrationTiming.effectCaptionDurationMs,
         captions: synthesis.captions,
         captionsMode: synthesis.captionsMode
       });
@@ -510,7 +505,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
     text: string,
     participant: KindroidParticipant
   ): Promise<SelectedNarrationEffect | null> {
-    if (!participant.narrationFxEnabled || participant.ttsProvider === "none") {
+    if (participant.ttsProvider === "none") {
       return null;
     }
 
@@ -522,15 +517,36 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
     turnId: string,
     narrationEffect: SelectedNarrationEffect | null,
     cycleToken: number
-  ): Promise<{ startDelayMs: number; captionOffsetMs: number }> {
+  ): Promise<{
+    startDelayMs: number;
+    captionOffsetMs: number;
+    effectCaptionText?: string;
+    effectCaptionDurationMs?: number;
+  }> {
     if (!narrationEffect) {
       return Promise.resolve({ startDelayMs: 0, captionOffsetMs: 0 });
     }
 
     const offsetMs = 0;
+    const captionText = formatNarrationEffectCaption(narrationEffect);
+    const captionDurationMs = narrationEffect.beats.reduce(
+      (sum, beat, index) =>
+        sum +
+        Math.round(beat.durationSeconds * 1000) +
+        (index === narrationEffect.beats.length - 1 ? 120 : 80),
+      0
+    );
+
+    if (!this.canPlayNarrationFx) {
+      return Promise.resolve({
+        startDelayMs: 0,
+        captionOffsetMs: 0,
+        effectCaptionText: captionText || undefined,
+        effectCaptionDurationMs: captionDurationMs
+      });
+    }
 
     const bridge = getCadenceBridge();
-    const captionText = formatNarrationEffectCaption(narrationEffect);
     return Promise.all(
       narrationEffect.beats.map((beat) =>
         bridge.elevenlabs
@@ -545,7 +561,9 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         if (this.isCycleInterrupted(cycleToken)) {
           return {
             startDelayMs: 0,
-            captionOffsetMs: 0
+            captionOffsetMs: 0,
+            effectCaptionText: captionText || undefined,
+            effectCaptionDurationMs: captionDurationMs
           };
         }
 
@@ -571,13 +589,17 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
           );
         return {
           startDelayMs: 0,
-          captionOffsetMs
+          captionOffsetMs,
+          effectCaptionText: captionText || undefined,
+          effectCaptionDurationMs: captionDurationMs
         };
       })
       .catch(() => {
         return {
           startDelayMs: 0,
-          captionOffsetMs: 0
+          captionOffsetMs: 0,
+          effectCaptionText: captionText || undefined,
+          effectCaptionDurationMs: captionDurationMs
         };
       });
   }
@@ -586,7 +608,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
     const fxEnabledParticipants = (this.config?.kindroidParticipants ?? []).filter(
       (participant) => participant.narrationFxEnabled
     );
-    if (fxEnabledParticipants.length === 0) {
+    if (fxEnabledParticipants.length === 0 || !this.canPlayNarrationFx) {
       return;
     }
 

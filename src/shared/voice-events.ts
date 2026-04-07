@@ -58,6 +58,8 @@ export type CadenceEvent =
       boundaryGapMs?: number;
       startDelayMs?: number;
       captionOffsetMs?: number;
+      effectCaptionText?: string;
+      effectCaptionDurationMs?: number;
       captions?: SpeechCaptionCue[];
       captionsMode?: SpeechCaptionMode;
     }

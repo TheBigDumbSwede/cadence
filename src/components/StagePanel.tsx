@@ -51,7 +51,7 @@ export function StagePanel({
     setEffectCaptionVisible(false);
     const timer = window.setTimeout(() => {
       setDisplayedEffectCaption(null);
-    }, 240);
+    }, 480);
 
     return () => window.clearTimeout(timer);
   }, [displayedEffectCaption, effectCaption]);

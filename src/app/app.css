@@ -548,8 +548,8 @@ textarea {
   opacity: 0;
   transform: translateY(-6px);
   transition:
-    opacity 220ms ease,
-    transform 220ms ease;
+    opacity 420ms ease,
+    transform 420ms ease;
 }
 
 .stage-effect-caption.is-visible {

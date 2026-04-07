@@ -10,6 +10,7 @@ Cadence is public-prototype quality:
 - coherent enough to use and inspect
 - interesting enough to share
 - still rough around orchestration, timing, and polish
+- now broad enough to call a real `0.2.0` prototype checkpoint
 
 It is not pretending to be finished software.
 
@@ -64,6 +65,7 @@ Cadence is exploring a few specific ideas:
 - a stage layer that can be either stylized waveform or VRM avatar
 - persistent local settings instead of forcing `.env` for normal use
 - multi-character Kindroid scenes without turning the app into a Kin management panel
+- narration-aware staging, including optional Foley-style scene accents
 
 ## Architecture Notes
 
@@ -112,7 +114,7 @@ Cadence keeps Kindroid integration in two layers:
 - official
   documented messaging endpoints used by the normal app path
 - experimental
-  undocumented endpoints isolated behind an explicit opt-in flag
+  undocumented endpoints isolated from the stable messaging path
 
 That split is intentional. If Kindroid changes undocumented behavior, experimental support should be removable without disturbing the main conversation path.
 
@@ -148,8 +150,21 @@ Each local Kindroid participant can carry its own:
 - OpenAI or ElevenLabs voice settings
 - narration filtering rules for speech
 - waveform color and accent theme
+- narration Foley preferences for stage/sound treatment
 
 Automatic Kindroid groups can chain multiple Kin replies until Kindroid yields the turn back to the user. Manual groups let the user choose the next Kin directly from the in-chat roster buttons.
+
+## Narration Foley Notes
+
+Cadence can now treat narrated Kindroid prose as a light staging layer rather than dead text.
+
+Current behavior:
+- narration beat analysis uses a fast OpenAI text model to extract up to 3 short audible beats
+- those beats can appear as a top-stage Foley caption during playback
+- if ElevenLabs sound effects are available and narration FX is enabled, Cadence can synthesize those beats as a stitched pre-speech Foley prelude
+- if ElevenLabs is unavailable or narration FX is disabled, the visual Foley caption still appears without delaying spoken captions
+
+This is intentionally prototype territory. It is meant to add atmosphere, not become a full sound-design engine.
 
 ## VRM / Stage Notes
 
@@ -193,7 +208,7 @@ npm run dist:win
 ```
 
 Output:
-- `release/Cadence-0.1.2-portable.exe`
+- `release/Cadence-0.2.0-portable.exe`
 
 ### Unpacked directory build
 

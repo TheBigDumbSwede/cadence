@@ -89,11 +89,17 @@ Current working model:
   - per-participant speech routing
   - narration filtering for TTS
   - waveform color/accent theming
+  - narration Foley preferences for visual/audio staging
 
 Keep the boundary sharp:
 - Kindroid remains the source of truth for actual group existence and turn logic
 - Cadence owns the local mirror, orchestration, and presentation
 - do not bloat Cadence into a full Kindroid management surface
+
+Narration staging rule:
+- narration analysis and narration playback are separate concerns
+- visual Foley cues may still appear even when ElevenLabs sound-effect playback is unavailable or disabled
+- spoken-caption timing must not be delayed unless real pre-speech Foley audio is actually present
 
 ## Stage Modes
 
@@ -131,6 +137,7 @@ Do not overcomplicate avatar animation prematurely. Keep:
 - non-speaking states use procedural motion
 - there is a short speaking pre-roll to bridge the gap before real output samples arrive
 - Kindroid can tint the waveform per participant; that theming should follow the actually audible speaker, not the next queued turn
+- stage overlays may include a short-lived Foley caption above the spoken caption; keep it subordinate and lightweight
 
 Do not reintroduce avatar-specific timing hacks into the waveform path.
 

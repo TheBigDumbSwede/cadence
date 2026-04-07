@@ -92,6 +92,11 @@ type TurnCaptionTrack = {
   offsetMs: number;
 };
 
+type TurnEffectCaptionTrack = {
+  text: string;
+  durationMs: number;
+};
+
 export function useCadenceController() {
   const [voiceSession] = useState(() => createVoiceSession());
   const [openAiBatchVoiceSession] = useState(() => createOpenAiBatchVoiceSession());
@@ -156,7 +161,7 @@ export function useCadenceController() {
   const stageTimelineManagedRef = useRef(false);
   const assistantTurnParticipantIdsRef = useRef(new Map<string, string>());
   const assistantTurnCaptionCuesRef = useRef(new Map<string, TurnCaptionTrack>());
-  const assistantTurnEffectCaptionsRef = useRef(new Map<string, string>());
+  const assistantTurnEffectCaptionsRef = useRef(new Map<string, TurnEffectCaptionTrack>());
   const pendingUserTurnIdRef = useRef<string | null>(null);
   const bufferedAssistantTurnRef = useRef<{
     turnId: string;
@@ -396,7 +401,7 @@ export function useCadenceController() {
   useEffect(() => {
     const nextEntries = new Map<string, string>();
     const nextCaptionEntries = new Map<string, TurnCaptionTrack>();
-    const nextEffectCaptionEntries = new Map<string, string>();
+    const nextEffectCaptionEntries = new Map<string, TurnEffectCaptionTrack>();
 
     for (const turn of turns) {
       if (turn.speaker === "assistant" && turn.kindroidParticipantId) {
@@ -483,9 +488,14 @@ export function useCadenceController() {
       const effectCaption = assistantTurnEffectCaptionsRef.current.get(
         outputPlayback.activeTurnId ?? ""
       );
-      const speechOffsetMs = outputPlayback.speechOffsetMs ?? 0;
+      const speechOffsetMs =
+        outputPlayback.speechOffsetMs && outputPlayback.speechOffsetMs > 0
+          ? outputPlayback.speechOffsetMs
+          : effectCaption?.durationMs ?? 0;
       const nextEffectCaption =
-        effectCaption && speechOffsetMs > 0 && elapsedMs < speechOffsetMs ? effectCaption : null;
+        effectCaption && speechOffsetMs > 0 && elapsedMs < speechOffsetMs
+          ? effectCaption.text
+          : null;
       setActiveEffectCaption((previous) =>
         previous === nextEffectCaption ? previous : nextEffectCaption
       );
@@ -1433,6 +1443,12 @@ export function useCadenceController() {
               offsetMs: event.captionOffsetMs ?? 0
             });
           }
+          if (event.effectCaptionText) {
+            assistantTurnEffectCaptionsRef.current.set(event.turnId, {
+              text: event.effectCaptionText,
+              durationMs: Math.max(0, event.effectCaptionDurationMs ?? 0)
+            });
+          }
           if (!responseClock.current.firstAudioAt && responseClock.current.startedAt) {
             const now = performance.now();
             responseClock.current.firstAudioAt = now;
@@ -1443,9 +1459,6 @@ export function useCadenceController() {
           }
           break;
         case "assistant.audio.effect":
-          if (event.captionText) {
-            assistantTurnEffectCaptionsRef.current.set(event.turnId, event.captionText);
-          }
           break;
         case "assistant.interrupted":
           clearPendingConversationHint();

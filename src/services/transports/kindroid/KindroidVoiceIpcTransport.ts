@@ -23,6 +23,7 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
 
   private readonly listeners = new Set<(event: CadenceEvent) => void>();
   private config: TransportConfig | null = null;
+  private canPlayNarrationFx = false;
 
   async connect(config: TransportConfig): Promise<void> {
     this.config = config;
@@ -84,13 +85,9 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
     }
 
     if (usesNarrationFx && !elevenLabsState.apiKeyPresent) {
-      this.emit({
-        type: "transport.error",
-        provider: this.id,
-        message: "Narration FX requires an ElevenLabs API key.",
-        recoverable: false
-      });
-      throw new Error("Narration FX requires an ElevenLabs API key.");
+      this.canPlayNarrationFx = false;
+    } else {
+      this.canPlayNarrationFx = elevenLabsState.apiKeyPresent;
     }
 
     this.emit({
@@ -242,6 +239,8 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       data: synthesis.audio,
       startDelayMs: narrationTiming.startDelayMs,
       captionOffsetMs: narrationTiming.captionOffsetMs,
+      effectCaptionText: narrationTiming.effectCaptionText,
+      effectCaptionDurationMs: narrationTiming.effectCaptionDurationMs,
       captions: synthesis.captions,
       captionsMode: synthesis.captionsMode
     });
@@ -262,7 +261,7 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
     text: string,
     participant: KindroidParticipant | null
   ): Promise<SelectedNarrationEffect | null> {
-    if (!participant?.narrationFxEnabled || participant.ttsProvider === "none") {
+    if (!participant || participant.ttsProvider === "none") {
       return null;
     }
 
@@ -273,15 +272,37 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
   private queueNarrationEffect(
     turnId: string,
     narrationEffect: SelectedNarrationEffect | null
-  ): Promise<{ startDelayMs: number; captionOffsetMs: number }> {
+  ): Promise<{
+    startDelayMs: number;
+    captionOffsetMs: number;
+    effectCaptionText?: string;
+    effectCaptionDurationMs?: number;
+  }> {
     if (!narrationEffect) {
       return Promise.resolve({ startDelayMs: 0, captionOffsetMs: 0 });
     }
 
     const offsetMs = 0;
 
-    const bridge = getCadenceBridge();
     const captionText = formatNarrationEffectCaption(narrationEffect);
+    const captionDurationMs = narrationEffect.beats.reduce(
+      (sum, beat, index) =>
+        sum +
+        Math.round(beat.durationSeconds * 1000) +
+        (index === narrationEffect.beats.length - 1 ? 120 : 80),
+      0
+    );
+
+    if (!this.config?.kindroidActiveParticipant?.narrationFxEnabled || !this.canPlayNarrationFx) {
+      return Promise.resolve({
+        startDelayMs: 0,
+        captionOffsetMs: 0,
+        effectCaptionText: captionText || undefined,
+        effectCaptionDurationMs: captionDurationMs
+      });
+    }
+
+    const bridge = getCadenceBridge();
     return Promise.all(
       narrationEffect.beats.map((beat) =>
         bridge.elevenlabs
@@ -318,20 +339,24 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
           );
         return {
           startDelayMs: 0,
-          captionOffsetMs
+          captionOffsetMs,
+          effectCaptionText: captionText || undefined,
+          effectCaptionDurationMs: captionDurationMs
         };
       })
       .catch(() => {
         return {
           startDelayMs: 0,
-          captionOffsetMs: 0
+          captionOffsetMs: 0,
+          effectCaptionText: captionText || undefined,
+          effectCaptionDurationMs: captionDurationMs
         };
       });
   }
 
   private async queueUserNarrationEffect(turnId: string, text: string): Promise<void> {
     const participant = this.config?.kindroidActiveParticipant ?? null;
-    if (!participant?.narrationFxEnabled) {
+    if (!participant?.narrationFxEnabled || !this.canPlayNarrationFx) {
       return;
     }
 
