@@ -12,7 +12,8 @@ const { bridgeState } = vi.hoisted(() => ({
     sendMessage: vi.fn(),
     aiResponse: vi.fn(),
     getTurn: vi.fn(),
-    synthesize: vi.fn()
+    synthesize: vi.fn(),
+    synthesizeSoundEffect: vi.fn()
   }
 }));
 
@@ -30,7 +31,8 @@ vi.mock("../../bridge", () => ({
       }
     },
     elevenlabs: {
-      getState: bridgeState.elevenLabsGetState
+      getState: bridgeState.elevenLabsGetState,
+      synthesizeSoundEffect: bridgeState.synthesizeSoundEffect
     },
     openaiSpeech: {
       getState: bridgeState.openAiSpeechGetState,
@@ -57,6 +59,7 @@ function createConfig(): TransportConfig {
         ttsProvider: "openai",
         filterNarrationForTts: true,
         narrationDelimiter: "*",
+        narrationFxEnabled: false,
         openAiVoice: "nova",
         openAiInstructions: "Measured and dry.",
         elevenLabsVoiceId: ""
@@ -71,6 +74,7 @@ function createConfig(): TransportConfig {
         ttsProvider: "openai",
         filterNarrationForTts: true,
         narrationDelimiter: "*",
+        narrationFxEnabled: false,
         openAiVoice: "marin",
         openAiInstructions: "Small and sly.",
         elevenLabsVoiceId: ""
@@ -98,13 +102,14 @@ describe("KindroidGroupVoiceIpcTransport", () => {
     bridgeState.aiResponse.mockReset();
     bridgeState.getTurn.mockReset();
     bridgeState.synthesize.mockReset();
+    bridgeState.synthesizeSoundEffect.mockReset();
 
     bridgeState.openAiAudioGetState.mockResolvedValue({ configured: true });
     bridgeState.kindroidExperimentalGetState.mockResolvedValue({
       enabled: true,
       configured: true
     });
-    bridgeState.elevenLabsGetState.mockResolvedValue({ configured: true });
+    bridgeState.elevenLabsGetState.mockResolvedValue({ configured: true, apiKeyPresent: true });
     bridgeState.openAiSpeechGetState.mockResolvedValue({ configured: true });
   });
 
@@ -125,11 +130,15 @@ describe("KindroidGroupVoiceIpcTransport", () => {
     bridgeState.synthesize
       .mockResolvedValueOnce({
         format: "mp3",
-        audio: new Uint8Array([1, 2, 3]).buffer
+        audio: new Uint8Array([1, 2, 3]).buffer,
+        captions: [],
+        captionsMode: "estimated"
       })
       .mockResolvedValueOnce({
         format: "mp3",
-        audio: new Uint8Array([4, 5, 6]).buffer
+        audio: new Uint8Array([4, 5, 6]).buffer,
+        captions: [],
+        captionsMode: "estimated"
       });
 
     await transport.connect(createConfig());
@@ -176,6 +185,98 @@ describe("KindroidGroupVoiceIpcTransport", () => {
           type: "conversation.turn.pending",
           turnOwner: "user",
           message: "Your turn."
+        })
+      ])
+    );
+  });
+
+  it("emits one low-volume narration effect for audible narration without blocking speech", async () => {
+    const transport = new KindroidGroupVoiceIpcTransport();
+    const events: CadenceEvent[] = [];
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const config = createConfig();
+    if (!config.kindroidParticipants) {
+      throw new Error("Missing Kindroid participants in test config.");
+    }
+    config.kindroidParticipants[0].narrationFxEnabled = true;
+
+    bridgeState.getTurn.mockResolvedValueOnce("ai-1").mockResolvedValueOnce("");
+    bridgeState.aiResponse.mockResolvedValueOnce(
+      "*She drops the small charm into a glass bowl with a bright clink.* Hello there."
+    );
+    bridgeState.synthesize.mockResolvedValueOnce({
+      format: "mp3",
+      audio: new Uint8Array([1, 2, 3]).buffer,
+      captions: [],
+      captionsMode: "estimated"
+    });
+    bridgeState.synthesizeSoundEffect.mockResolvedValueOnce({
+      format: "mp3",
+      audio: new Uint8Array([9, 9, 9]).buffer,
+      model: "eleven_sound_effects"
+    });
+
+    await transport.connect(config);
+    events.length = 0;
+
+    await transport.sendUserText("Set the scene");
+    await Promise.resolve();
+
+    expect(bridgeState.synthesize).toHaveBeenCalledTimes(1);
+    expect(bridgeState.synthesizeSoundEffect).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "assistant.audio.chunk",
+          format: "mp3"
+        }),
+        expect.objectContaining({
+          type: "assistant.audio.effect",
+          format: "mp3",
+          gain: expect.any(Number)
+        })
+      ])
+    );
+  });
+
+  it("can trigger a narration effect from user input in Kindroid group voice mode", async () => {
+    const transport = new KindroidGroupVoiceIpcTransport();
+    const events: CadenceEvent[] = [];
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const config = createConfig();
+    if (!config.kindroidParticipants) {
+      throw new Error("Missing Kindroid participants in test config.");
+    }
+    config.kindroidParticipants[0].narrationFxEnabled = true;
+
+    bridgeState.getTurn.mockResolvedValueOnce("");
+    bridgeState.synthesizeSoundEffect.mockResolvedValueOnce({
+      format: "mp3",
+      audio: new Uint8Array([7, 7, 7]).buffer,
+      model: "eleven_text_to_sound_v2"
+    });
+
+    await transport.connect(config);
+    events.length = 0;
+
+    await transport.sendUserText(
+      '*The engine rumbles to life as I slam the car door shut.* "We should go."'
+    );
+    await Promise.resolve();
+
+    expect(bridgeState.synthesizeSoundEffect).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "assistant.audio.effect",
+          format: "mp3",
+          offsetMs: 0
         })
       ])
     );

@@ -10,4 +10,12 @@ export function registerElevenLabsIpc(): void {
     async (_event, text: string, options?: { voiceId?: string }) =>
       client.synthesize(text, options)
   );
+  ipcMain.handle(
+    "elevenlabs:synthesize-sound-effect",
+    async (
+      _event,
+      text: string,
+      options?: { durationSeconds?: number; promptInfluence?: number }
+    ) => client.synthesizeSoundEffect(text, options)
+  );
 }

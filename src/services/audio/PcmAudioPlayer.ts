@@ -9,10 +9,20 @@ import {
 
 const TARGET_SAMPLE_RATE = 24000;
 const DEFAULT_START_LEAD_SECONDS = 0.01;
+const DEFAULT_FX_GAIN = 0.34;
+const MASTER_HEADROOM_GAIN = 0.96;
 
 type EnqueuePlaybackOptions = {
   boundaryGapSeconds?: number;
-  turnId?: string;
+  startDelaySeconds?: number;
+  turnId?: string | null;
+  gain?: number;
+};
+
+type EncodedAudioPart = {
+  buffer: ArrayBuffer;
+  gain?: number;
+  silenceAfterSeconds?: number;
 };
 
 type ScheduledPlayback = {
@@ -39,12 +49,13 @@ function pcm16ToFloat32(buffer: ArrayBuffer): Float32Array {
 
 export class PcmAudioPlayer {
   private audioContext: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
-  private nextStartTime = 0;
-  private activeSources = new Set<AudioBufferSourceNode>();
   private unlockHandler: (() => void) | null = null;
   private monitorFrameId = 0;
   private analyserBuffer: Uint8Array<ArrayBuffer> | null = null;
+  private nextStartTime = 0;
+  private activeSources = new Set<AudioBufferSourceNode>();
   private scheduledPlaybacks = new Map<AudioBufferSourceNode, ScheduledPlayback>();
   private activeTurnId: string | null = null;
 
@@ -63,8 +74,19 @@ export class PcmAudioPlayer {
 
     const source = context.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(this.getAnalyser(context));
+    this.connectSource(source, context, options);
     this.scheduleSource(source, audioBuffer.duration, options);
+  }
+
+  async enqueueFx(
+    buffer: ArrayBuffer,
+    options?: Omit<EnqueuePlaybackOptions, "turnId" | "boundaryGapSeconds">
+  ): Promise<void> {
+    await this.enqueue(buffer, {
+      turnId: null,
+      gain: options?.gain ?? DEFAULT_FX_GAIN,
+      startDelaySeconds: options?.startDelaySeconds
+    });
   }
 
   async enqueueEncoded(
@@ -78,6 +100,68 @@ export class PcmAudioPlayer {
 
     const decoded = await context.decodeAudioData(buffer.slice(0));
     this.scheduleBuffer(decoded, options);
+  }
+
+  async enqueueFxEncoded(
+    buffer: ArrayBuffer,
+    options?: Omit<EnqueuePlaybackOptions, "turnId" | "boundaryGapSeconds">
+  ): Promise<void> {
+    await this.enqueueEncoded(buffer, {
+      turnId: null,
+      gain: options?.gain ?? DEFAULT_FX_GAIN,
+      startDelaySeconds: options?.startDelaySeconds
+    });
+  }
+
+  async enqueueCompositeEncoded(
+    parts: EncodedAudioPart[],
+    options?: Omit<EnqueuePlaybackOptions, "gain">
+  ): Promise<void> {
+    const context = this.getAudioContext();
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+
+    if (parts.length === 0) {
+      return;
+    }
+
+    const decodedParts = await Promise.all(
+      parts.map(async (part) => ({
+        buffer: await context.decodeAudioData(part.buffer.slice(0)),
+        gain: Math.max(0, part.gain ?? 1),
+        silenceAfterSeconds: Math.max(0, part.silenceAfterSeconds ?? 0)
+      }))
+    );
+
+    const channelCount = Math.max(...decodedParts.map((part) => part.buffer.numberOfChannels));
+    const totalLength = decodedParts.reduce((sum, part) => {
+      return (
+        sum +
+        part.buffer.length +
+        Math.round(part.silenceAfterSeconds * context.sampleRate)
+      );
+    }, 0);
+
+    const output = context.createBuffer(channelCount, totalLength, context.sampleRate);
+    let cursor = 0;
+
+    for (const part of decodedParts) {
+      for (let channel = 0; channel < channelCount; channel += 1) {
+        const target = output.getChannelData(channel);
+        const source = part.buffer.getChannelData(
+          Math.min(channel, part.buffer.numberOfChannels - 1)
+        );
+        for (let index = 0; index < source.length; index += 1) {
+          target[cursor + index] += source[index] * part.gain;
+        }
+      }
+
+      cursor += part.buffer.length;
+      cursor += Math.round(part.silenceAfterSeconds * context.sampleRate);
+    }
+
+    this.scheduleBuffer(output, options);
   }
 
   interrupt(): void {
@@ -112,9 +196,11 @@ export class PcmAudioPlayer {
 
   private getAnalyser(context: AudioContext): AnalyserNode {
     if (!this.analyser) {
+      const masterGain = this.getMasterGain(context);
       this.analyser = context.createAnalyser();
       this.analyser.fftSize = 128;
       this.analyser.smoothingTimeConstant = 0.78;
+      masterGain.connect(this.analyser);
       this.analyser.connect(context.destination);
     }
 
@@ -132,8 +218,7 @@ export class PcmAudioPlayer {
     const context = this.getAudioContext();
     const source = context.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(this.getAnalyser(context));
-
+    this.connectSource(source, context, options);
     this.scheduleSource(source, audioBuffer.duration, options);
   }
 
@@ -147,9 +232,12 @@ export class PcmAudioPlayer {
     const hasQueuedAudio =
       this.activeSources.size > 0 || this.nextStartTime > now + DEFAULT_START_LEAD_SECONDS;
     const gapSeconds = hasQueuedAudio ? options?.boundaryGapSeconds ?? 0 : 0;
+    const startDelaySeconds = Math.max(0, options?.startDelaySeconds ?? 0);
     const startAt = Math.max(
-      now + DEFAULT_START_LEAD_SECONDS,
-      hasQueuedAudio ? this.nextStartTime + gapSeconds : now + DEFAULT_START_LEAD_SECONDS
+      now + DEFAULT_START_LEAD_SECONDS + startDelaySeconds,
+      hasQueuedAudio
+        ? this.nextStartTime + gapSeconds
+        : now + DEFAULT_START_LEAD_SECONDS + startDelaySeconds
     );
 
     source.start(startAt);
@@ -232,6 +320,10 @@ export class PcmAudioPlayer {
   }
 
   private stopMonitoring(): void {
+    if (this.monitorFrameId !== 0 && typeof window === "undefined") {
+      return;
+    }
+
     if (this.monitorFrameId !== 0 && typeof window !== "undefined") {
       window.cancelAnimationFrame(this.monitorFrameId);
       this.monitorFrameId = 0;
@@ -261,7 +353,7 @@ export class PcmAudioPlayer {
 
   private syncActiveTurn(): void {
     const nextPlayback = Array.from(this.scheduledPlaybacks.values())
-      .filter((playback) => playback.started)
+      .filter((playback) => playback.started && playback.turnId)
       .sort((left, right) => left.startAt - right.startAt)[0];
     const nextTurnId = nextPlayback?.turnId ?? null;
 
@@ -275,6 +367,27 @@ export class PcmAudioPlayer {
       startedAtMs: nextPlayback?.startedAtMs ?? null,
       durationMs: nextPlayback?.durationMs ?? null
     });
+  }
+
+  private getMasterGain(context: AudioContext): GainNode {
+    if (!this.masterGain) {
+      this.masterGain = context.createGain();
+      this.masterGain.gain.value = MASTER_HEADROOM_GAIN;
+    }
+
+    return this.masterGain;
+  }
+
+  private connectSource(
+    source: AudioBufferSourceNode,
+    context: AudioContext,
+    options?: EnqueuePlaybackOptions
+  ): void {
+    const gainNode = context.createGain();
+    gainNode.gain.value = Math.max(0, options?.gain ?? 1);
+    gainNode.connect(this.getMasterGain(context));
+    source.connect(gainNode);
+    this.getAnalyser(context);
   }
 
   private bindUnlockHandler(): void {
@@ -293,11 +406,13 @@ export class PcmAudioPlayer {
         return;
       }
 
-      void context.resume().then(() => {
-        if (context.state === "running") {
-          this.removeUnlockHandler();
-        }
-      }).catch(() => undefined);
+      void context.resume()
+        .then(() => {
+          if (context.state === "running") {
+            this.removeUnlockHandler();
+          }
+        })
+        .catch(() => undefined);
     };
 
     window.addEventListener("pointerdown", this.unlockHandler, { passive: true });

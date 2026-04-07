@@ -6,6 +6,13 @@ import type {
   Unsubscribe
 } from "../../contracts";
 import type { CadenceEvent } from "../../../shared/voice-events";
+import type { KindroidParticipant } from "../../../shared/kindroid-participants";
+import {
+  computeNarrationEffectOffsetMs,
+  describeKindroidNarrationEffects,
+  extractDelimitedNarrationSegments,
+  selectKindroidNarrationEffect
+} from "./narrationEffects";
 import { stripKindroidNarrationForSpeech } from "./speechText";
 
 export class KindroidVoiceIpcTransport implements LiveConversationTransport {
@@ -48,6 +55,8 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
     const usesElevenLabs = this.config?.model.includes("elevenlabs") ?? true;
     const usesOpenAiSpeech = this.config?.model.includes("openai-tts") ?? false;
     const usesTextOnly = this.config?.model.includes("text-only") ?? false;
+    const usesNarrationFx =
+      !usesTextOnly && Boolean(this.config?.kindroidActiveParticipant?.narrationFxEnabled);
 
     if (!usesTextOnly && usesElevenLabs && !elevenLabsState.configured) {
       this.emit({
@@ -72,6 +81,16 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       throw new Error("OpenAI speech is not configured.");
     }
 
+    if (usesNarrationFx && !elevenLabsState.apiKeyPresent) {
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        message: "Narration FX requires an ElevenLabs API key.",
+        recoverable: false
+      });
+      throw new Error("Narration FX requires an ElevenLabs API key.");
+    }
+
     this.emit({
       type: "session.status",
       provider: this.id,
@@ -94,6 +113,7 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       turnId: userTurnId,
       text
     });
+    this.queueUserNarrationEffect(userTurnId, text);
 
     await this.respondFromTranscript(text);
   }
@@ -113,6 +133,7 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       turnId: userTurnId,
       text: transcript.text
     });
+    this.queueUserNarrationEffect(userTurnId, transcript.text);
 
     await this.respondFromTranscript(transcript.text);
   }
@@ -153,6 +174,7 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
 
     const kindroidResponse = await bridge.kindroid.createResponse(transcript);
     const assistantTurnId = crypto.randomUUID();
+    const activeParticipant = this.config?.kindroidActiveParticipant ?? null;
 
     this.emit({
       type: "assistant.response.delta",
@@ -174,10 +196,10 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       return;
     }
 
+    const narrationEffect = this.selectNarrationEffect(kindroidResponse.text, activeParticipant);
     const speechText = stripKindroidNarrationForSpeech(kindroidResponse.text, {
-      enabled: this.config?.kindroidActiveParticipant?.filterNarrationForTts ?? true,
-      delimiter:
-        this.config?.kindroidActiveParticipant?.narrationDelimiter || "*"
+      enabled: activeParticipant?.filterNarrationForTts ?? true,
+      delimiter: activeParticipant?.narrationDelimiter || "*"
     });
     if (!speechText) {
       this.emit({
@@ -203,12 +225,22 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
           voiceId: this.config?.voice || undefined
         });
 
+    const narrationTiming = await this.queueNarrationEffect(
+      assistantTurnId,
+      kindroidResponse.text,
+      speechText,
+      narrationEffect,
+      synthesis.captions[synthesis.captions.length - 1]?.endMs ?? 0,
+      activeParticipant?.narrationDelimiter || "*"
+    );
     this.emit({
       type: "assistant.audio.chunk",
       turnId: assistantTurnId,
       sequence: 0,
       format: synthesis.format,
       data: synthesis.audio,
+      startDelayMs: narrationTiming.startDelayMs,
+      captionOffsetMs: narrationTiming.captionOffsetMs,
       captions: synthesis.captions,
       captionsMode: synthesis.captionsMode
     });
@@ -223,5 +255,174 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
     for (const listener of this.listeners) {
       listener(event);
     }
+  }
+
+  private selectNarrationEffect(
+    text: string,
+    participant: KindroidParticipant | null
+  ) {
+    if (!participant?.narrationFxEnabled || participant.ttsProvider === "none") {
+      return null;
+    }
+
+    const delimiter = participant.narrationDelimiter || "*";
+    const narrationSegments = extractDelimitedNarrationSegments(text, delimiter);
+    const diagnostics = describeKindroidNarrationEffects(text, delimiter);
+    const selectedEffect = selectKindroidNarrationEffect(text, delimiter);
+    console.info("[KindroidVoiceIpcTransport] narrationEffect source", {
+      delimiter,
+      segmentCount: narrationSegments.length,
+      segments: diagnostics,
+      rawText: text
+    });
+    console.info("[KindroidVoiceIpcTransport] narrationEffect decision", {
+      selected: selectedEffect
+        ? {
+            sourceText: selectedEffect.sourceText,
+            prompt: selectedEffect.prompt
+          }
+        : null
+    });
+
+    return selectedEffect;
+  }
+
+  private queueNarrationEffect(
+    turnId: string,
+    rawText: string,
+    speechText: string,
+    narrationEffect: ReturnType<typeof selectKindroidNarrationEffect>,
+    speechDurationMs: number,
+    delimiter: string
+  ): Promise<{ startDelayMs: number; captionOffsetMs: number }> {
+    if (!narrationEffect) {
+      return Promise.resolve({ startDelayMs: 0, captionOffsetMs: 0 });
+    }
+
+    const rawOffsetMs = computeNarrationEffectOffsetMs({
+      rawText,
+      speechText,
+      effect: narrationEffect,
+      speechDurationMs,
+      delimiter
+    });
+    const offsetMs = 0;
+
+    console.info("[KindroidVoiceIpcTransport] queueNarrationEffect", {
+      turnId,
+      sourceText: narrationEffect.sourceText,
+      prompt: narrationEffect.prompt,
+      gain: narrationEffect.gain,
+      rawOffsetMs,
+      offsetMs
+    });
+
+    const bridge = getCadenceBridge();
+    return bridge.elevenlabs
+      .synthesizeSoundEffect(narrationEffect.prompt, {
+        durationSeconds: narrationEffect.durationSeconds,
+        promptInfluence: narrationEffect.promptInfluence
+      })
+      .then((effect) => {
+        console.info("[KindroidVoiceIpcTransport] narrationEffect ready", {
+          turnId,
+          format: effect.format,
+          byteLength: effect.audio.byteLength
+        });
+        this.emit({
+          type: "assistant.audio.effect",
+          turnId,
+          format: effect.format,
+          data: effect.audio,
+          gain: narrationEffect.gain,
+          offsetMs,
+          stitchWithSpeech: true
+        });
+        const captionOffsetMs = Math.round(narrationEffect.durationSeconds * 1000) + 120;
+        return {
+          startDelayMs: 0,
+          captionOffsetMs
+        };
+      })
+      .catch((error) => {
+        console.warn("[KindroidVoiceIpcTransport] narrationEffect failed", {
+          turnId,
+          message: error instanceof Error ? error.message : String(error)
+        });
+        return {
+          startDelayMs: 0,
+          captionOffsetMs: 0
+        };
+      });
+  }
+
+  private queueUserNarrationEffect(turnId: string, text: string): void {
+    const participant = this.config?.kindroidActiveParticipant ?? null;
+    if (!participant?.narrationFxEnabled) {
+      return;
+    }
+
+    const delimiterCandidates = Array.from(
+      new Set([participant.narrationDelimiter || "*", "*"])
+    );
+    const diagnostics = delimiterCandidates.map((delimiter) => ({
+      delimiter,
+      segments: describeKindroidNarrationEffects(text, delimiter)
+    }));
+    const selectedCandidate = delimiterCandidates
+      .map((delimiter) => ({
+        delimiter,
+        effect: selectKindroidNarrationEffect(text, delimiter)
+      }))
+      .find((candidate) => candidate.effect);
+    const narrationEffect = selectedCandidate?.effect ?? null;
+
+    console.info("[KindroidVoiceIpcTransport] userNarrationEffect source", {
+      delimiters: diagnostics,
+      rawText: text
+    });
+    console.info("[KindroidVoiceIpcTransport] userNarrationEffect decision", {
+      selectedDelimiter: selectedCandidate?.delimiter ?? null,
+      matched: Boolean(narrationEffect),
+      selected: narrationEffect
+        ? {
+            sourceText: narrationEffect.sourceText,
+            prompt: narrationEffect.prompt
+          }
+        : null
+    });
+
+    if (!narrationEffect) {
+      return;
+    }
+
+    console.info("[KindroidVoiceIpcTransport] userNarrationEffect", {
+      turnId,
+      sourceText: narrationEffect.sourceText,
+      prompt: narrationEffect.prompt
+    });
+
+    const bridge = getCadenceBridge();
+    void bridge.elevenlabs
+      .synthesizeSoundEffect(narrationEffect.prompt, {
+        durationSeconds: narrationEffect.durationSeconds,
+        promptInfluence: narrationEffect.promptInfluence
+      })
+      .then((effect) => {
+        this.emit({
+          type: "assistant.audio.effect",
+          turnId,
+          format: effect.format,
+          data: effect.audio,
+          gain: narrationEffect.gain,
+          offsetMs: 0
+        });
+      })
+      .catch((error) => {
+        console.warn("[KindroidVoiceIpcTransport] userNarrationEffect failed", {
+          turnId,
+          message: error instanceof Error ? error.message : String(error)
+        });
+      });
   }
 }

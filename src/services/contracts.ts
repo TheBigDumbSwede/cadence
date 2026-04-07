@@ -76,7 +76,14 @@ export interface SpeechOutputAdapter {
     sequence: number,
     format: AudioFormat,
     data: ArrayBuffer,
-    boundaryGapMs?: number
+    boundaryGapMs?: number,
+    startDelayMs?: number
+  ): Promise<void>;
+  enqueueEffectChunk(
+    turnId: string,
+    format: AudioFormat,
+    data: ArrayBuffer,
+    options?: { gain?: number; offsetMs?: number; stitchWithSpeech?: boolean }
   ): Promise<void>;
   interrupt(): Promise<void>;
 }

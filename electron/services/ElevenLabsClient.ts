@@ -9,6 +9,7 @@ import {
 } from "../../src/shared/speech-captions";
 
 const DEFAULT_MODEL = "eleven_flash_v2_5";
+const DEFAULT_SOUND_EFFECT_MODEL = "eleven_text_to_sound_v2";
 const DEFAULT_OUTPUT_FORMAT = "mp3_44100_128";
 const ELEVENLABS_API_BASE = "https://api.elevenlabs.io/v1";
 
@@ -139,6 +140,70 @@ export class ElevenLabsClient {
       voiceId,
       captions: estimateSpeechCaptionCues(text),
       captionsMode: "estimated"
+    };
+  }
+
+  async synthesizeSoundEffect(
+    text: string,
+    options?: { durationSeconds?: number; promptInfluence?: number }
+  ): Promise<{
+    audio: ArrayBuffer;
+    format: "mp3";
+    model: string;
+  }> {
+    const apiKey = getSettingsService().getElevenLabsApiKey();
+    if (!apiKey) {
+      throw new Error("ElevenLabs sound effects require ELEVENLABS_API_KEY.");
+    }
+
+    console.info("[ElevenLabsClient] synthesizeSoundEffect", {
+      prompt: text,
+      durationSeconds: options?.durationSeconds ?? null,
+      promptInfluence: options?.promptInfluence ?? null,
+      model: DEFAULT_SOUND_EFFECT_MODEL,
+      outputFormat: DEFAULT_OUTPUT_FORMAT
+    });
+
+    const response = await fetch(
+      `${ELEVENLABS_API_BASE}/sound-generation?output_format=${DEFAULT_OUTPUT_FORMAT}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": apiKey
+        },
+        body: JSON.stringify({
+          text,
+          model_id: DEFAULT_SOUND_EFFECT_MODEL,
+          ...(typeof options?.durationSeconds === "number"
+            ? { duration_seconds: options.durationSeconds }
+            : {}),
+          ...(typeof options?.promptInfluence === "number"
+            ? { prompt_influence: options.promptInfluence }
+            : {})
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.warn("[ElevenLabsClient] synthesizeSoundEffect failed", {
+        status: response.status,
+        body: errorBody
+      });
+      throw new Error(`ElevenLabs sound effect failed: ${response.status} ${errorBody}`);
+    }
+
+    const audio = await response.arrayBuffer();
+    console.info("[ElevenLabsClient] synthesizeSoundEffect success", {
+      byteLength: audio.byteLength,
+      model: DEFAULT_SOUND_EFFECT_MODEL
+    });
+
+    return {
+      audio,
+      format: "mp3",
+      model: DEFAULT_SOUND_EFFECT_MODEL
     };
   }
 }

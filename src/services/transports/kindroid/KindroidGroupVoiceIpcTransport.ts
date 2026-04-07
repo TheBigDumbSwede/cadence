@@ -11,6 +11,12 @@ import {
   MAX_AUTOMATIC_KINDROID_GROUP_TURNS,
   resolveKindroidGroupTurn
 } from "./groupTurn";
+import {
+  computeNarrationEffectOffsetMs,
+  describeKindroidNarrationEffects,
+  extractDelimitedNarrationSegments,
+  selectKindroidNarrationEffect
+} from "./narrationEffects";
 import { stripKindroidNarrationForSpeech } from "./speechText";
 
 export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport {
@@ -90,6 +96,9 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
     const usesElevenLabs = groupParticipants.some(
       (participant) => participant.ttsProvider === "elevenlabs"
     );
+    const usesNarrationFx = groupParticipants.some(
+      (participant) => participant.narrationFxEnabled && participant.ttsProvider !== "none"
+    );
     const usesTextOnly = groupParticipants.every(
       (participant) => participant.ttsProvider === "none"
     );
@@ -115,6 +124,16 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         recoverable: false
       });
       throw new Error("OpenAI speech is not configured.");
+    }
+
+    if (usesNarrationFx && !elevenLabsState.apiKeyPresent) {
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        message: "Narration FX requires an ElevenLabs API key.",
+        recoverable: false
+      });
+      throw new Error("Narration FX requires an ElevenLabs API key.");
     }
 
     this.emit({
@@ -143,6 +162,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       turnId: userTurnId,
       text
     });
+    this.queueUserNarrationEffect(userTurnId, text);
 
     try {
       await this.respondFromTranscript(text);
@@ -166,6 +186,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       turnId: userTurnId,
       text: transcript.text
     });
+    this.queueUserNarrationEffect(userTurnId, transcript.text);
 
     try {
       await this.respondFromTranscript(transcript.text);
@@ -348,6 +369,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         continue;
       }
 
+      const narrationEffect = this.selectNarrationEffect(response, respondingParticipant);
       const speechText = stripKindroidNarrationForSpeech(response, {
         enabled: respondingParticipant.filterNarrationForTts,
         delimiter: respondingParticipant.narrationDelimiter
@@ -375,6 +397,15 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         return;
       }
 
+      const narrationTiming = await this.queueNarrationEffect(
+        assistantTurnId,
+        response,
+        speechText,
+        narrationEffect,
+        synthesis.captions[synthesis.captions.length - 1]?.endMs ?? 0,
+        respondingParticipant.narrationDelimiter || "*",
+        cycleToken
+      );
       this.emit({
         type: "assistant.audio.chunk",
         turnId: assistantTurnId,
@@ -382,6 +413,8 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         format: synthesis.format,
         data: synthesis.audio,
         boundaryGapMs: groupMirror.turnPauseMs,
+        startDelayMs: narrationTiming.startDelayMs,
+        captionOffsetMs: narrationTiming.captionOffsetMs,
         captions: synthesis.captions,
         captionsMode: synthesis.captionsMode
       });
@@ -473,5 +506,190 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
     for (const listener of this.listeners) {
       listener(event);
     }
+  }
+
+  private selectNarrationEffect(
+    text: string,
+    participant: KindroidParticipant
+  ) {
+    if (!participant.narrationFxEnabled || participant.ttsProvider === "none") {
+      return null;
+    }
+
+    const delimiter = participant.narrationDelimiter || "*";
+    const narrationSegments = extractDelimitedNarrationSegments(text, delimiter);
+    const diagnostics = describeKindroidNarrationEffects(text, delimiter);
+    const selectedEffect = selectKindroidNarrationEffect(text, delimiter);
+    console.info("[KindroidGroupVoiceIpcTransport] narrationEffect source", {
+      delimiter,
+      segmentCount: narrationSegments.length,
+      segments: diagnostics,
+      rawText: text
+    });
+    console.info("[KindroidGroupVoiceIpcTransport] narrationEffect decision", {
+      selected: selectedEffect
+        ? {
+            sourceText: selectedEffect.sourceText,
+            prompt: selectedEffect.prompt
+          }
+        : null
+    });
+
+    return selectedEffect;
+  }
+
+  private queueNarrationEffect(
+    turnId: string,
+    rawText: string,
+    speechText: string,
+    narrationEffect: ReturnType<typeof selectKindroidNarrationEffect>,
+    speechDurationMs: number,
+    delimiter: string,
+    cycleToken: number
+  ): Promise<{ startDelayMs: number; captionOffsetMs: number }> {
+    if (!narrationEffect) {
+      return Promise.resolve({ startDelayMs: 0, captionOffsetMs: 0 });
+    }
+
+    const rawOffsetMs = computeNarrationEffectOffsetMs({
+      rawText,
+      speechText,
+      effect: narrationEffect,
+      speechDurationMs,
+      delimiter
+    });
+    const offsetMs = 0;
+
+    console.info("[KindroidGroupVoiceIpcTransport] queueNarrationEffect", {
+      turnId,
+      sourceText: narrationEffect.sourceText,
+      prompt: narrationEffect.prompt,
+      gain: narrationEffect.gain,
+      rawOffsetMs,
+      offsetMs
+    });
+
+    const bridge = getCadenceBridge();
+    return bridge.elevenlabs
+      .synthesizeSoundEffect(narrationEffect.prompt, {
+        durationSeconds: narrationEffect.durationSeconds,
+        promptInfluence: narrationEffect.promptInfluence
+      })
+      .then((effect) => {
+        if (this.isCycleInterrupted(cycleToken)) {
+            console.info("[KindroidGroupVoiceIpcTransport] narrationEffect dropped after interrupt", {
+              turnId
+            });
+            return {
+              startDelayMs: 0,
+              captionOffsetMs: 0
+            };
+          }
+
+        console.info("[KindroidGroupVoiceIpcTransport] narrationEffect ready", {
+          turnId,
+          format: effect.format,
+          byteLength: effect.audio.byteLength
+        });
+          this.emit({
+            type: "assistant.audio.effect",
+            turnId,
+          format: effect.format,
+          data: effect.audio,
+          gain: narrationEffect.gain,
+            offsetMs,
+            stitchWithSpeech: true
+          });
+          const captionOffsetMs = Math.round(narrationEffect.durationSeconds * 1000) + 120;
+          return {
+            startDelayMs: 0,
+            captionOffsetMs
+          };
+        })
+      .catch((error) => {
+        console.warn("[KindroidGroupVoiceIpcTransport] narrationEffect failed", {
+          turnId,
+          message: error instanceof Error ? error.message : String(error)
+        });
+        return {
+          startDelayMs: 0,
+          captionOffsetMs: 0
+        };
+      });
+  }
+
+  private queueUserNarrationEffect(turnId: string, text: string): void {
+    const fxEnabledParticipants = (this.config?.kindroidParticipants ?? []).filter(
+      (participant) => participant.narrationFxEnabled
+    );
+    if (fxEnabledParticipants.length === 0) {
+      return;
+    }
+
+    const delimiterCandidates = Array.from(
+      new Set([
+        "*",
+        ...fxEnabledParticipants.map((participant) => participant.narrationDelimiter || "*")
+      ])
+    );
+    const diagnostics = delimiterCandidates.map((delimiter) => ({
+      delimiter,
+      segments: describeKindroidNarrationEffects(text, delimiter)
+    }));
+    const selectedCandidate = delimiterCandidates
+      .map((delimiter) => ({
+        delimiter,
+        effect: selectKindroidNarrationEffect(text, delimiter)
+      }))
+      .find((candidate) => candidate.effect);
+    const narrationEffect = selectedCandidate?.effect ?? null;
+
+    console.info("[KindroidGroupVoiceIpcTransport] userNarrationEffect source", {
+      delimiters: diagnostics,
+      rawText: text
+    });
+    console.info("[KindroidGroupVoiceIpcTransport] userNarrationEffect decision", {
+      selectedDelimiter: selectedCandidate?.delimiter ?? null,
+      matched: Boolean(narrationEffect),
+      selected: narrationEffect
+        ? {
+            sourceText: narrationEffect.sourceText,
+            prompt: narrationEffect.prompt
+          }
+        : null
+    });
+
+    if (!narrationEffect) {
+      return;
+    }
+
+    console.info("[KindroidGroupVoiceIpcTransport] userNarrationEffect", {
+      turnId,
+      sourceText: narrationEffect.sourceText,
+      prompt: narrationEffect.prompt
+    });
+
+    const bridge = getCadenceBridge();
+    void bridge.elevenlabs
+      .synthesizeSoundEffect(narrationEffect.prompt, {
+        durationSeconds: narrationEffect.durationSeconds,
+        promptInfluence: narrationEffect.promptInfluence
+      })
+      .then((effect) => {
+        this.emit({
+          type: "assistant.audio.effect",
+          turnId,
+          format: effect.format,
+          data: effect.audio,
+          gain: narrationEffect.gain,
+          offsetMs: 0
+        });
+      })
+      .catch((error) => {
+        console.warn("[KindroidGroupVoiceIpcTransport] userNarrationEffect failed", {
+          turnId,
+          message: error instanceof Error ? error.message : String(error)
+        });
+      });
   }
 }

@@ -43,6 +43,7 @@ function createConfig(overrides?: Partial<TransportConfig>): TransportConfig {
         ttsProvider: "none",
         filterNarrationForTts: true,
         narrationDelimiter: "*",
+        narrationFxEnabled: false,
         openAiVoice: "",
         openAiInstructions: "",
         elevenLabsVoiceId: ""

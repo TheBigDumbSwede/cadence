@@ -28,6 +28,7 @@ const participants: KindroidParticipant[] = [
     ttsProvider: "openai",
     filterNarrationForTts: true,
     narrationDelimiter: "*",
+    narrationFxEnabled: false,
     openAiVoice: "nova",
     openAiInstructions: "",
     elevenLabsVoiceId: ""
@@ -42,6 +43,7 @@ const participants: KindroidParticipant[] = [
     ttsProvider: "none",
     filterNarrationForTts: true,
     narrationDelimiter: "*",
+    narrationFxEnabled: false,
     openAiVoice: "",
     openAiInstructions: "",
     elevenLabsVoiceId: ""

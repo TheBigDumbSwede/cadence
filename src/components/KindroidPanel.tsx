@@ -60,6 +60,7 @@ function createParticipant(
     ttsProvider: defaultTtsProvider,
     filterNarrationForTts: true,
     narrationDelimiter: "*",
+    narrationFxEnabled: false,
     openAiVoice: "",
     openAiInstructions: "",
     elevenLabsVoiceId: ""
@@ -554,6 +555,40 @@ export function KindroidPanel({
                     />
                     <p className="field-status">
                       Single delimiter token used on both sides, for example `*narration*`.
+                    </p>
+                  </div>
+
+                  <div className="settings-field">
+                    <label>Narration FX</label>
+                    <div className="settings-inline-actions">
+                      <button
+                        type="button"
+                        className={`secondary-button ${participant.narrationFxEnabled ? "active" : ""}`}
+                        onClick={() =>
+                          updateParticipant(participant.id, (current) => ({
+                            ...current,
+                            narrationFxEnabled: true
+                          }))
+                        }
+                      >
+                        Enabled
+                      </button>
+                      <button
+                        type="button"
+                        className={`secondary-button ${!participant.narrationFxEnabled ? "active" : ""}`}
+                        onClick={() =>
+                          updateParticipant(participant.id, (current) => ({
+                            ...current,
+                            narrationFxEnabled: false
+                          }))
+                        }
+                      >
+                        Disabled
+                      </button>
+                    </div>
+                    <p className="field-status">
+                      Generates at most one subtle ElevenLabs sound effect from concrete audible
+                      narration in this Kin&apos;s turn.
                     </p>
                   </div>
 

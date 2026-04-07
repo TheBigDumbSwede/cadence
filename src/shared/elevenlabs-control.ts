@@ -21,4 +21,15 @@ export type ElevenLabsBridge = {
     captions: SpeechCaptionCue[];
     captionsMode: SpeechCaptionMode;
   }>;
+  synthesizeSoundEffect: (
+    text: string,
+    options?: {
+      durationSeconds?: number;
+      promptInfluence?: number;
+    }
+  ) => Promise<{
+    audio: ArrayBuffer;
+    format: "mp3";
+    model: string;
+  }>;
 };

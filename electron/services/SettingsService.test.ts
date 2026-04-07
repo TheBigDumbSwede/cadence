@@ -53,6 +53,7 @@ function createSettingsUpdate() {
         ttsProvider: "openai" as const,
         filterNarrationForTts: true,
         narrationDelimiter: "*",
+        narrationFxEnabled: false,
         openAiVoice: "nova",
         openAiInstructions: "",
         elevenLabsVoiceId: ""

@@ -42,6 +42,7 @@ export type KindroidParticipant = {
   ttsProvider: TtsProvider;
   filterNarrationForTts: boolean;
   narrationDelimiter: string;
+  narrationFxEnabled: boolean;
   openAiVoice: string;
   openAiInstructions: string;
   elevenLabsVoiceId: string;

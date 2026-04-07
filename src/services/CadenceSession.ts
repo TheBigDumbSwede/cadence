@@ -33,7 +33,32 @@ export class CadenceSession {
           event.sequence,
           event.format,
           event.data,
-          event.boundaryGapMs
+          event.boundaryGapMs,
+          event.startDelayMs
+        );
+      }
+
+      if (
+        event.type === "assistant.audio.effect" &&
+        this.dependencies.speechOutputAdapter
+      ) {
+        console.info("[CadenceSession] assistant.audio.effect", {
+          turnId: event.turnId,
+          format: event.format,
+          byteLength: event.data.byteLength,
+          gain: event.gain ?? null,
+          offsetMs: event.offsetMs ?? null,
+          stitchWithSpeech: event.stitchWithSpeech ?? false
+        });
+        void this.dependencies.speechOutputAdapter.enqueueEffectChunk(
+          event.turnId,
+          event.format,
+          event.data,
+          {
+            gain: event.gain,
+            offsetMs: event.offsetMs,
+            stitchWithSpeech: event.stitchWithSpeech
+          }
         );
       }
 
@@ -79,7 +104,8 @@ export class CadenceSession {
         event.sequence,
         event.format,
         event.data,
-        event.boundaryGapMs
+        event.boundaryGapMs,
+        event.startDelayMs
       );
     }
 

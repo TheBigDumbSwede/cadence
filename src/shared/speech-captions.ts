@@ -159,6 +159,21 @@ export function scaleSpeechCaptionCues(
   }));
 }
 
+export function offsetSpeechCaptionCues(
+  cues: SpeechCaptionCue[],
+  offsetMs: number
+): SpeechCaptionCue[] {
+  if (cues.length === 0 || offsetMs <= 0) {
+    return cues;
+  }
+
+  return cues.map((cue) => ({
+    text: cue.text,
+    startMs: cue.startMs + offsetMs,
+    endMs: cue.endMs + offsetMs
+  }));
+}
+
 export function findActiveSpeechCaptionCue(
   cues: SpeechCaptionCue[],
   elapsedMs: number

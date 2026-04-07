@@ -518,6 +518,7 @@ export class SettingsService {
           narrationDelimiter:
             normalizeValue(participant?.narrationDelimiter) ||
             DEFAULT_KINDROID_NARRATION_DELIMITER,
+          narrationFxEnabled: participant?.narrationFxEnabled ?? false,
           openAiVoice: normalizeValue(participant?.openAiVoice),
           openAiInstructions: normalizeValue(participant?.openAiInstructions),
           elevenLabsVoiceId: normalizeValue(participant?.elevenLabsVoiceId)
@@ -667,6 +668,7 @@ export class SettingsService {
       ttsProvider,
       filterNarrationForTts: true,
       narrationDelimiter: DEFAULT_KINDROID_NARRATION_DELIMITER,
+      narrationFxEnabled: false,
       openAiVoice: this.getOpenAiTtsVoice(),
       openAiInstructions: this.getOpenAiTtsInstructions(),
       elevenLabsVoiceId: this.getElevenLabsVoiceId() ?? ""

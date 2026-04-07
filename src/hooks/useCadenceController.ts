@@ -24,6 +24,7 @@ import type {
 } from "../shared/speech-captions";
 import {
   findActiveSpeechCaptionCue,
+  offsetSpeechCaptionCues,
   scaleSpeechCaptionCues
 } from "../shared/speech-captions";
 import {
@@ -88,6 +89,7 @@ type PendingConversationHint =
 type TurnCaptionTrack = {
   cues: SpeechCaptionCue[];
   mode: SpeechCaptionMode;
+  offsetMs: number;
 };
 
 export function useCadenceController() {
@@ -433,8 +435,14 @@ export function useCadenceController() {
       const elapsedMs = Math.max(0, performance.now() - (outputPlayback.startedAtMs ?? 0));
       const captionCues =
         captionTrack?.mode === "estimated"
-          ? scaleSpeechCaptionCues(captionTrack.cues, outputPlayback.durationMs)
-          : (captionTrack?.cues ?? []);
+          ? offsetSpeechCaptionCues(
+              scaleSpeechCaptionCues(
+                captionTrack.cues,
+                Math.max(0, (outputPlayback.durationMs ?? 0) - captionTrack.offsetMs)
+              ),
+              captionTrack.offsetMs
+            )
+          : offsetSpeechCaptionCues(captionTrack?.cues ?? [], captionTrack?.offsetMs ?? 0);
       const activeCue = findActiveSpeechCaptionCue(captionCues, elapsedMs);
       const speakerLabel =
         turns.find((turn) => turn.id === outputPlayback.activeTurnId)?.speakerLabel;
@@ -1389,7 +1397,8 @@ export function useCadenceController() {
           if (event.captions?.length) {
             assistantTurnCaptionCuesRef.current.set(event.turnId, {
               cues: event.captions,
-              mode: event.captionsMode ?? "estimated"
+              mode: event.captionsMode ?? "estimated",
+              offsetMs: event.captionOffsetMs ?? 0
             });
           }
           if (!responseClock.current.firstAudioAt && responseClock.current.startedAt) {
@@ -1400,6 +1409,8 @@ export function useCadenceController() {
               timeToFirstSpeechMs: Math.round(now - (responseClock.current.startedAt ?? now))
             }));
           }
+          break;
+        case "assistant.audio.effect":
           break;
         case "assistant.interrupted":
           clearPendingConversationHint();

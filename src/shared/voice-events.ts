@@ -56,8 +56,19 @@ export type CadenceEvent =
       format: AudioFormat;
       data: ArrayBuffer;
       boundaryGapMs?: number;
+      startDelayMs?: number;
+      captionOffsetMs?: number;
       captions?: SpeechCaptionCue[];
       captionsMode?: SpeechCaptionMode;
+    }
+  | {
+      type: "assistant.audio.effect";
+      turnId: string;
+      format: AudioFormat;
+      data: ArrayBuffer;
+      gain?: number;
+      offsetMs?: number;
+      stitchWithSpeech?: boolean;
     }
   | {
       type: "assistant.interrupted";

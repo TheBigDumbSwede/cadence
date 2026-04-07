@@ -40,6 +40,15 @@ const cadenceBridge = {
         voiceId: string;
         captions: import("../src/shared/speech-captions").SpeechCaptionCue[];
         captionsMode: import("../src/shared/speech-captions").SpeechCaptionMode;
+      }>,
+    synthesizeSoundEffect: (
+      text: string,
+      options?: { durationSeconds?: number; promptInfluence?: number }
+    ) =>
+      ipcRenderer.invoke("elevenlabs:synthesize-sound-effect", text, options) as Promise<{
+        audio: ArrayBuffer;
+        format: "mp3";
+        model: string;
       }>
   } satisfies ElevenLabsBridge,
   getRuntimeInfo: () => ipcRenderer.invoke("app:get-runtime-info") as Promise<RuntimeInfo>,
