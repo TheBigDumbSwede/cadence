@@ -1,3 +1,5 @@
+import type { SpeechCaptionCue, SpeechCaptionMode } from "./speech-captions";
+
 export type SessionStatus =
   | "idle"
   | "connecting"
@@ -54,6 +56,8 @@ export type CadenceEvent =
       format: AudioFormat;
       data: ArrayBuffer;
       boundaryGapMs?: number;
+      captions?: SpeechCaptionCue[];
+      captionsMode?: SpeechCaptionMode;
     }
   | {
       type: "assistant.interrupted";

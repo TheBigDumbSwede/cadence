@@ -515,6 +515,36 @@ textarea {
   line-height: 1.4;
 }
 
+.stage-caption {
+  position: relative;
+  z-index: 1;
+  width: min(580px, calc(100% - 48px));
+  justify-self: center;
+  align-self: end;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  display: grid;
+  gap: 2px;
+  border-radius: 16px;
+  background: rgba(11, 9, 8, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+.stage-caption strong {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stage-caption span {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
 .vrm-debug-panel {
   position: absolute;
   top: 16px;

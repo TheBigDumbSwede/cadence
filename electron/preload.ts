@@ -38,6 +38,8 @@ const cadenceBridge = {
         format: "mp3";
         model: string;
         voiceId: string;
+        captions: import("../src/shared/speech-captions").SpeechCaptionCue[];
+        captionsMode: import("../src/shared/speech-captions").SpeechCaptionMode;
       }>
   } satisfies ElevenLabsBridge,
   getRuntimeInfo: () => ipcRenderer.invoke("app:get-runtime-info") as Promise<RuntimeInfo>,
@@ -114,6 +116,8 @@ const cadenceBridge = {
         format: "mp3";
         model: string;
         voice: string;
+        captions: import("../src/shared/speech-captions").SpeechCaptionCue[];
+        captionsMode: import("../src/shared/speech-captions").SpeechCaptionMode;
       }>
   } satisfies OpenAiSpeechBridge,
   settings: {

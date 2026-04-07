@@ -1,9 +1,13 @@
 export type OutputPlaybackSnapshot = {
   activeTurnId: string | null;
+  startedAtMs: number | null;
+  durationMs: number | null;
 };
 
 let snapshot: OutputPlaybackSnapshot = {
-  activeTurnId: null
+  activeTurnId: null,
+  startedAtMs: null,
+  durationMs: null
 };
 
 const listeners = new Set<(next: OutputPlaybackSnapshot) => void>();
@@ -31,6 +35,8 @@ export function publishOutputPlayback(next: OutputPlaybackSnapshot): void {
 
 export function resetOutputPlayback(): void {
   publishOutputPlayback({
-    activeTurnId: null
+    activeTurnId: null,
+    startedAtMs: null,
+    durationMs: null
   });
 }

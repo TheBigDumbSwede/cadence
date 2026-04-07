@@ -1,3 +1,5 @@
+import type { SpeechCaptionCue, SpeechCaptionMode } from "./speech-captions";
+
 export type OpenAiSpeechControlState = {
   configured: boolean;
   apiKeyPresent: boolean;
@@ -11,5 +13,12 @@ export type OpenAiSpeechBridge = {
   synthesize: (
     text: string,
     options?: { voice?: string; instructions?: string }
-  ) => Promise<{ audio: ArrayBuffer; format: "mp3"; model: string; voice: string }>;
+  ) => Promise<{
+    audio: ArrayBuffer;
+    format: "mp3";
+    model: string;
+    voice: string;
+    captions: SpeechCaptionCue[];
+    captionsMode: SpeechCaptionMode;
+  }>;
 };

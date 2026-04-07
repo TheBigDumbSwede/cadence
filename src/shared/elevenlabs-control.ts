@@ -1,3 +1,5 @@
+import type { SpeechCaptionCue, SpeechCaptionMode } from "./speech-captions";
+
 export type ElevenLabsControlState = {
   configured: boolean;
   apiKeyPresent: boolean;
@@ -11,5 +13,12 @@ export type ElevenLabsBridge = {
   synthesize: (
     text: string,
     options?: { voiceId?: string }
-  ) => Promise<{ audio: ArrayBuffer; format: "mp3"; model: string; voiceId: string }>;
+  ) => Promise<{
+    audio: ArrayBuffer;
+    format: "mp3";
+    model: string;
+    voiceId: string;
+    captions: SpeechCaptionCue[];
+    captionsMode: SpeechCaptionMode;
+  }>;
 };

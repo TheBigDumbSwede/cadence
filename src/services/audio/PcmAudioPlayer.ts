@@ -21,6 +21,8 @@ type ScheduledPlayback = {
   turnId: string | null;
   started: boolean;
   startTimerId: number | null;
+  startedAtMs: number | null;
+  durationMs: number;
 };
 
 function pcm16ToFloat32(buffer: ArrayBuffer): Float32Array {
@@ -158,7 +160,9 @@ export class PcmAudioPlayer {
       startAt,
       turnId: options?.turnId ?? null,
       started: false,
-      startTimerId: null
+      startTimerId: null,
+      startedAtMs: null,
+      durationMs: Math.round(durationSeconds * 1000)
     };
     this.scheduledPlaybacks.set(source, playback);
     this.schedulePlaybackStart(playback);
@@ -239,6 +243,7 @@ export class PcmAudioPlayer {
   private schedulePlaybackStart(playback: ScheduledPlayback): void {
     if (typeof window === "undefined") {
       playback.started = true;
+      playback.startedAtMs = globalThis.performance?.now() ?? Date.now();
       this.syncActiveTurn();
       return;
     }
@@ -249,6 +254,7 @@ export class PcmAudioPlayer {
     playback.startTimerId = window.setTimeout(() => {
       playback.startTimerId = null;
       playback.started = true;
+      playback.startedAtMs = performance.now();
       this.syncActiveTurn();
     }, delayMs);
   }
@@ -265,7 +271,9 @@ export class PcmAudioPlayer {
 
     this.activeTurnId = nextTurnId;
     publishOutputPlayback({
-      activeTurnId: this.activeTurnId
+      activeTurnId: this.activeTurnId,
+      startedAtMs: nextPlayback?.startedAtMs ?? null,
+      durationMs: nextPlayback?.durationMs ?? null
     });
   }
 

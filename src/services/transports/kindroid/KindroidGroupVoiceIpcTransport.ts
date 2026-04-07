@@ -381,7 +381,9 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         sequence: 0,
         format: synthesis.format,
         data: synthesis.audio,
-        boundaryGapMs: groupMirror.turnPauseMs
+        boundaryGapMs: groupMirror.turnPauseMs,
+        captions: synthesis.captions,
+        captionsMode: synthesis.captionsMode
       });
     }
 

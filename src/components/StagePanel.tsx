@@ -11,6 +11,10 @@ type StagePanelProps = {
   avatar: AvatarSelection | null;
   avatarPoseDebug: boolean;
   performance: AvatarPerformanceSnapshot;
+  speechCaption: {
+    speakerLabel?: string;
+    text: string;
+  } | null;
   stageMode: StageMode;
   waveformTheme: {
     color: string;
@@ -23,14 +27,10 @@ export function StagePanel({
   avatar,
   avatarPoseDebug,
   performance,
+  speechCaption,
   stageMode,
   waveformTheme
 }: StagePanelProps) {
-  const stageLabel =
-    stageMode === "waveform"
-      ? "Waveform"
-      : avatar?.label.replace(/\.vrm$/i, "") ?? "No avatar";
-
   return (
     <section className={`panel stage stage-state-${activeState.type}`}>
       <div className="stage-header">
@@ -49,11 +49,14 @@ export function StagePanel({
             performance={performance}
           />
         )}
-
-        <div className="stage-status">
-          <strong>{stageLabel}</strong>
-          <span>{activeState.detail}</span>
-        </div>
+        {speechCaption ? (
+          <div className="stage-caption" aria-live="polite">
+            {speechCaption.speakerLabel ? (
+              <strong>{speechCaption.speakerLabel}</strong>
+            ) : null}
+            <span>{speechCaption.text}</span>
+          </div>
+        ) : null}
       </div>
     </section>
   );

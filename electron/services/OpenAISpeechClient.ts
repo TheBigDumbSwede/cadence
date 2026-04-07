@@ -1,6 +1,11 @@
 import "dotenv/config";
 
 import { getSettingsService } from "./SettingsService";
+import {
+  estimateSpeechCaptionCues,
+  type SpeechCaptionCue,
+  type SpeechCaptionMode
+} from "../../src/shared/speech-captions";
 
 const DEFAULT_MODEL = "gpt-4o-mini-tts";
 const DEFAULT_VOICE = "alloy";
@@ -32,7 +37,14 @@ export class OpenAISpeechClient {
   async synthesize(
     text: string,
     options?: { voice?: string; instructions?: string }
-  ): Promise<{ audio: ArrayBuffer; format: "mp3"; model: string; voice: string }> {
+  ): Promise<{
+    audio: ArrayBuffer;
+    format: "mp3";
+    model: string;
+    voice: string;
+    captions: SpeechCaptionCue[];
+    captionsMode: SpeechCaptionMode;
+  }> {
     if (!this.isConfigured()) {
       throw new Error("OPENAI_API_KEY is not configured.");
     }
@@ -64,7 +76,9 @@ export class OpenAISpeechClient {
       audio: await response.arrayBuffer(),
       format: "mp3",
       model: DEFAULT_MODEL,
-      voice
+      voice,
+      captions: estimateSpeechCaptionCues(text),
+      captionsMode: "estimated"
     };
   }
 }

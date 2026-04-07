@@ -27,6 +27,7 @@ export function App() {
     activeKindroidGroupParticipants,
     activeKindroidGroupMirror,
     activeKindroidParticipant,
+    activeSpeechCaption,
     activeWaveformKindroidParticipant,
     activeState,
     avatarPoseDebug,
@@ -171,6 +172,7 @@ export function App() {
           avatar={settingsSnapshot?.avatar ?? null}
           avatarPoseDebug={avatarPoseDebug}
           performance={performance}
+          speechCaption={activeSpeechCaption}
           stageMode={stageMode}
           waveformTheme={
             activeWaveformKindroidParticipant

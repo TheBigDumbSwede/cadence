@@ -18,6 +18,14 @@ import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 import type { CadenceEvent } from "../shared/voice-events";
+import type {
+  SpeechCaptionCue,
+  SpeechCaptionMode
+} from "../shared/speech-captions";
+import {
+  findActiveSpeechCaptionCue,
+  scaleSpeechCaptionCues
+} from "../shared/speech-captions";
 import {
   HotMicRecorder,
   type HotMicMonitorState,
@@ -77,6 +85,11 @@ type PendingConversationHint =
       message: string;
     };
 
+type TurnCaptionTrack = {
+  cues: SpeechCaptionCue[];
+  mode: SpeechCaptionMode;
+};
+
 export function useCadenceController() {
   const [voiceSession] = useState(() => createVoiceSession());
   const [openAiBatchVoiceSession] = useState(() => createOpenAiBatchVoiceSession());
@@ -125,6 +138,10 @@ export function useCadenceController() {
   const [pendingConversationHint, setPendingConversationHint] =
     useState<PendingConversationHint | null>(null);
   const [outputPlayback, setOutputPlayback] = useState(() => getOutputPlaybackSnapshot());
+  const [activeSpeechCaption, setActiveSpeechCaption] = useState<{
+    speakerLabel?: string;
+    text: string;
+  } | null>(null);
   const recorderRef = useRef<PushToTalkRecorder | null>(null);
   const hotMicRecorderRef = useRef<HotMicRecorder | null>(null);
   const hotMicMutedRef = useRef(false);
@@ -135,6 +152,7 @@ export function useCadenceController() {
   const stagePhaseTimerRef = useRef<number | null>(null);
   const stageTimelineManagedRef = useRef(false);
   const assistantTurnParticipantIdsRef = useRef(new Map<string, string>());
+  const assistantTurnCaptionCuesRef = useRef(new Map<string, TurnCaptionTrack>());
   const pendingUserTurnIdRef = useRef<string | null>(null);
   const bufferedAssistantTurnRef = useRef<{
     turnId: string;
@@ -373,10 +391,15 @@ export function useCadenceController() {
 
   useEffect(() => {
     const nextEntries = new Map<string, string>();
+    const nextCaptionEntries = new Map<string, TurnCaptionTrack>();
 
     for (const turn of turns) {
       if (turn.speaker === "assistant" && turn.kindroidParticipantId) {
         nextEntries.set(turn.id, turn.kindroidParticipantId);
+      }
+      const captionTrack = assistantTurnCaptionCuesRef.current.get(turn.id);
+      if (turn.speaker === "assistant" && captionTrack) {
+        nextCaptionEntries.set(turn.id, captionTrack);
       }
     }
 
@@ -386,10 +409,63 @@ export function useCadenceController() {
       if (activePlaybackParticipantId) {
         nextEntries.set(outputPlayback.activeTurnId, activePlaybackParticipantId);
       }
+      const activeCaptionTrack = assistantTurnCaptionCuesRef.current.get(outputPlayback.activeTurnId);
+      if (activeCaptionTrack) {
+        nextCaptionEntries.set(outputPlayback.activeTurnId, activeCaptionTrack);
+      }
     }
 
     assistantTurnParticipantIdsRef.current = nextEntries;
+    assistantTurnCaptionCuesRef.current = nextCaptionEntries;
   }, [outputPlayback.activeTurnId, turns]);
+
+  useEffect(() => {
+    if (!outputPlayback.activeTurnId || outputPlayback.startedAtMs === null) {
+      setActiveSpeechCaption(null);
+      return;
+    }
+
+    let frameId = 0;
+
+    const updateCaption = () => {
+      const captionTrack =
+        assistantTurnCaptionCuesRef.current.get(outputPlayback.activeTurnId ?? "") ?? null;
+      const elapsedMs = Math.max(0, performance.now() - (outputPlayback.startedAtMs ?? 0));
+      const captionCues =
+        captionTrack?.mode === "estimated"
+          ? scaleSpeechCaptionCues(captionTrack.cues, outputPlayback.durationMs)
+          : (captionTrack?.cues ?? []);
+      const activeCue = findActiveSpeechCaptionCue(captionCues, elapsedMs);
+      const speakerLabel =
+        turns.find((turn) => turn.id === outputPlayback.activeTurnId)?.speakerLabel;
+
+      setActiveSpeechCaption((previous) => {
+        const nextCaption = activeCue
+          ? {
+              speakerLabel,
+              text: activeCue.text
+            }
+          : null;
+
+        if (
+          previous?.speakerLabel === nextCaption?.speakerLabel &&
+          previous?.text === nextCaption?.text
+        ) {
+          return previous;
+        }
+
+        return nextCaption;
+      });
+
+      frameId = window.requestAnimationFrame(updateCaption);
+    };
+
+    frameId = window.requestAnimationFrame(updateCaption);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      setActiveSpeechCaption(null);
+    };
+  }, [outputPlayback.activeTurnId, outputPlayback.durationMs, outputPlayback.startedAtMs, turns]);
 
   function clearStagePhaseTimer(): void {
     if (stagePhaseTimerRef.current !== null) {
@@ -1310,6 +1386,12 @@ export function useCadenceController() {
           }
           break;
         case "assistant.audio.chunk":
+          if (event.captions?.length) {
+            assistantTurnCaptionCuesRef.current.set(event.turnId, {
+              cues: event.captions,
+              mode: event.captionsMode ?? "estimated"
+            });
+          }
           if (!responseClock.current.firstAudioAt && responseClock.current.startedAt) {
             const now = performance.now();
             responseClock.current.firstAudioAt = now;
@@ -1346,6 +1428,7 @@ export function useCadenceController() {
           clearPendingConversationHint();
           clearPlaybackSuppressionTimer();
           assistantTurnParticipantIdsRef.current.clear();
+          assistantTurnCaptionCuesRef.current.clear();
           releaseHotMicSuppression();
           clearPendingUserTurn();
           bufferedAssistantTurnRef.current = null;
@@ -1716,7 +1799,9 @@ export function useCadenceController() {
       turnId,
       sequence: 0,
       format: synthesis.format,
-      data: synthesis.audio
+      data: synthesis.audio,
+      captions: synthesis.captions,
+      captionsMode: synthesis.captionsMode
     });
   }
 
@@ -1944,6 +2029,7 @@ export function useCadenceController() {
 
   return {
     activeState,
+    activeSpeechCaption,
     activeKindroidGroupMirror,
     activeKindroidGroupParticipants,
     activeKindroidParticipant,

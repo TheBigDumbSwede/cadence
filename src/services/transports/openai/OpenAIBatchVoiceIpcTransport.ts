@@ -205,7 +205,9 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       turnId: assistantTurnId,
       sequence: 0,
       format: synthesis.format,
-      data: synthesis.audio
+      data: synthesis.audio,
+      captions: synthesis.captions,
+      captionsMode: synthesis.captionsMode
     });
     this.emit({
       type: "session.status",
