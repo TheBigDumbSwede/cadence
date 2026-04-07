@@ -106,6 +106,26 @@ export function KindroidPanel({
 
   const saveDisabled = !settingsLoaded || settingsSaveState === "saving";
   const defaultTtsProvider = settingsSnapshot?.preferences.ttsProvider ?? "none";
+  const hasUnsavedChanges = useMemo(() => {
+    if (!settingsSnapshot) {
+      return false;
+    }
+
+    return (
+      kindroidConversationMode !== settingsSnapshot.kindroidConversationMode ||
+      activeKindroidParticipantId !== settingsSnapshot.activeKindroidParticipantId ||
+      activeKindroidGroupMirrorId !== settingsSnapshot.activeKindroidGroupMirrorId ||
+      JSON.stringify(participants) !== JSON.stringify(settingsSnapshot.kindroidParticipants) ||
+      JSON.stringify(groupMirrors) !== JSON.stringify(settingsSnapshot.kindroidGroupMirrors)
+    );
+  }, [
+    activeKindroidGroupMirrorId,
+    activeKindroidParticipantId,
+    groupMirrors,
+    kindroidConversationMode,
+    participants,
+    settingsSnapshot
+  ]);
   const participantNames = useMemo(
     () =>
       participants.map((participant, index) => ({
@@ -242,12 +262,12 @@ export function KindroidPanel({
   }
 
   return (
-    <div className="menu-stack">
+    <div className="menu-pane">
+      <div className="menu-pane-scroll menu-stack">
       <section className="menu-section">
         <div className="menu-section-header">
           <div>
-            <p className="eyebrow">Kindroid</p>
-            <h3 className="panel-title">Conversation routing</h3>
+            <h3 className="panel-title">Routing</h3>
           </div>
         </div>
         <div className="settings-field">
@@ -747,26 +767,25 @@ export function KindroidPanel({
         </div>
       </section>
 
-      <section className="menu-section">
-        <div className="settings-toolbar">
-          <div className="settings-feedback">
-            <strong>{settingsSaveState === "error" ? "Save failed" : "Kindroid"}</strong>
-            <span>
-              {validationMessage ||
-                settingsFeedback ||
-                "Save the current participant roster and mirrored groups."}
-            </span>
-          </div>
-          <button
-            type="button"
-            className="menu-button"
-            disabled={saveDisabled}
-            onClick={() => void handleSave()}
-          >
-            {settingsSaveState === "saving" ? "Saving..." : "Save Kindroid"}
-          </button>
+      </div>
+      <div className="settings-toolbar menu-pane-footer">
+        <div className="settings-feedback">
+          <strong>{settingsSaveState === "error" ? "Save failed" : "Kindroid"}</strong>
+          <span>
+            {validationMessage ||
+              settingsFeedback ||
+              "Save the current participant roster and mirrored groups."}
+          </span>
         </div>
-      </section>
+        <button
+          type="button"
+          className={`menu-button ${hasUnsavedChanges ? "unsaved" : ""}`}
+          disabled={saveDisabled}
+          onClick={() => void handleSave()}
+        >
+          {settingsSaveState === "saving" ? "Saving..." : "Save Settings"}
+        </button>
+      </div>
     </div>
   );
 }

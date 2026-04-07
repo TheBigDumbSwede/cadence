@@ -40,7 +40,6 @@ function createSettingsUpdate() {
     elevenLabsVoiceId: "",
     kindroidAiId: "",
     kindroidBaseUrl: "https://api.kindroid.ai/v1",
-    kindroidExperimentalEnabled: true,
     kindroidGreeting: "Hello.",
     kindroidConversationMode: "group" as const,
     kindroidParticipants: [

@@ -250,10 +250,10 @@ export function App() {
           title="Kindroid"
           subtitle={
             usesKindroidGroupConversation && activeKindroidGroupMirror
-              ? `${activeKindroidGroupMirror.displayName} is active`
+              ? `Active group: ${activeKindroidGroupMirror.displayName}`
               : activeKindroidParticipant
-                ? `${activeKindroidParticipant.displayName} is active`
-              : "Participant roster and routing"
+                ? `Active participant: ${activeKindroidParticipant.displayName}`
+                : "Participant roster, groups, and routing"
           }
           onClose={() => setKindroidOpen(false)}
         >

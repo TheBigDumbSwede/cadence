@@ -32,7 +32,6 @@ export type SettingsSnapshot = {
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;
-  kindroidExperimentalEnabled: boolean;
   kindroidGreeting: string;
   kindroidConversationMode: KindroidConversationMode;
   kindroidParticipants: KindroidParticipant[];
@@ -55,7 +54,6 @@ export type SettingsUpdate = {
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;
-  kindroidExperimentalEnabled: boolean;
   kindroidGreeting: string;
   kindroidConversationMode: KindroidConversationMode;
   kindroidParticipants: KindroidParticipant[];

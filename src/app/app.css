@@ -154,6 +154,26 @@ textarea {
   background: var(--accent-soft);
 }
 
+.menu-button.unsaved {
+  border-color: rgba(215, 149, 91, 0.72);
+  background:
+    linear-gradient(180deg, rgba(215, 149, 91, 0.24), rgba(215, 149, 91, 0.12)),
+    rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 0 0 1px rgba(215, 149, 91, 0.22),
+    0 0 22px rgba(215, 149, 91, 0.16);
+}
+
+.menu-button.unsaved:hover {
+  border-color: rgba(215, 149, 91, 0.82);
+  background:
+    linear-gradient(180deg, rgba(215, 149, 91, 0.3), rgba(215, 149, 91, 0.16)),
+    rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(215, 149, 91, 0.26),
+    0 0 28px rgba(215, 149, 91, 0.22);
+}
+
 .chat-action:disabled,
 .chat-send:disabled,
 .secondary-button:disabled {
@@ -609,8 +629,42 @@ textarea {
   gap: 10px;
 }
 
+.menu-pane {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  height: 100%;
+  gap: 12px;
+}
+
+.menu-pane-scroll {
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+  padding-right: 6px;
+  gap: 18px;
+}
+
+.menu-pane-footer {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(18, 15, 13, 0), rgba(18, 15, 13, 0.76) 22%, rgba(18, 15, 13, 0.96) 100%);
+}
+
 .mode-switch {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.menu-pane-scroll > .menu-section + .menu-section {
+  padding-top: 18px;
+  border-top: 1px solid rgba(231, 209, 187, 0.1);
+}
+
+.menu-section-header {
+  margin-bottom: 2px;
 }
 
 .mode-switch-triple {
@@ -957,7 +1011,11 @@ textarea {
 .menu-window-body {
   min-height: 0;
   overflow: auto;
-  padding-right: 6px;
+}
+
+.menu-window-body > .menu-pane {
+  min-height: 0;
+  height: 100%;
 }
 
 .metrics-grid {

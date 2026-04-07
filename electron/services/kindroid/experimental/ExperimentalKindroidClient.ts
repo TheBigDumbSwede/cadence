@@ -23,13 +23,12 @@ import { KindroidHttpClient, kindroidTimeouts } from "../core/KindroidHttpClient
 export class ExperimentalKindroidClient {
   getState(): KindroidExperimentalControlState {
     const settings = getSettingsService();
-    const enabled = settings.getKindroidExperimentalEnabled();
     const apiKeyPresent = Boolean(settings.getKindroidApiKey());
     const aiIdPresent = Boolean(settings.getKindroidAiId());
 
     return {
-      enabled,
-      configured: enabled && apiKeyPresent,
+      enabled: true,
+      configured: apiKeyPresent,
       apiKeyPresent,
       aiIdPresent,
       baseUrl: settings.getKindroidBaseUrl()
@@ -337,10 +336,6 @@ export class ExperimentalKindroidClient {
   private createRequestClient(): KindroidHttpClient {
     const settings = getSettingsService();
     const apiKey = settings.getKindroidApiKey();
-
-    if (!settings.getKindroidExperimentalEnabled()) {
-      throw new Error("Kindroid experimental endpoints are disabled.");
-    }
 
     if (!apiKey) {
       throw new Error("Kindroid is not configured. Add KINDROID_API_KEY.");

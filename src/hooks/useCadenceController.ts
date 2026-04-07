@@ -1828,7 +1828,6 @@ export function useCadenceController() {
       elevenLabsVoiceId: settingsSnapshot.elevenLabsVoiceId,
       kindroidAiId: settingsSnapshot.kindroidAiId,
       kindroidBaseUrl: settingsSnapshot.kindroidBaseUrl,
-      kindroidExperimentalEnabled: settingsSnapshot.kindroidExperimentalEnabled,
       kindroidGreeting: settingsSnapshot.kindroidGreeting,
       kindroidConversationMode: update.kindroidConversationMode,
       kindroidParticipants: update.kindroidParticipants,

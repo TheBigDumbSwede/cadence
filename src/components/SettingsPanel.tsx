@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   AvatarSelection,
   SettingsSnapshot,
@@ -53,6 +53,10 @@ const OPENAI_TTS_VOICE_OPTIONS = [
   "cedar"
 ] as const;
 
+function normalizeValue(value: string): string {
+  return value.trim();
+}
+
 export function SettingsPanel({
   avatarPoseDebug,
   backendConfig,
@@ -87,7 +91,6 @@ export function SettingsPanel({
   const [kindroidApiKey, setKindroidApiKey] = useState("");
   const [clearKindroidApiKey, setClearKindroidApiKey] = useState(false);
   const [kindroidBaseUrl, setKindroidBaseUrl] = useState("");
-  const [kindroidExperimentalEnabled, setKindroidExperimentalEnabled] = useState(false);
   const [kindroidGreeting, setKindroidGreeting] = useState("");
 
   useEffect(() => {
@@ -105,11 +108,54 @@ export function SettingsPanel({
     setKindroidApiKey("");
     setClearKindroidApiKey(false);
     setKindroidBaseUrl(settingsSnapshot.kindroidBaseUrl);
-    setKindroidExperimentalEnabled(settingsSnapshot.kindroidExperimentalEnabled);
     setKindroidGreeting(settingsSnapshot.kindroidGreeting);
   }, [settingsSnapshot]);
 
   const saveDisabled = !settingsLoaded || settingsSaveState === "saving";
+  const hasUnsavedChanges = useMemo(() => {
+    if (!settingsSnapshot) {
+      return false;
+    }
+
+    return (
+      mode !== settingsSnapshot.preferences.mode ||
+      stageMode !== settingsSnapshot.preferences.stageMode ||
+      textBackend !== settingsSnapshot.preferences.textBackend ||
+      ttsProvider !== settingsSnapshot.preferences.ttsProvider ||
+      voiceInputMode !== settingsSnapshot.preferences.voiceInputMode ||
+      voiceBackend !== settingsSnapshot.preferences.voiceBackend ||
+      openAiApiKey.trim().length > 0 ||
+      clearOpenAiApiKey ||
+      normalizeValue(openAiTtsVoice) !== settingsSnapshot.openAiTtsVoice ||
+      normalizeValue(openAiTtsInstructions) !== settingsSnapshot.openAiTtsInstructions ||
+      elevenLabsApiKey.trim().length > 0 ||
+      clearElevenLabsApiKey ||
+      normalizeValue(elevenLabsVoiceId) !== settingsSnapshot.elevenLabsVoiceId ||
+      kindroidApiKey.trim().length > 0 ||
+      clearKindroidApiKey ||
+      normalizeValue(kindroidBaseUrl) !== settingsSnapshot.kindroidBaseUrl ||
+      normalizeValue(kindroidGreeting) !== settingsSnapshot.kindroidGreeting
+    );
+  }, [
+    clearElevenLabsApiKey,
+    clearKindroidApiKey,
+    clearOpenAiApiKey,
+    elevenLabsApiKey,
+    elevenLabsVoiceId,
+    kindroidApiKey,
+    kindroidBaseUrl,
+    kindroidGreeting,
+    mode,
+    openAiApiKey,
+    openAiTtsInstructions,
+    openAiTtsVoice,
+    settingsSnapshot,
+    stageMode,
+    textBackend,
+    ttsProvider,
+    voiceBackend,
+    voiceInputMode
+  ]);
   const openAiTtsVoiceOptions = openAiTtsVoice
     ? OPENAI_TTS_VOICE_OPTIONS.includes(openAiTtsVoice as (typeof OPENAI_TTS_VOICE_OPTIONS)[number])
       ? OPENAI_TTS_VOICE_OPTIONS
@@ -117,7 +163,8 @@ export function SettingsPanel({
     : OPENAI_TTS_VOICE_OPTIONS;
 
   return (
-    <div className="menu-stack">
+    <div className="menu-pane">
+      <div className="menu-pane-scroll menu-stack">
       <section className="menu-section">
         <div className="menu-section-header">
           <div>
@@ -589,24 +636,6 @@ export function SettingsPanel({
               />
             </div>
             <div className="settings-field">
-              <label>Experimental endpoints</label>
-              <div className="settings-inline-actions">
-                <button
-                  type="button"
-                  className={`secondary-button ${kindroidExperimentalEnabled ? "active" : ""}`}
-                  onClick={() =>
-                    setKindroidExperimentalEnabled((previous) => !previous)
-                  }
-                >
-                  {kindroidExperimentalEnabled ? "Enabled" : "Disabled"}
-                </button>
-              </div>
-              <p className="field-status">
-                Undocumented Kindroid endpoints discovered from community tooling. Keep this off
-                unless you are intentionally using the experimental bridge.
-              </p>
-            </div>
-            <div className="settings-field">
               <label htmlFor="kindroid-greeting">Default chat-break greeting</label>
               <textarea
                 id="kindroid-greeting"
@@ -626,52 +655,6 @@ export function SettingsPanel({
               menu.
             </p>
           </article>
-        </div>
-
-        <div className="settings-toolbar">
-          <div className="settings-feedback">
-            <strong>{settingsSaveState === "error" ? "Save failed" : "Settings"}</strong>
-            <span>
-              {settingsFeedback ||
-                (settingsSnapshot
-                  ? `Secrets are stored using ${settingsSnapshot.secretStorage === "encrypted" ? "OS encryption" : "plain local storage"}.`
-                  : "Loading settings...")}
-            </span>
-          </div>
-          <button
-            type="button"
-            className="menu-button"
-            disabled={saveDisabled}
-            onClick={() =>
-              void onSaveSettings({
-                openAiApiKey: openAiApiKey.trim() || undefined,
-                openAiTtsVoice,
-                openAiTtsInstructions,
-                elevenLabsApiKey: elevenLabsApiKey.trim() || undefined,
-                elevenLabsVoiceId,
-                kindroidAiId: settingsSnapshot?.kindroidAiId ?? "",
-                kindroidApiKey: kindroidApiKey.trim() || undefined,
-                kindroidBaseUrl,
-                kindroidExperimentalEnabled,
-                kindroidGreeting,
-                kindroidConversationMode:
-                  settingsSnapshot?.kindroidConversationMode ?? "solo",
-                kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
-                activeKindroidParticipantId:
-                  settingsSnapshot?.activeKindroidParticipantId ?? null,
-                kindroidGroupMirrors: settingsSnapshot?.kindroidGroupMirrors ?? [],
-                activeKindroidGroupMirrorId:
-                  settingsSnapshot?.activeKindroidGroupMirrorId ?? null,
-                activeKindroidGroupSpeakerParticipantId:
-                  settingsSnapshot?.activeKindroidGroupSpeakerParticipantId ?? null,
-                clearOpenAiApiKey,
-                clearElevenLabsApiKey,
-                clearKindroidApiKey
-              })
-            }
-          >
-            {settingsSaveState === "saving" ? "Saving..." : "Save Settings"}
-          </button>
         </div>
       </section>
 
@@ -699,6 +682,51 @@ export function SettingsPanel({
           ))}
         </div>
       </section>
+      </div>
+      <div className="settings-toolbar menu-pane-footer">
+        <div className="settings-feedback">
+          <strong>{settingsSaveState === "error" ? "Save failed" : "Settings"}</strong>
+          <span>
+            {settingsFeedback ||
+              (settingsSnapshot
+                ? `Secrets are stored using ${settingsSnapshot.secretStorage === "encrypted" ? "OS encryption" : "plain local storage"}.`
+                : "Loading settings...")}
+          </span>
+        </div>
+        <button
+          type="button"
+          className={`menu-button ${hasUnsavedChanges ? "unsaved" : ""}`}
+          disabled={saveDisabled}
+          onClick={() =>
+            void onSaveSettings({
+              openAiApiKey: openAiApiKey.trim() || undefined,
+              openAiTtsVoice,
+              openAiTtsInstructions,
+              elevenLabsApiKey: elevenLabsApiKey.trim() || undefined,
+              elevenLabsVoiceId,
+              kindroidAiId: settingsSnapshot?.kindroidAiId ?? "",
+              kindroidApiKey: kindroidApiKey.trim() || undefined,
+              kindroidBaseUrl,
+              kindroidGreeting,
+              kindroidConversationMode:
+                settingsSnapshot?.kindroidConversationMode ?? "solo",
+              kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
+              activeKindroidParticipantId:
+                settingsSnapshot?.activeKindroidParticipantId ?? null,
+              kindroidGroupMirrors: settingsSnapshot?.kindroidGroupMirrors ?? [],
+              activeKindroidGroupMirrorId:
+                settingsSnapshot?.activeKindroidGroupMirrorId ?? null,
+              activeKindroidGroupSpeakerParticipantId:
+                settingsSnapshot?.activeKindroidGroupSpeakerParticipantId ?? null,
+              clearOpenAiApiKey,
+              clearElevenLabsApiKey,
+              clearKindroidApiKey
+            })
+          }
+        >
+          {settingsSaveState === "saving" ? "Saving..." : "Save Settings"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -19,8 +19,8 @@ export function MenuWindow({ title, subtitle, onClose, children }: MenuWindowPro
       >
         <header className="menu-window-header">
           <div>
-            <p className="eyebrow">{title}</p>
-            <h2 className="panel-title">{subtitle}</h2>
+            <h2 className="panel-title">{title}</h2>
+            <p className="panel-copy">{subtitle}</p>
           </div>
           <button type="button" className="menu-close" onClick={onClose}>
             Close

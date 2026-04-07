@@ -28,7 +28,6 @@ type StoredSettings = {
   elevenLabsVoiceId?: string;
   kindroidAiId?: string;
   kindroidBaseUrl?: string;
-  kindroidExperimentalEnabled?: boolean;
   kindroidGreeting?: string;
   kindroidConversationMode?: KindroidConversationMode;
   kindroidParticipants?: KindroidParticipant[];
@@ -71,27 +70,6 @@ function normalizeHexColor(value: string | undefined | null, fallback: string): 
   return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : fallback;
 }
 
-function parseBooleanEnv(value: string | null): boolean | null {
-  if (!value) {
-    return null;
-  }
-
-  switch (value.trim().toLowerCase()) {
-    case "1":
-    case "true":
-    case "yes":
-    case "on":
-      return true;
-    case "0":
-    case "false":
-    case "no":
-    case "off":
-      return false;
-    default:
-      return null;
-  }
-}
-
 export class SettingsService {
   private cache: StoredSettings | null = null;
 
@@ -126,7 +104,6 @@ export class SettingsService {
       elevenLabsVoiceId: this.getElevenLabsVoiceId() ?? "",
       kindroidAiId: this.getKindroidAiId() ?? "",
       kindroidBaseUrl: this.getKindroidBaseUrl(),
-      kindroidExperimentalEnabled: this.getKindroidExperimentalEnabled(),
       kindroidGreeting: this.getKindroidGreeting(),
       kindroidConversationMode: this.getKindroidConversationMode(kindroidGroupMirrors),
       kindroidParticipants,
@@ -170,7 +147,6 @@ export class SettingsService {
     stored.elevenLabsVoiceId = normalizeValue(update.elevenLabsVoiceId);
     stored.kindroidAiId = normalizeValue(update.kindroidAiId);
     stored.kindroidBaseUrl = normalizeValue(update.kindroidBaseUrl);
-    stored.kindroidExperimentalEnabled = update.kindroidExperimentalEnabled;
     stored.kindroidGreeting = normalizeValue(update.kindroidGreeting);
     stored.kindroidConversationMode = this.normalizeKindroidConversationMode(
       update.kindroidConversationMode,
@@ -295,15 +271,6 @@ export class SettingsService {
       this.getEnv("KINDROID_BASE_URL") ??
       DEFAULT_KINDROID_BASE_URL
     );
-  }
-
-  getKindroidExperimentalEnabled(): boolean {
-    const stored = this.readStore().kindroidExperimentalEnabled;
-    if (typeof stored === "boolean") {
-      return stored;
-    }
-
-    return parseBooleanEnv(this.getEnv("KINDROID_EXPERIMENTAL_ENABLED")) ?? false;
   }
 
   getKindroidGreeting(): string {
