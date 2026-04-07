@@ -143,7 +143,11 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       text
     });
 
-    await this.respondFromTranscript(text);
+    try {
+      await this.respondFromTranscript(text);
+    } catch (error) {
+      this.handleRecoverableError(error, "Your turn.");
+    }
   }
 
   async sendUserAudio(audio: ArrayBuffer): Promise<void> {
@@ -162,7 +166,11 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       text: transcript.text
     });
 
-    await this.respondFromTranscript(transcript.text);
+    try {
+      await this.respondFromTranscript(transcript.text);
+    } catch (error) {
+      this.handleRecoverableError(error, "Your turn.");
+    }
   }
 
   async requestKindroidGroupParticipantTurn(kindroidParticipantId: string): Promise<void> {
@@ -171,7 +179,16 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       provider: this.id,
       status: "thinking"
     });
-    await this.runGroupTurnCycle({ forcedParticipantId: kindroidParticipantId });
+    try {
+      await this.runGroupTurnCycle({ forcedParticipantId: kindroidParticipantId });
+    } catch (error) {
+      this.handleRecoverableError(
+        error,
+        this.config?.kindroidGroupMirror?.manualTurnTaking
+          ? "Choose who replies next."
+          : "Your turn."
+      );
+    }
   }
 
   async interruptAssistant(
@@ -371,8 +388,27 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
     return resolveKindroidGroupTurn({
       groupMirror,
       participants,
-      manualSpeakerParticipantId: this.config?.kindroidManualSpeakerParticipantId,
       transportId: this.id
+    });
+  }
+
+  private handleRecoverableError(error: unknown, fallbackMessage: string): void {
+    this.emit({
+      type: "transport.error",
+      provider: this.id,
+      message: error instanceof Error ? error.message : "Kindroid group turn failed.",
+      recoverable: true
+    });
+    this.emit({
+      type: "session.status",
+      provider: this.id,
+      status: "ready"
+    });
+    this.emit({
+      type: "conversation.turn.pending",
+      provider: this.id,
+      turnOwner: "user",
+      message: fallbackMessage
     });
   }
 

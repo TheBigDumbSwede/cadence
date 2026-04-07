@@ -182,21 +182,6 @@ export function useCadenceController() {
       null
     );
   }, [kindroidGroupMirrors, settingsSnapshot?.activeKindroidGroupMirrorId]);
-  const activeKindroidGroupSpeakerParticipant = useMemo(() => {
-    if (!settingsSnapshot?.activeKindroidGroupSpeakerParticipantId) {
-      return null;
-    }
-
-    return (
-      settingsSnapshot.kindroidParticipants.find(
-        (participant) =>
-          participant.id === settingsSnapshot.activeKindroidGroupSpeakerParticipantId
-      ) ?? null
-    );
-  }, [
-    settingsSnapshot?.activeKindroidGroupSpeakerParticipantId,
-    settingsSnapshot?.kindroidParticipants
-  ]);
   const kindroidConversationMode =
     settingsSnapshot?.kindroidConversationMode ?? "solo";
   const usesKindroidGroupConversation =
@@ -258,16 +243,15 @@ export function useCadenceController() {
       ?.kindroidParticipantId;
 
     if (!lastAssistantParticipantId) {
-      return activeKindroidGroupSpeakerParticipant;
+      return null;
     }
 
     return (
       settingsSnapshot?.kindroidParticipants.find(
         (participant) => participant.id === lastAssistantParticipantId
-      ) ?? activeKindroidGroupSpeakerParticipant
+      ) ?? null
     );
   }, [
-    activeKindroidGroupSpeakerParticipant,
     activeKindroidParticipant,
     mode,
     outputPlayback.activeTurnId,
@@ -319,10 +303,7 @@ export function useCadenceController() {
       return {};
     }
 
-    const participant =
-      usesKindroidGroupConversation && activeKindroidGroupMirror?.manualTurnTaking
-        ? activeKindroidGroupSpeakerParticipant
-        : activeKindroidParticipant;
+    const participant = usesKindroidGroupConversation ? null : activeKindroidParticipant;
 
     if (!participant) {
       return {};
@@ -351,7 +332,7 @@ export function useCadenceController() {
       const speakingParticipant =
         settingsSnapshot?.kindroidParticipants.find(
           (participant) => participant.id === kindroidParticipantId
-        ) ?? activeKindroidGroupSpeakerParticipant;
+        ) ?? null;
 
       return (speakingParticipant?.ttsProvider ?? "none") !== "none";
     }
@@ -385,6 +366,26 @@ export function useCadenceController() {
   );
 
   useEffect(() => subscribeToOutputPlayback(setOutputPlayback), []);
+
+  useEffect(() => {
+    const nextEntries = new Map<string, string>();
+
+    for (const turn of turns) {
+      if (turn.speaker === "assistant" && turn.kindroidParticipantId) {
+        nextEntries.set(turn.id, turn.kindroidParticipantId);
+      }
+    }
+
+    if (outputPlayback.activeTurnId) {
+      const activePlaybackParticipantId =
+        assistantTurnParticipantIdsRef.current.get(outputPlayback.activeTurnId);
+      if (activePlaybackParticipantId) {
+        nextEntries.set(outputPlayback.activeTurnId, activePlaybackParticipantId);
+      }
+    }
+
+    assistantTurnParticipantIdsRef.current = nextEntries;
+  }, [outputPlayback.activeTurnId, turns]);
 
   function clearStagePhaseTimer(): void {
     if (stagePhaseTimerRef.current !== null) {
@@ -427,7 +428,7 @@ export function useCadenceController() {
         ? usesKindroidGroupConversation
           ? settingsSnapshot?.kindroidParticipants.find(
               (participant) => participant.id === kindroidParticipantId
-            ) ?? activeKindroidGroupSpeakerParticipant
+            ) ?? null
           : activeKindroidParticipant
         : null;
     const speechText =
@@ -1359,9 +1360,7 @@ export function useCadenceController() {
                   ...defaultKindroidVoiceTextOnlyConfig,
                   kindroidConversationMode,
                   kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
-                  kindroidGroupMirror: activeKindroidGroupMirror,
-                  kindroidManualSpeakerParticipantId:
-                    activeKindroidGroupSpeakerParticipant?.id ?? null
+                  kindroidGroupMirror: activeKindroidGroupMirror
                 }
               : {
                   ...(groupKindroidUsesOpenAiSpeech && !groupKindroidUsesElevenLabsSpeech
@@ -1369,9 +1368,7 @@ export function useCadenceController() {
                     : defaultKindroidVoiceTransportConfig),
                   kindroidConversationMode,
                   kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
-                  kindroidGroupMirror: activeKindroidGroupMirror,
-                  kindroidManualSpeakerParticipantId:
-                    activeKindroidGroupSpeakerParticipant?.id ?? null
+                  kindroidGroupMirror: activeKindroidGroupMirror
                 }
             : effectiveKindroidTtsProvider === "none"
               ? {
@@ -1411,9 +1408,7 @@ export function useCadenceController() {
               ...defaultTextTransportConfig,
               kindroidConversationMode,
               kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
-              kindroidGroupMirror: activeKindroidGroupMirror,
-              kindroidManualSpeakerParticipantId:
-                activeKindroidGroupSpeakerParticipant?.id ?? null
+              kindroidGroupMirror: activeKindroidGroupMirror
             }
           : {
               ...defaultTextTransportConfig
@@ -1432,7 +1427,6 @@ export function useCadenceController() {
     };
   }, [
     activeKindroidGroupMirror,
-    activeKindroidGroupSpeakerParticipant,
     activeKindroidParticipant,
     activeSession,
     effectiveTtsProvider,
@@ -1865,7 +1859,17 @@ export function useCadenceController() {
     responseClock.current.startedAt = performance.now();
     responseClock.current.firstAudioAt = null;
     setStatusCopy(`${participant.bubbleName} is thinking...`);
-    await activeSession.requestKindroidGroupParticipantTurn(participantId);
+    try {
+      await activeSession.requestKindroidGroupParticipantTurn(participantId);
+    } catch (error) {
+      setPendingConversationHint({
+        kind: "user",
+        message: activeKindroidGroupMirror.manualTurnTaking
+          ? "Choose who replies next."
+          : "Your turn."
+      });
+      throw error;
+    }
   }
 
   async function chooseAvatarFile(): Promise<AvatarSelection | null> {
@@ -1904,7 +1908,6 @@ export function useCadenceController() {
     activeState,
     activeKindroidGroupMirror,
     activeKindroidGroupParticipants,
-    activeKindroidGroupSpeakerParticipant,
     activeKindroidParticipant,
     activeWaveformKindroidParticipant,
     avatarPoseDebug,

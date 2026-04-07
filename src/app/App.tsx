@@ -76,6 +76,9 @@ export function App() {
     topology,
     turns
   } = useCadenceController();
+  const kindroidBackendActive =
+    (mode === "voice" && voiceBackend === "kindroid") ||
+    (mode === "text" && textBackend === "kindroid");
 
   useEffect(() => {
     if (!window.cadence?.getRuntimeInfo) {
@@ -181,7 +184,7 @@ export function App() {
           connectionReady={connectionReady}
           composerPlaceholder={composerPlaceholder}
           conversationSummaryOverride={
-            usesKindroidGroupConversation
+            usesKindroidGroupConversation && kindroidBackendActive
               ? mode === "voice"
                 ? "Kindroid Group Voice"
                 : "Kindroid Group"
@@ -190,10 +193,18 @@ export function App() {
           hotMicMuted={hotMicMuted}
           inputText={inputText}
           isRecording={isRecording}
-          kindroidManualTurnTaking={activeKindroidGroupMirror?.manualTurnTaking ?? false}
-          kindroidGroupAwaitingUserTurn={kindroidAwaitingUserTurn}
+          kindroidManualTurnTaking={
+            usesKindroidGroupConversation && kindroidBackendActive
+              ? activeKindroidGroupMirror?.manualTurnTaking ?? false
+              : false
+          }
+          kindroidGroupAwaitingUserTurn={
+            usesKindroidGroupConversation && kindroidBackendActive
+              ? kindroidAwaitingUserTurn
+              : false
+          }
           kindroidGroupParticipants={
-            usesKindroidGroupConversation
+            usesKindroidGroupConversation && kindroidBackendActive
               ? activeKindroidGroupParticipants.map((participant) => ({
                   id: participant.id,
                   label: participant.bubbleName

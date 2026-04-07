@@ -18,10 +18,9 @@ export const MAX_AUTOMATIC_KINDROID_GROUP_TURNS = 5;
 export async function resolveKindroidGroupTurn(options: {
   groupMirror: KindroidGroupMirror;
   participants: KindroidParticipant[];
-  manualSpeakerParticipantId?: string | null;
   transportId: string;
 }): Promise<KindroidGroupTurnResolution> {
-  const { groupMirror, participants, manualSpeakerParticipantId, transportId } = options;
+  const { groupMirror, participants, transportId } = options;
   const groupParticipants = participants.filter((participant) =>
     groupMirror.participantIds.includes(participant.id)
   );
@@ -31,14 +30,9 @@ export async function resolveKindroidGroupTurn(options: {
   }
 
   if (groupMirror.manualTurnTaking) {
-    const manualParticipant =
-      groupParticipants.find((participant) => participant.id === manualSpeakerParticipantId) ??
-      groupParticipants[0];
-
     return {
-      type: "participant",
-      participant: manualParticipant,
-      rawTurn: manualParticipant.aiId
+      type: "user",
+      rawTurn: ""
     };
   }
 

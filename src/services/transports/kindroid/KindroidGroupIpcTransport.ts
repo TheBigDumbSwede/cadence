@@ -97,7 +97,11 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
       status: "thinking"
     });
 
-    await this.respondFromText(text);
+    try {
+      await this.respondFromText(text);
+    } catch (error) {
+      this.handleRecoverableError(error, "Your turn.");
+    }
   }
 
   async sendUserAudio(_audio: ArrayBuffer): Promise<void> {
@@ -115,7 +119,16 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
       provider: this.id,
       status: "thinking"
     });
-    await this.runGroupTurnCycle({ forcedParticipantId: kindroidParticipantId });
+    try {
+      await this.runGroupTurnCycle({ forcedParticipantId: kindroidParticipantId });
+    } catch (error) {
+      this.handleRecoverableError(
+        error,
+        this.config?.kindroidGroupMirror?.manualTurnTaking
+          ? "Choose who replies next."
+          : "Your turn."
+      );
+    }
   }
 
   async interruptAssistant(
@@ -261,8 +274,27 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
     return resolveKindroidGroupTurn({
       groupMirror,
       participants,
-      manualSpeakerParticipantId: this.config?.kindroidManualSpeakerParticipantId,
       transportId: this.id
+    });
+  }
+
+  private handleRecoverableError(error: unknown, fallbackMessage: string): void {
+    this.emit({
+      type: "transport.error",
+      provider: this.id,
+      message: error instanceof Error ? error.message : "Kindroid group turn failed.",
+      recoverable: true
+    });
+    this.emit({
+      type: "session.status",
+      provider: this.id,
+      status: "ready"
+    });
+    this.emit({
+      type: "conversation.turn.pending",
+      provider: this.id,
+      turnOwner: "user",
+      message: fallbackMessage
     });
   }
 

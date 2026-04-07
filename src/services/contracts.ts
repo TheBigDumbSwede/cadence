@@ -18,7 +18,6 @@ export type TransportConfig = {
   kindroidActiveParticipant?: KindroidParticipant | null;
   kindroidParticipants?: KindroidParticipant[];
   kindroidGroupMirror?: KindroidGroupMirror | null;
-  kindroidManualSpeakerParticipantId?: string | null;
   modalities: Array<"text" | "audio">;
 };
 
