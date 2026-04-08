@@ -3,6 +3,7 @@ import type { SettingsUpdate } from "../shared/app-settings";
 import { ChatBreakDialog } from "../components/ChatBreakDialog";
 import { ChatPanel } from "../components/ChatPanel";
 import { KindroidPanel } from "../components/KindroidPanel";
+import { MemoryManagerDialog } from "../components/MemoryManagerDialog";
 import { MenuWindow } from "../components/MenuWindow";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { StagePanel } from "../components/StagePanel";
@@ -20,6 +21,7 @@ export function App() {
   const [chatBreakGreeting, setChatBreakGreeting] = useState("");
   const [chatBreakOpen, setChatBreakOpen] = useState(false);
   const [kindroidOpen, setKindroidOpen] = useState(false);
+  const [memoryManagerOpen, setMemoryManagerOpen] = useState(false);
   const [systemOpen, setSystemOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
@@ -40,6 +42,8 @@ export function App() {
     isRecording,
     kindroidAutoTurnInProgress,
     kindroidAwaitingUserTurn,
+    lastMemoryIngest,
+    lastMemoryRecall,
     metrics,
     mode,
     pendingAssistantHint,
@@ -101,6 +105,7 @@ export function App() {
           setChatBreakOpen(false);
         }
         setKindroidOpen(false);
+        setMemoryManagerOpen(false);
         setSystemOpen(false);
         setSettingsOpen(false);
       }
@@ -134,6 +139,28 @@ export function App() {
         error instanceof Error ? error.message : "Failed to run the chat break."
       );
     }
+  }
+
+  async function listMemories() {
+    return window.cadence?.memory.list("default") ?? [];
+  }
+
+  async function deleteSelectedMemories(ids: string[]) {
+    if (!window.cadence?.memory) {
+      return 0;
+    }
+
+    const result = await window.cadence.memory.deleteMany(ids, "default");
+    return result.deleted;
+  }
+
+  async function deleteAllMemories() {
+    if (!window.cadence?.memory) {
+      return 0;
+    }
+
+    const result = await window.cadence.memory.deleteAll("default");
+    return result.deleted;
   }
 
   return (
@@ -249,12 +276,24 @@ export function App() {
         >
           <SystemPanel
             backendConfig={backendConfig}
+            onOpenMemoryManager={() => setMemoryManagerOpen(true)}
+            lastMemoryIngest={lastMemoryIngest}
+            lastMemoryRecall={lastMemoryRecall}
             metrics={metrics}
             runtimeInfo={runtimeInfo}
             statusCopy={statusCopy}
             topology={topology}
           />
         </MenuWindow>
+      ) : null}
+
+      {memoryManagerOpen ? (
+        <MemoryManagerDialog
+          onClose={() => setMemoryManagerOpen(false)}
+          onDeleteAll={deleteAllMemories}
+          onDeleteSelected={deleteSelectedMemories}
+          onRefresh={listMemories}
+        />
       ) : null}
 
       {kindroidOpen ? (

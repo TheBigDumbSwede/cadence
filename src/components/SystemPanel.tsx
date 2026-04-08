@@ -5,6 +5,17 @@ import type { RuntimeInfo } from "../shared/runtime-info";
 
 type SystemPanelProps = {
   backendConfig: BackendConfigSummary;
+  onOpenMemoryManager: () => void;
+  lastMemoryIngest: {
+    provider: string;
+    written: number;
+    updated: number;
+    ignored: number;
+  } | null;
+  lastMemoryRecall: {
+    provider: string;
+    contextBlock: string;
+  } | null;
   metrics: ConversationMetrics;
   runtimeInfo: RuntimeInfo | null;
   statusCopy: string;
@@ -18,6 +29,9 @@ type SystemPanelProps = {
 
 export function SystemPanel({
   backendConfig,
+  onOpenMemoryManager,
+  lastMemoryIngest,
+  lastMemoryRecall,
   metrics,
   runtimeInfo,
   statusCopy,
@@ -82,6 +96,65 @@ export function SystemPanel({
               {runtimeInfo
                 ? `Electron ${runtimeInfo.electronVersion} on ${runtimeInfo.platform}, Node ${runtimeInfo.nodeVersion}`
                 : "Runtime info pending"}
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="menu-section">
+        <div className="menu-section-header">
+          <div>
+            <p className="eyebrow">Memory Debug</p>
+            <h3 className="panel-title">Last recall</h3>
+          </div>
+        </div>
+        <div className="settings-grid">
+          <article className="setting-card">
+            <strong>Provider</strong>
+            <p className="setting-copy">
+              {lastMemoryRecall?.provider ?? "No memory recall yet"}
+            </p>
+          </article>
+          <article className="setting-card">
+            <strong>Injected context</strong>
+            <p className="setting-copy" style={{ whiteSpace: "pre-wrap" }}>
+              {lastMemoryRecall
+                ? lastMemoryRecall.contextBlock || "No matching memory."
+                : "No memory recall yet."}
+            </p>
+            <div className="settings-inline-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={onOpenMemoryManager}
+              >
+                Manage Memories
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section className="menu-section">
+        <div className="menu-section-header">
+          <div>
+            <p className="eyebrow">Memory Debug</p>
+            <h3 className="panel-title">Last ingest</h3>
+          </div>
+        </div>
+        <div className="settings-grid">
+          <article className="setting-card">
+            <strong>Provider</strong>
+            <p className="setting-copy">
+              {lastMemoryIngest?.provider ?? "No memory ingest yet"}
+            </p>
+          </article>
+          <article className="setting-card">
+            <strong>Write result</strong>
+            <p className="setting-copy">
+              {lastMemoryIngest
+                ? `written ${lastMemoryIngest.written}, updated ${lastMemoryIngest.updated}, ignored ${lastMemoryIngest.ignored}`
+                : "No memory ingest yet."}
             </p>
           </article>
         </div>

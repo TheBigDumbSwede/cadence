@@ -6,7 +6,7 @@ Cadence can talk to a local sidecar backend for shared long-term memory across t
 
 - local HTTP/JSON service
 - file-backed storage at `tmp/memory-sidecar-store.json` by default
-- heuristic memory extraction for obvious user preferences and stable facts
+- heuristic memory extraction for preferences, stable facts, project context, and open threads
 - simple overlap-based recall that returns a compact `contextBlock`
 
 This is intentionally a first-step backend, not a finished memory engine.
@@ -27,6 +27,10 @@ This is intentionally a first-step backend, not a finished memory engine.
 3. In Cadence Settings, set `Memory backend URL` to:
    `http://127.0.0.1:8787`
 
+If Cadence is running with a localhost memory URL and the bundled sidecar build is present, Electron also attempts to start the local sidecar automatically.
+
+For normal development, `npm run dev` now starts the sidecar runtime as part of the dev stack and waits for port `8787` before launching Electron.
+
 ## Environment
 
 - `CADENCE_MEMORY_PORT`
@@ -38,4 +42,4 @@ This is intentionally a first-step backend, not a finished memory engine.
 
 - The sidecar is shared by `openai-realtime`, `openai-responses`, and `openai-batch`.
 - Cadence remains the conversational shell; the sidecar owns memory extraction, storage, and recall.
-- The current storage and ranking logic are deliberately plain so the API boundary can be exercised before committing to a more capable retrieval backend.
+- The current extractor is still heuristic, but it no longer writes broad rolling session summaries by default.

@@ -82,4 +82,16 @@ export type CadenceEvent =
       provider: string;
       message: string;
       recoverable: boolean;
+    }
+  | {
+      type: "memory.recall";
+      provider: string;
+      contextBlock: string;
+    }
+  | {
+      type: "memory.ingest";
+      provider: string;
+      written: number;
+      updated: number;
+      ignored: number;
     };

@@ -7,14 +7,11 @@ import type {
   MemoryIngestResult,
   MemoryRecallRequest,
   MemoryRecallResult,
-  MemoryScope
+  MemoryScope,
+  MemoryStoredItem
 } from "../src/shared/memory-control";
 import { MemoryStore } from "./MemoryStore";
-import {
-  buildRecallResult,
-  buildSessionSummary,
-  extractMemoryCandidates
-} from "./memoryPolicy";
+import { buildRecallResult, extractMemoryCandidates } from "./memoryPolicy";
 
 const PORT = Number(process.env.CADENCE_MEMORY_PORT ?? "8787");
 const STORE_PATH = process.env.CADENCE_MEMORY_STORE_PATH
@@ -100,6 +97,28 @@ async function handleRecall(request: IncomingMessage, response: ServerResponse):
   sendJson(response, 200, result);
 }
 
+async function handleListMemories(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const url = new URL(request.url ?? "/v1/memories", "http://127.0.0.1");
+  const profileId = url.searchParams.get("profileId")?.trim() || "default";
+  const items: MemoryStoredItem[] = store
+    .getMemories(profileId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .map((memory) => ({
+      id: memory.id,
+      type: memory.type,
+      text: memory.text,
+      keywords: memory.keywords,
+      createdAt: memory.createdAt,
+      updatedAt: memory.updatedAt,
+      sourceCount: memory.sourceCount
+    }));
+
+  sendJson(response, 200, items);
+}
+
 async function handleIngest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const body = await readJson<MemoryIngestRequest>(request);
   if (!isIngestRequest(body)) {
@@ -143,24 +162,40 @@ async function handleCloseSession(
     return;
   }
 
-  const session = store.closeSession(body.scope);
-  if (session) {
-    const summary = buildSessionSummary(session);
-    if (summary) {
-      store.upsertMemories([
-        {
-          profileId: session.profileId,
-          conversationId: session.conversationId,
-          participantIds: session.participantIds,
-          type: summary.type,
-          text: summary.text,
-          keywords: summary.keywords
-        }
-      ]);
-    }
-  }
+  store.closeSession(body.scope);
 
   sendEmpty(response, 204);
+}
+
+async function handleDeleteMemories(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const body = await readJson<{ ids?: string[]; profileId?: string }>(request);
+  const profileId = body.profileId?.trim() || "default";
+  const ids = Array.isArray(body.ids) ? body.ids.filter((id) => typeof id === "string") : [];
+
+  if (ids.length === 0) {
+    sendJson(response, 400, {
+      error: "At least one memory id is required."
+    });
+    return;
+  }
+
+  sendJson(response, 200, {
+    deleted: store.deleteMemories(profileId, ids)
+  });
+}
+
+async function handleDeleteAllMemories(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const body = await readJson<{ profileId?: string }>(request);
+  const profileId = body.profileId?.trim() || "default";
+  sendJson(response, 200, {
+    deleted: store.clearMemories(profileId)
+  });
 }
 
 const server = createServer((request, response) => {
@@ -177,6 +212,11 @@ const server = createServer((request, response) => {
         return;
       }
 
+      if (method === "GET" && url.startsWith("/v1/memories")) {
+        await handleListMemories(request, response);
+        return;
+      }
+
       if (method === "POST" && url === "/v1/memory/recall") {
         await handleRecall(request, response);
         return;
@@ -189,6 +229,16 @@ const server = createServer((request, response) => {
 
       if (method === "POST" && url === "/v1/memory/session/close") {
         await handleCloseSession(request, response);
+        return;
+      }
+
+      if (method === "POST" && url === "/v1/memories/delete") {
+        await handleDeleteMemories(request, response);
+        return;
+      }
+
+      if (method === "POST" && url === "/v1/memories/delete-all") {
+        await handleDeleteAllMemories(request, response);
         return;
       }
 

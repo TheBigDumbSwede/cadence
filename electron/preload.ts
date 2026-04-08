@@ -26,7 +26,8 @@ import type {
   MemoryIngestResult,
   MemoryRecallRequest,
   MemoryRecallResult,
-  MemoryScope
+  MemoryScope,
+  MemoryStoredItem
 } from "../src/shared/memory-control";
 import type { OpenAiAudioBridge, OpenAiAudioControlState } from "../src/shared/openai-audio-control";
 import type { OpenAiSpeechBridge, OpenAiSpeechControlState } from "../src/shared/openai-speech-control";
@@ -127,12 +128,18 @@ const cadenceBridge = {
   memory: {
     getState: () =>
       ipcRenderer.invoke("memory:get-state") as Promise<MemoryControlState>,
+    list: (profileId?: string) =>
+      ipcRenderer.invoke("memory:list", profileId) as Promise<MemoryStoredItem[]>,
     recall: (request: MemoryRecallRequest) =>
       ipcRenderer.invoke("memory:recall", request) as Promise<MemoryRecallResult>,
     ingest: (request: MemoryIngestRequest) =>
       ipcRenderer.invoke("memory:ingest", request) as Promise<MemoryIngestResult>,
     closeSession: (scope: MemoryScope) =>
-      ipcRenderer.invoke("memory:close-session", scope) as Promise<void>
+      ipcRenderer.invoke("memory:close-session", scope) as Promise<void>,
+    deleteMany: (ids: string[], profileId?: string) =>
+      ipcRenderer.invoke("memory:delete-many", ids, profileId) as Promise<{ deleted: number }>,
+    deleteAll: (profileId?: string) =>
+      ipcRenderer.invoke("memory:delete-all", profileId) as Promise<{ deleted: number }>
   } satisfies MemoryBridge,
   openaiAudio: {
     getState: () =>

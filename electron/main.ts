@@ -12,6 +12,7 @@ import { registerOpenAiSpeechIpc } from "./ipc/openai-speech";
 import { registerRealtimeIpc } from "./ipc/realtime";
 import { registerSettingsIpc } from "./ipc/settings";
 import { registerTextIpc } from "./ipc/text";
+import { MemorySidecarManager } from "./services/MemorySidecarManager";
 
 const DEFAULT_WINDOW = {
   width: 1420,
@@ -21,6 +22,7 @@ const DEFAULT_WINDOW = {
 };
 
 let mainWindow: BrowserWindow | null = null;
+const memorySidecarManager = new MemorySidecarManager();
 
 function getRendererEntryPoint(): string {
   if (process.env.CADENCE_RENDERER_URL) {
@@ -72,8 +74,9 @@ app.whenReady().then(() => {
   registerOpenAiAudioIpc();
   registerOpenAiSpeechIpc();
   registerRealtimeIpc(() => mainWindow);
-  registerSettingsIpc();
+  registerSettingsIpc(() => memorySidecarManager.syncWithSettings());
   registerTextIpc();
+  void memorySidecarManager.syncWithSettings();
   mainWindow = createMainWindow();
 
   app.on("activate", () => {
@@ -87,4 +90,8 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+app.on("before-quit", () => {
+  memorySidecarManager.stopManagedSidecar();
 });

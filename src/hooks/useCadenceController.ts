@@ -139,6 +139,16 @@ export function useCadenceController() {
     timeToFirstSpeechMs: 0,
     interruptRecoveryMs: 0
   });
+  const [lastMemoryRecall, setLastMemoryRecall] = useState<{
+    provider: string;
+    contextBlock: string;
+  } | null>(null);
+  const [lastMemoryIngest, setLastMemoryIngest] = useState<{
+    provider: string;
+    written: number;
+    updated: number;
+    ignored: number;
+  } | null>(null);
   const [pendingConversationHint, setPendingConversationHint] =
     useState<PendingConversationHint | null>(null);
   const [outputPlayback, setOutputPlayback] = useState(() => getOutputPlaybackSnapshot());
@@ -316,6 +326,8 @@ export function useCadenceController() {
         ((usesKindroidGroupConversation && !groupKindroidHasAnySpeech) ||
           (!usesKindroidGroupConversation && effectiveKindroidTtsProvider === "none"))) ||
         (voiceBackend === "openai-batch" && ttsProvider === "none")));
+  const requiresLiveConnection = mode === "voice" && voiceBackend === "openai";
+  const interactionReady = configured && (!requiresLiveConnection || connectionReady);
   const topology = useMemo(() => activeSession.describeTopology(), [activeSession]);
 
   function getAssistantTurnMetadata(): {
@@ -1515,6 +1527,20 @@ export function useCadenceController() {
           setConfigured(event.message !== "OPENAI_API_KEY is not configured.");
           setStatusCopy(event.message);
           break;
+        case "memory.recall":
+          setLastMemoryRecall({
+            provider: event.provider,
+            contextBlock: event.contextBlock
+          });
+          break;
+        case "memory.ingest":
+          setLastMemoryIngest({
+            provider: event.provider,
+            written: event.written,
+            updated: event.updated,
+            ignored: event.ignored
+          });
+          break;
         default:
           break;
       }
@@ -1619,7 +1645,7 @@ export function useCadenceController() {
       return;
     }
 
-    if (mode !== "voice" || voiceInputMode !== "hot_mic" || !connectionReady || !configured) {
+    if (mode !== "voice" || voiceInputMode !== "hot_mic" || !interactionReady) {
       void hotMicRecorder.stop();
       return;
     }
@@ -1661,7 +1687,7 @@ export function useCadenceController() {
 
         switch (hotMicState) {
           case "armed":
-            if (!assistantSpeakingRef.current && connectionReady) {
+            if (!assistantSpeakingRef.current && interactionReady) {
               setStatusCopy(hotMicMutedRef.current ? "Hot mic is paused." : "Hot mic is armed.");
             }
             break;
@@ -1710,7 +1736,7 @@ export function useCadenceController() {
       cancelled = true;
       void hotMicRecorder.stop();
     };
-  }, [activeSession, configured, connectionReady, mode, voiceInputMode]);
+  }, [activeSession, interactionReady, mode, voiceInputMode]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1747,14 +1773,14 @@ export function useCadenceController() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [connectionReady, isRecording, mode, voiceBackend, voiceInputMode]);
+  }, [interactionReady, isRecording, mode, voiceBackend, voiceInputMode]);
 
   async function startRecording(): Promise<void> {
     if (
       mode !== "voice" ||
       voiceInputMode !== "push_to_talk" ||
       isRecording ||
-      !connectionReady ||
+      !interactionReady ||
       !recorderRef.current
     ) {
       return;
@@ -2086,7 +2112,9 @@ export function useCadenceController() {
     inputText,
     isRecording,
     metrics,
+    lastMemoryIngest,
     mode,
+    lastMemoryRecall,
     newChatPending,
     backendConfig,
     pendingAssistantHint:

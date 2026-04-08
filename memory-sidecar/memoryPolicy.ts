@@ -5,7 +5,7 @@ import type {
   MemoryScope,
   MemoryTurn
 } from "../src/shared/memory-control";
-import type { StoredMemory, StoredSession } from "./MemoryStore";
+import type { StoredMemory } from "./MemoryStore";
 
 type MemoryCandidate = {
   type: MemoryItem["type"];
@@ -62,12 +62,8 @@ export function tokenize(text: string): string[] {
   );
 }
 
-function toSentenceCase(value: string): string {
-  if (!value) {
-    return value;
-  }
-
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function cleanDetail(value: string): string {
+  return normalizeText(value).replace(/[.?!]+$/, "");
 }
 
 function extractPreference(text: string): MemoryCandidate | null {
@@ -76,7 +72,7 @@ function extractPreference(text: string): MemoryCandidate | null {
 
   const preferMatch = normalized.match(/^i prefer (.+)$/i);
   if (preferMatch) {
-    const detail = preferMatch[1].replace(/[.?!]+$/, "");
+    const detail = cleanDetail(preferMatch[1]);
     return {
       type: "preference",
       text: `User prefers ${detail}.`,
@@ -88,7 +84,7 @@ function extractPreference(text: string): MemoryCandidate | null {
     /^(?:please\s+)?keep (?:your )?(?:repl(?:y|ies)|responses|answers) (.+)$/i
   );
   if (styleMatch) {
-    const detail = styleMatch[1].replace(/[.?!]+$/, "");
+    const detail = cleanDetail(styleMatch[1]);
     return {
       type: "preference",
       text: `User prefers replies that are ${detail}.`,
@@ -98,7 +94,7 @@ function extractPreference(text: string): MemoryCandidate | null {
 
   const likesMatch = normalized.match(/^i (like|love|enjoy) (.+)$/i);
   if (likesMatch) {
-    const detail = likesMatch[2].replace(/[.?!]+$/, "");
+    const detail = cleanDetail(likesMatch[2]);
     return {
       type: "preference",
       text: `User likes ${detail}.`,
@@ -108,7 +104,7 @@ function extractPreference(text: string): MemoryCandidate | null {
 
   const dislikeMatch = normalized.match(/^i (?:do not like|don't like|dislike|hate) (.+)$/i);
   if (dislikeMatch) {
-    const detail = dislikeMatch[1].replace(/[.?!]+$/, "");
+    const detail = cleanDetail(dislikeMatch[1]);
     return {
       type: "preference",
       text: `User dislikes ${detail}.`,
@@ -132,7 +128,7 @@ function extractIdentityFact(text: string): MemoryCandidate | null {
 
   const callMeMatch = normalized.match(/^(?:call me|my name is) (.+)$/i);
   if (callMeMatch) {
-    const detail = callMeMatch[1].replace(/[.?!]+$/, "");
+    const detail = cleanDetail(callMeMatch[1]);
     return {
       type: "fact",
       text: `User prefers to be called ${detail}.`,
@@ -142,7 +138,7 @@ function extractIdentityFact(text: string): MemoryCandidate | null {
 
   const usingMatch = normalized.match(/^i(?:'m| am)? using (.+)$/i);
   if (usingMatch) {
-    const detail = usingMatch[1].replace(/[.?!]+$/, "");
+    const detail = cleanDetail(usingMatch[1]);
     return {
       type: "fact",
       text: `User is using ${detail}.`,
@@ -152,7 +148,7 @@ function extractIdentityFact(text: string): MemoryCandidate | null {
 
   const useMatch = normalized.match(/^i use (.+)$/i);
   if (useMatch) {
-    const detail = useMatch[1].replace(/[.?!]+$/, "");
+    const detail = cleanDetail(useMatch[1]);
     return {
       type: "fact",
       text: `User uses ${detail}.`,
@@ -162,10 +158,74 @@ function extractIdentityFact(text: string): MemoryCandidate | null {
 
   const liveMatch = normalized.match(/^i live in (.+)$/i);
   if (liveMatch) {
-    const detail = liveMatch[1].replace(/[.?!]+$/, "");
+    const detail = cleanDetail(liveMatch[1]);
     return {
       type: "fact",
       text: `User lives in ${detail}.`,
+      keywords: tokenize(detail)
+    };
+  }
+
+  return null;
+}
+
+function extractProjectContext(text: string): MemoryCandidate | null {
+  const normalized = normalizeText(text);
+
+  const projectMatch = normalized.match(
+    /^(?:i(?:'m| am)?|we(?:'re| are)?) (?:working on|building|making|writing|testing|debugging) (.+)$/i
+  );
+  if (projectMatch) {
+    const detail = cleanDetail(projectMatch[1]);
+    return {
+      type: "project",
+      text: `Current project context: ${detail}.`,
+      keywords: tokenize(detail)
+    };
+  }
+
+  const decisionMatch = normalized.match(/^(?:we decided to|the plan is to) (.+)$/i);
+  if (decisionMatch) {
+    const detail = cleanDetail(decisionMatch[1]);
+    return {
+      type: "project",
+      text: `Project decision: ${detail}.`,
+      keywords: tokenize(detail)
+    };
+  }
+
+  return null;
+}
+
+function extractOpenThread(text: string): MemoryCandidate | null {
+  const normalized = normalizeText(text);
+
+  const needMatch = normalized.match(/^(?:i need to|we need to|next step is to|the next step is to) (.+)$/i);
+  if (needMatch) {
+    const detail = cleanDetail(needMatch[1]);
+    return {
+      type: "thread",
+      text: `Open thread: ${detail}.`,
+      keywords: tokenize(detail)
+    };
+  }
+
+  const issueMatch = normalized.match(/^(?:the issue is|the problem is|i(?:'m| am) stuck on) (.+)$/i);
+  if (issueMatch) {
+    const detail = cleanDetail(issueMatch[1]);
+    return {
+      type: "thread",
+      text: `Open issue: ${detail}.`,
+      keywords: tokenize(detail)
+    };
+  }
+
+  const continueMatch = normalized.match(/^(?:let'?s continue with|we were talking about|remind me about) (.+)$/i);
+  if (continueMatch) {
+    const detail = cleanDetail(continueMatch[1]);
+    return {
+      type: "thread",
+      text: `Resume thread: ${detail}.`,
       keywords: tokenize(detail)
     };
   }
@@ -190,28 +250,25 @@ export function extractMemoryCandidates(turns: MemoryTurn[]): MemoryCandidate[] 
     if (fact) {
       candidates.push(fact);
     }
+
+    const project = extractProjectContext(turn.text);
+    if (project) {
+      candidates.push(project);
+    }
+
+    const thread = extractOpenThread(turn.text);
+    if (thread) {
+      candidates.push(thread);
+    }
   }
 
-  return candidates.filter((candidate) => candidate.keywords.length > 0);
-}
-
-export function buildSessionSummary(session: StoredSession): MemoryCandidate | null {
-  const userTurns = session.recentTurns
-    .filter((turn) => turn.role === "user")
-    .map((turn) => normalizeText(turn.text))
-    .filter(Boolean)
-    .slice(-3);
-
-  if (userTurns.length === 0) {
-    return null;
-  }
-
-  const summary = userTurns.map((turn) => toSentenceCase(turn)).join(" ");
-  return {
-    type: "session",
-    text: `Recent session topics: ${summary}`,
-    keywords: tokenize(summary)
-  };
+  return Array.from(
+    new Map(
+      candidates
+        .filter((candidate) => candidate.keywords.length > 0)
+        .map((candidate) => [`${candidate.type}:${candidate.text.toLowerCase()}`, candidate])
+    ).values()
+  );
 }
 
 function scoreMemory(
@@ -234,8 +291,8 @@ function scoreMemory(
   if (memory.type === "preference") {
     score += 0.5;
   }
-  if (memory.type === "session") {
-    score += 0.25;
+  if (memory.type === "project" || memory.type === "thread") {
+    score += 0.75;
   }
 
   return score;
@@ -255,6 +312,7 @@ export function buildRecallResult(
   const maxTokens = request.maxTokens ?? 400;
 
   const ranked = memories
+    .filter((memory) => memory.type !== "session")
     .map((memory) => ({
       memory,
       score: scoreMemory(memory, queryTokens, request.scope)

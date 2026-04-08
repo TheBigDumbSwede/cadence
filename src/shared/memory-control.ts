@@ -26,7 +26,13 @@ export type MemoryRecallRequest = {
 
 export type MemoryItem = {
   id: string;
-  type: "preference" | "fact" | "relationship" | "session";
+  type:
+    | "preference"
+    | "fact"
+    | "relationship"
+    | "project"
+    | "thread"
+    | "session";
   text: string;
   score?: number;
   lastUpdatedAt?: string;
@@ -54,9 +60,22 @@ export type MemoryControlState = {
   baseUrl: string | null;
 };
 
+export type MemoryStoredItem = {
+  id: string;
+  type: MemoryItem["type"];
+  text: string;
+  keywords: string[];
+  createdAt: string;
+  updatedAt: string;
+  sourceCount: number;
+};
+
 export type MemoryBridge = {
   getState: () => Promise<MemoryControlState>;
   recall: (request: MemoryRecallRequest) => Promise<MemoryRecallResult>;
   ingest: (request: MemoryIngestRequest) => Promise<MemoryIngestResult>;
   closeSession: (scope: MemoryScope) => Promise<void>;
+  list: (profileId?: string) => Promise<MemoryStoredItem[]>;
+  deleteMany: (ids: string[], profileId?: string) => Promise<{ deleted: number }>;
+  deleteAll: (profileId?: string) => Promise<{ deleted: number }>;
 };

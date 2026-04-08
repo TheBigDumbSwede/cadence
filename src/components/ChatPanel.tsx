@@ -178,7 +178,9 @@ export function ChatPanel({
   stopRecording,
   submitText
 }: ChatPanelProps) {
-  const canSendText = connectionReady && inputText.trim().length > 0;
+  const requiresLiveConnection = mode === "voice" && voiceBackend === "openai";
+  const interactionReady = configured && (!requiresLiveConnection || connectionReady);
+  const canSendText = interactionReady && inputText.trim().length > 0;
   const showsKindroidGroupControls = kindroidGroupParticipants.length > 0;
   const manualKindroidGroupMode = Boolean(kindroidManualTurnTaking);
   const canTriggerGroupTurn = Boolean(kindroidGroupAwaitingUserTurn);
@@ -236,7 +238,7 @@ export function ChatPanel({
             <button
               type="button"
               className="secondary-button"
-              disabled={!configured || !connectionReady || isRecording || newChatPending}
+              disabled={!interactionReady || isRecording || newChatPending}
               onClick={openChatBreakDialog}
             >
               {newChatPending ? "Running Chat Break..." : "Chat Break"}
@@ -245,7 +247,7 @@ export function ChatPanel({
           <button
             type="button"
             className={`chat-action ${isRecording ? "active" : ""}`}
-            disabled={!pushToTalkEnabled || !configured || !connectionReady}
+            disabled={!pushToTalkEnabled || !interactionReady}
             onMouseDown={() => void startRecording()}
             onMouseUp={() => void stopRecording()}
             onMouseLeave={() => void stopRecording()}
@@ -264,7 +266,7 @@ export function ChatPanel({
             <button
               type="button"
               className={`secondary-button ${hotMicMuted ? "active" : ""}`}
-              disabled={!configured || !connectionReady}
+              disabled={!interactionReady}
               onClick={() => setHotMicMuted(!hotMicMuted)}
             >
               {hotMicMuted ? "Unmute Mic" : "Mute Mic"}
@@ -326,8 +328,7 @@ export function ChatPanel({
             <div className="chat-turn-button-row">
               {kindroidGroupParticipants.map((participant) => {
                 const disabled =
-                  !configured ||
-                  !connectionReady ||
+                  !interactionReady ||
                   isRecording ||
                   newChatPending ||
                   !canTriggerGroupTurn;
@@ -350,7 +351,7 @@ export function ChatPanel({
                 <button
                   type="button"
                   className="secondary-button chat-turn-button"
-                  disabled={!configured || !connectionReady || isRecording || newChatPending}
+                  disabled={!interactionReady || isRecording || newChatPending}
                   title="Stop automatic chaining and return the floor to you"
                   aria-label="Take the turn back"
                   onClick={() => void onTakeKindroidGroupTurnBack()}

@@ -987,6 +987,42 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.memory-list {
+  display: grid;
+  gap: 10px;
+  max-height: 52vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.memory-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.memory-item input[type="checkbox"] {
+  margin-top: 4px;
+}
+
+.memory-item-body {
+  display: grid;
+  gap: 4px;
+}
+
+.memory-item-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 1180px) {
   .workspace-grid {
     grid-template-columns: 1fr;

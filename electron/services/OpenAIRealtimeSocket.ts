@@ -27,6 +27,7 @@ function toBase64(buffer: ArrayBuffer): string {
 export class OpenAIRealtimeSocket {
   private socket: WebSocket | null = null;
   private config: TransportConfig = DEFAULT_CONFIG;
+  private sessionInstructions = DEFAULT_CONFIG.instructions;
   private currentResponseId: string | null = null;
   private audioSequenceByTurn = new Map<string, number>();
   private readonly memoryClient = new MemoryClient();
@@ -73,6 +74,7 @@ export class OpenAIRealtimeSocket {
       ...DEFAULT_CONFIG,
       ...config
     };
+    this.sessionInstructions = this.config.instructions;
     this.conversationId = randomUUID();
     this.conversationTurns = [];
     this.assistantTextByTurn.clear();
@@ -107,32 +109,11 @@ export class OpenAIRealtimeSocket {
       socket.once("open", () => {
         this.socket = socket;
         this.installSocketHandlers(socket);
-        this.send({
-          type: "session.update",
-          session: {
-            type: "realtime",
-            instructions: this.config.instructions,
-            output_modalities: this.config.modalities,
-            audio: {
-              input: {
-                format: {
-                  type: "audio/pcm",
-                  rate: 24000
-                },
-                transcription: {
-                  model: "gpt-4o-mini-transcribe"
-                },
-                turn_detection: null
-              },
-              output: {
-                format: {
-                  type: "audio/pcm",
-                  rate: 24000
-                },
-                voice: this.config.voice
-              }
-            }
-          }
+        this.sendSessionUpdate(this.sessionInstructions);
+        this.emit({
+          type: "session.status",
+          provider: "openai-realtime",
+          status: "ready"
         });
         resolve();
       });
@@ -226,10 +207,14 @@ export class OpenAIRealtimeSocket {
     });
 
     const memoryContext = await this.recallMemory(userText);
+    const instructions = this.buildResponseInstructions(memoryContext);
+    if (instructions !== this.sessionInstructions) {
+      this.sessionInstructions = instructions;
+      this.sendSessionUpdate(this.sessionInstructions);
+    }
     this.send({
       type: "response.create",
       response: {
-        instructions: this.buildResponseInstructions(memoryContext),
         output_modalities: this.config.modalities,
         audio: {
           output: {
@@ -451,6 +436,36 @@ export class OpenAIRealtimeSocket {
     window.webContents.send("realtime:event", event);
   }
 
+  private sendSessionUpdate(instructions: string): void {
+    this.send({
+      type: "session.update",
+      session: {
+        type: "realtime",
+        instructions,
+        output_modalities: this.config.modalities,
+        audio: {
+          input: {
+            format: {
+              type: "audio/pcm",
+              rate: 24000
+            },
+            transcription: {
+              model: "gpt-4o-mini-transcribe"
+            },
+            turn_detection: null
+          },
+          output: {
+            format: {
+              type: "audio/pcm",
+              rate: 24000
+            },
+            voice: this.config.voice
+          }
+        }
+      }
+    });
+  }
+
   private getMemoryScope(): MemoryScope {
     return {
       profileId: "default",
@@ -483,6 +498,11 @@ export class OpenAIRealtimeSocket {
 
   private async recallMemory(userText?: string): Promise<string | undefined> {
     if (!this.memoryClient.isAvailable()) {
+      this.emit({
+        type: "memory.recall",
+        provider: "openai-realtime",
+        contextBlock: ""
+      });
       return undefined;
     }
 
@@ -493,6 +513,11 @@ export class OpenAIRealtimeSocket {
       });
 
       const contextBlock = result.contextBlock.trim();
+      this.emit({
+        type: "memory.recall",
+        provider: "openai-realtime",
+        contextBlock
+      });
       return contextBlock ? contextBlock : undefined;
     } catch (error) {
       this.emit({
@@ -508,14 +533,28 @@ export class OpenAIRealtimeSocket {
 
   private async ingestMemory(): Promise<void> {
     if (!this.memoryClient.isAvailable()) {
+      this.emit({
+        type: "memory.ingest",
+        provider: "openai-realtime",
+        written: 0,
+        updated: 0,
+        ignored: 0
+      });
       return;
     }
 
     try {
-      await this.memoryClient.ingest({
+      const result = await this.memoryClient.ingest({
         scope: this.getMemoryScope(),
         turns: this.conversationTurns.slice(-8),
         reason: "turn"
+      });
+      this.emit({
+        type: "memory.ingest",
+        provider: "openai-realtime",
+        written: result.written,
+        updated: result.updated,
+        ignored: result.ignored
       });
     } catch (error) {
       this.emit({

@@ -143,7 +143,13 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
         recentTurns: this.buildRecentTurns(turns, text)
       });
 
-      return this.extractContextBlock(result);
+      const contextBlock = this.extractContextBlock(result);
+      this.emit({
+        type: "memory.recall",
+        provider: this.id,
+        contextBlock: contextBlock ?? ""
+      });
+      return contextBlock;
     } catch (error) {
       this.emit({
         type: "transport.error",
@@ -162,10 +168,17 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
     assistantText: string
   ): Promise<void> {
     try {
-      await getCadenceBridge().memory.ingest({
+      const result = await getCadenceBridge().memory.ingest({
         scope: this.getMemoryScope(),
         turns: this.buildRecentTurns(turns, userText, assistantText),
         reason: "turn"
+      });
+      this.emit({
+        type: "memory.ingest",
+        provider: this.id,
+        written: result.written,
+        updated: result.updated,
+        ignored: result.ignored
       });
     } catch (error) {
       this.emit({
