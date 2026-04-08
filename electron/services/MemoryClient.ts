@@ -7,7 +7,8 @@ import type {
   MemoryRecallRequest,
   MemoryRecallResult,
   MemoryScope,
-  MemoryStoredItem
+  MemoryStoredItem,
+  MemoryStoredSession
 } from "../../src/shared/memory-control";
 import { getSettingsService } from "./SettingsService";
 
@@ -127,6 +128,24 @@ export class MemoryClient {
     }
   }
 
+  async listSessions(profileId = "default"): Promise<MemoryStoredSession[]> {
+    if (!this.isAvailable()) {
+      return [];
+    }
+
+    try {
+      return await this.get<MemoryStoredSession[]>(
+        `/v1/memory-sessions?profileId=${encodeURIComponent(profileId)}`
+      );
+    } catch (error) {
+      if (isNetworkUnavailableError(error)) {
+        return [];
+      }
+
+      throw error;
+    }
+  }
+
   async deleteMany(ids: string[], profileId = "default"): Promise<{ deleted: number }> {
     if (!this.isAvailable()) {
       return { deleted: 0 };
@@ -153,6 +172,46 @@ export class MemoryClient {
 
     try {
       return await this.post<{ deleted: number }>("/v1/memories/delete-all", {
+        profileId
+      });
+    } catch (error) {
+      if (isNetworkUnavailableError(error)) {
+        return { deleted: 0 };
+      }
+
+      throw error;
+    }
+  }
+
+  async deleteSessions(
+    conversationIds: string[],
+    profileId = "default"
+  ): Promise<{ deleted: number }> {
+    if (!this.isAvailable()) {
+      return { deleted: 0 };
+    }
+
+    try {
+      return await this.post<{ deleted: number }>("/v1/memory-sessions/delete", {
+        conversationIds,
+        profileId
+      });
+    } catch (error) {
+      if (isNetworkUnavailableError(error)) {
+        return { deleted: 0 };
+      }
+
+      throw error;
+    }
+  }
+
+  async deleteAllSessions(profileId = "default"): Promise<{ deleted: number }> {
+    if (!this.isAvailable()) {
+      return { deleted: 0 };
+    }
+
+    try {
+      return await this.post<{ deleted: number }>("/v1/memory-sessions/delete-all", {
         profileId
       });
     } catch (error) {

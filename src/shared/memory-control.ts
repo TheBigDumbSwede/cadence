@@ -70,12 +70,26 @@ export type MemoryStoredItem = {
   sourceCount: number;
 };
 
+export type MemoryStoredSession = {
+  conversationId: string;
+  backend: MemoryBackend;
+  participantIds: string[];
+  recentTurns: MemoryTurn[];
+  updatedAt: string;
+};
+
 export type MemoryBridge = {
   getState: () => Promise<MemoryControlState>;
   recall: (request: MemoryRecallRequest) => Promise<MemoryRecallResult>;
   ingest: (request: MemoryIngestRequest) => Promise<MemoryIngestResult>;
   closeSession: (scope: MemoryScope) => Promise<void>;
   list: (profileId?: string) => Promise<MemoryStoredItem[]>;
+  listSessions: (profileId?: string) => Promise<MemoryStoredSession[]>;
   deleteMany: (ids: string[], profileId?: string) => Promise<{ deleted: number }>;
   deleteAll: (profileId?: string) => Promise<{ deleted: number }>;
+  deleteSessions: (
+    conversationIds: string[],
+    profileId?: string
+  ) => Promise<{ deleted: number }>;
+  deleteAllSessions: (profileId?: string) => Promise<{ deleted: number }>;
 };

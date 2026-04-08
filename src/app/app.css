@@ -220,6 +220,7 @@ textarea {
 .stage-header {
   position: relative;
   z-index: 1;
+  padding: 6px 10px 8px;
 }
 
 .stage-header {
@@ -247,7 +248,7 @@ textarea {
   display: grid;
   place-items: center;
   min-height: 0;
-  padding: 10px 0 0;
+  padding: 14px 0 0;
 }
 
 .waveform-stage-shell {

@@ -11,6 +11,9 @@ export function registerMemoryIpc(): void {
 
   ipcMain.handle("memory:get-state", () => client.getState());
   ipcMain.handle("memory:list", (_event, profileId?: string) => client.list(profileId));
+  ipcMain.handle("memory:list-sessions", (_event, profileId?: string) =>
+    client.listSessions(profileId)
+  );
   ipcMain.handle("memory:recall", (_event, request: MemoryRecallRequest) =>
     client.recall(request)
   );
@@ -25,5 +28,13 @@ export function registerMemoryIpc(): void {
   );
   ipcMain.handle("memory:delete-all", (_event, profileId?: string) =>
     client.deleteAll(profileId)
+  );
+  ipcMain.handle(
+    "memory:delete-sessions",
+    (_event, conversationIds: string[], profileId?: string) =>
+      client.deleteSessions(conversationIds, profileId)
+  );
+  ipcMain.handle("memory:delete-all-sessions", (_event, profileId?: string) =>
+    client.deleteAllSessions(profileId)
   );
 }

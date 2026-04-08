@@ -62,6 +62,10 @@ export class MemoryStore {
     return this.readStore().memories.filter((memory) => memory.profileId === profileId);
   }
 
+  getSessions(profileId: string): StoredSession[] {
+    return this.readStore().sessions.filter((session) => session.profileId === profileId);
+  }
+
   deleteMemories(profileId: string, ids: string[]): number {
     if (ids.length === 0) {
       return 0;
@@ -86,6 +90,38 @@ export class MemoryStore {
     const before = store.memories.length;
     store.memories = store.memories.filter((memory) => memory.profileId !== profileId);
     const deleted = before - store.memories.length;
+    if (deleted > 0) {
+      this.writeStore(store);
+    }
+
+    return deleted;
+  }
+
+  deleteSessions(profileId: string, conversationIds: string[]): number {
+    if (conversationIds.length === 0) {
+      return 0;
+    }
+
+    const store = this.readStore();
+    const before = store.sessions.length;
+    const conversationIdSet = new Set(conversationIds);
+    store.sessions = store.sessions.filter(
+      (session) =>
+        session.profileId !== profileId || !conversationIdSet.has(session.conversationId)
+    );
+    const deleted = before - store.sessions.length;
+    if (deleted > 0) {
+      this.writeStore(store);
+    }
+
+    return deleted;
+  }
+
+  clearSessions(profileId: string): number {
+    const store = this.readStore();
+    const before = store.sessions.length;
+    store.sessions = store.sessions.filter((session) => session.profileId !== profileId);
+    const deleted = before - store.sessions.length;
     if (deleted > 0) {
       this.writeStore(store);
     }

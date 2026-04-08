@@ -142,7 +142,23 @@ export function App() {
   }
 
   async function listMemories() {
-    return window.cadence?.memory.list("default") ?? [];
+    const memory = window.cadence?.memory;
+    if (!memory) {
+      return {
+        items: [],
+        sessions: []
+      };
+    }
+
+    const [items, sessions] = await Promise.all([
+      memory.list("default"),
+      memory.listSessions("default")
+    ]);
+
+    return {
+      items,
+      sessions
+    };
   }
 
   async function deleteSelectedMemories(ids: string[]) {
@@ -160,6 +176,24 @@ export function App() {
     }
 
     const result = await window.cadence.memory.deleteAll("default");
+    return result.deleted;
+  }
+
+  async function deleteSelectedSessions(conversationIds: string[]) {
+    if (!window.cadence?.memory) {
+      return 0;
+    }
+
+    const result = await window.cadence.memory.deleteSessions(conversationIds, "default");
+    return result.deleted;
+  }
+
+  async function deleteAllSessions() {
+    if (!window.cadence?.memory) {
+      return 0;
+    }
+
+    const result = await window.cadence.memory.deleteAllSessions("default");
     return result.deleted;
   }
 
@@ -291,7 +325,9 @@ export function App() {
         <MemoryManagerDialog
           onClose={() => setMemoryManagerOpen(false)}
           onDeleteAll={deleteAllMemories}
+          onDeleteAllSessions={deleteAllSessions}
           onDeleteSelected={deleteSelectedMemories}
+          onDeleteSelectedSessions={deleteSelectedSessions}
           onRefresh={listMemories}
         />
       ) : null}

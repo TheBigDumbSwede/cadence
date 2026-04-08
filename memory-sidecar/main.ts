@@ -8,7 +8,8 @@ import type {
   MemoryRecallRequest,
   MemoryRecallResult,
   MemoryScope,
-  MemoryStoredItem
+  MemoryStoredItem,
+  MemoryStoredSession
 } from "../src/shared/memory-control";
 import { MemoryStore } from "./MemoryStore";
 import { buildRecallResult, extractMemoryCandidates } from "./memoryPolicy";
@@ -119,6 +120,26 @@ async function handleListMemories(
   sendJson(response, 200, items);
 }
 
+async function handleListSessions(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const url = new URL(request.url ?? "/v1/memory-sessions", "http://127.0.0.1");
+  const profileId = url.searchParams.get("profileId")?.trim() || "default";
+  const items: MemoryStoredSession[] = store
+    .getSessions(profileId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .map((session) => ({
+      conversationId: session.conversationId,
+      backend: session.backend,
+      participantIds: session.participantIds,
+      recentTurns: session.recentTurns,
+      updatedAt: session.updatedAt
+    }));
+
+  sendJson(response, 200, items);
+}
+
 async function handleIngest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const body = await readJson<MemoryIngestRequest>(request);
   if (!isIngestRequest(body)) {
@@ -198,6 +219,39 @@ async function handleDeleteAllMemories(
   });
 }
 
+async function handleDeleteSessions(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const body = await readJson<{ conversationIds?: string[]; profileId?: string }>(request);
+  const profileId = body.profileId?.trim() || "default";
+  const conversationIds = Array.isArray(body.conversationIds)
+    ? body.conversationIds.filter((id) => typeof id === "string")
+    : [];
+
+  if (conversationIds.length === 0) {
+    sendJson(response, 400, {
+      error: "At least one conversation id is required."
+    });
+    return;
+  }
+
+  sendJson(response, 200, {
+    deleted: store.deleteSessions(profileId, conversationIds)
+  });
+}
+
+async function handleDeleteAllSessions(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const body = await readJson<{ profileId?: string }>(request);
+  const profileId = body.profileId?.trim() || "default";
+  sendJson(response, 200, {
+    deleted: store.clearSessions(profileId)
+  });
+}
+
 const server = createServer((request, response) => {
   void (async () => {
     try {
@@ -214,6 +268,11 @@ const server = createServer((request, response) => {
 
       if (method === "GET" && url.startsWith("/v1/memories")) {
         await handleListMemories(request, response);
+        return;
+      }
+
+      if (method === "GET" && url.startsWith("/v1/memory-sessions")) {
+        await handleListSessions(request, response);
         return;
       }
 
@@ -239,6 +298,16 @@ const server = createServer((request, response) => {
 
       if (method === "POST" && url === "/v1/memories/delete-all") {
         await handleDeleteAllMemories(request, response);
+        return;
+      }
+
+      if (method === "POST" && url === "/v1/memory-sessions/delete") {
+        await handleDeleteSessions(request, response);
+        return;
+      }
+
+      if (method === "POST" && url === "/v1/memory-sessions/delete-all") {
+        await handleDeleteAllSessions(request, response);
         return;
       }
 
