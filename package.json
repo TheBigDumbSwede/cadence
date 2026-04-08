@@ -28,7 +28,8 @@
     "test:watch": "vitest",
     "dist:win": "npm run build && electron-builder --win portable",
     "dist:dir": "npm run build && electron-builder --dir",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepare": "husky"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
@@ -50,6 +51,7 @@
     "eslint-plugin-react-hooks": "^7.0.0",
     "esbuild": "^0.25.11",
     "globals": "^16.4.0",
+    "husky": "^9.1.7",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "typescript": "^5.9.3",
