@@ -13,7 +13,6 @@ import type { PresenceDirective, PresenceSnapshot } from "../shared/performance-
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
-import type { SpeechCaptionCue, SpeechCaptionMode } from "../shared/speech-captions";
 import {
   findActiveSpeechCaptionCue,
   offsetSpeechCaptionCues,
@@ -32,17 +31,18 @@ import { getCadenceBridge } from "../services/bridge";
 import { snapshotFromDirective } from "./cadence/performance";
 import { useCadenceInputOrchestrator } from "./cadence/useCadenceInputOrchestrator";
 import {
-  buildListeningStatusCopy,
-  buildPreparingStatusCopy,
-  buildReadyStatusCopy
-} from "./cadence/statusCopy";
+  handleCadenceSessionEvent,
+  type PendingConversationHint,
+  type TurnCaptionTrack,
+  type TurnEffectCaptionTrack
+} from "./cadence/sessionEvents";
+import { buildPreparingStatusCopy } from "./cadence/statusCopy";
 import {
   estimateAssistantDeliveryMs,
   estimateAssistantReadMs,
   estimateUserReadMs,
   timestampNow
 } from "./cadence/timing";
-import { appendOrUpdateAssistantTurn, isBenignInterruptError } from "./cadence/turns";
 import {
   createKindroidGroupSession,
   createKindroidGroupVoiceSession,
@@ -61,29 +61,6 @@ import {
   defaultVoiceTransportConfig
 } from "../services/transportOptions";
 import { stripKindroidNarrationForSpeech } from "../services/transports/kindroid/speechText";
-
-type PendingConversationHint =
-  | {
-      kind: "assistant";
-      kindroidParticipantId?: string;
-      speakerLabel: string;
-      message: string;
-    }
-  | {
-      kind: "user";
-      message: string;
-    };
-
-type TurnCaptionTrack = {
-  cues: SpeechCaptionCue[];
-  mode: SpeechCaptionMode;
-  offsetMs: number;
-};
-
-type TurnEffectCaptionTrack = {
-  text: string;
-  durationMs: number;
-};
 
 export function useCadenceController() {
   const [voiceSession] = useState(() => createVoiceSession());
@@ -553,6 +530,11 @@ export function useCadenceController() {
     hotMicRecorderRef.current?.setSuppressed(hotMicMutedRef.current);
   }
 
+  function suppressHotMicPlayback(): void {
+    assistantSpeakingRef.current = true;
+    hotMicRecorderRef.current?.setSuppressed(true);
+  }
+
   function scheduleHotMicPlaybackRelease(text: string, kindroidParticipantId?: string): void {
     const speakingParticipant =
       voiceBackend === "kindroid"
@@ -582,8 +564,7 @@ export function useCadenceController() {
     clearPlaybackSuppressionTimer();
     const directive = inferPerformanceDirective(speechText);
     const releaseInMs = estimateAssistantDeliveryMs(speechText, directive.pace) + 450;
-    assistantSpeakingRef.current = true;
-    hotMicRecorderRef.current?.setSuppressed(true);
+    suppressHotMicPlayback();
     playbackSuppressionTimerRef.current = window.setTimeout(() => {
       playbackSuppressionTimerRef.current = null;
       releaseHotMicSuppression();
@@ -1187,370 +1168,42 @@ export function useCadenceController() {
     }
 
     const unsubscribe = activeSession.subscribe((event) => {
-      switch (event.type) {
-        case "session.status":
-          switch (event.status) {
-            case "listening":
-              clearPlaybackSuppressionTimer();
-              releaseHotMicSuppression();
-              clearPoseHold();
-              setActiveStateId("listening");
-              updatePerformance(
-                createPerformanceDirective({
-                  mood: "focused",
-                  gesture: "none",
-                  intensity: 0.24,
-                  pace: "steady",
-                  cue: "listening"
-                })
-              );
-              break;
-            case "connecting":
-            case "thinking":
-              clearPlaybackSuppressionTimer();
-              releaseHotMicSuppression();
-              if (stagedTextReplyMode && stageTimelineManagedRef.current) {
-                break;
-              }
-              clearPoseHold();
-              setActiveStateId("thinking");
-              updatePerformance(
-                createPerformanceDirective({
-                  mood: "focused",
-                  gesture: "thinking_touch",
-                  intensity: 0.28,
-                  pace: "calm",
-                  cue: "thinking"
-                })
-              );
-              break;
-            case "speaking":
-              if (voiceInputMode === "hot_mic") {
-                assistantSpeakingRef.current = true;
-                hotMicRecorderRef.current?.setSuppressed(true);
-              }
-              if (stagedTextReplyMode) {
-                break;
-              }
-              clearPoseHold();
-              setActiveStateId("speaking");
-              break;
-            case "ready":
-              if (voiceInputMode !== "hot_mic") {
-                releaseHotMicSuppression();
-              }
-              if (!poseHoldTimerRef.current && !stageTimelineManagedRef.current) {
-                setActiveStateId("idle");
-              }
-              if (!stagedTextReplyMode && !stageTimelineManagedRef.current) {
-                updatePerformance(
-                  createPerformanceDirective({
-                    mood: "neutral",
-                    gesture: "none",
-                    intensity: 0.26,
-                    pace: "steady",
-                    cue: "ready"
-                  })
-                );
-              }
-              setConnectionReady(true);
-              setConfigured(true);
-              setStatusCopy(
-                buildReadyStatusCopy({
-                  mode,
-                  voiceInputMode,
-                  hotMicMuted: hotMicMutedRef.current
-                })
-              );
-              break;
-            case "disconnected":
-              clearPendingConversationHint();
-              clearPlaybackSuppressionTimer();
-              assistantTurnParticipantIdsRef.current.clear();
-              releaseHotMicSuppression();
-              clearStageTimeline();
-              setActiveStateId("idle");
-              updatePerformance(createPerformanceDirective());
-              setConnectionReady(false);
-              break;
-            default:
-              break;
-          }
-          break;
-        case "transcript.final":
-          clearPendingConversationHint();
-          if (stagedTextReplyMode) {
-            if (!stageTimelineManagedRef.current) {
-              beginVisualReplyPrelude(event.text);
-            }
-          } else {
-            updatePerformance(
-              createPerformanceDirective({
-                mood: "focused",
-                gesture: "thinking_touch",
-                intensity: 0.3,
-                pace: "calm",
-                cue: "user-turn"
-              })
-            );
-          }
-          setTurns((previous) => {
-            const pendingId = pendingUserTurnIdRef.current;
-            let nextTurns = previous;
-            if (pendingId) {
-              pendingUserTurnIdRef.current = null;
-              const existingPendingTurn = previous.find((turn) => turn.id === pendingId);
-              nextTurns = existingPendingTurn
-                ? previous.map((turn) =>
-                    turn.id === pendingId
-                      ? {
-                          ...turn,
-                          id: event.turnId,
-                          text: event.text
-                        }
-                      : turn
-                  )
-                : [
-                    ...previous,
-                    {
-                      id: event.turnId,
-                      speaker: "user",
-                      timestamp: timestampNow(),
-                      text: event.text
-                    }
-                  ];
-            } else {
-              nextTurns = [
-                ...previous,
-                {
-                  id: event.turnId,
-                  speaker: "user",
-                  timestamp: timestampNow(),
-                  text: event.text
-                }
-              ];
-            }
-
-            const bufferedAssistantTurn = bufferedAssistantTurnRef.current;
-            if (bufferedAssistantTurn) {
-              bufferedAssistantTurnRef.current = null;
-              nextTurns = appendOrUpdateAssistantTurn(
-                nextTurns,
-                bufferedAssistantTurn.turnId,
-                bufferedAssistantTurn.text,
-                "replace",
-                {
-                  speakerLabel:
-                    bufferedAssistantTurn.speakerLabel ??
-                    getAssistantTurnMetadata().speakerLabel,
-                  kindroidParticipantId:
-                    bufferedAssistantTurn.kindroidParticipantId ??
-                    getAssistantTurnMetadata().kindroidParticipantId
-                }
-              );
-            }
-
-            return nextTurns;
-          });
-          break;
-        case "assistant.response.delta": {
-          clearPendingConversationHint();
-          const assistantTurnMetadata = {
-            ...getAssistantTurnMetadata(),
-            speakerLabel: event.speakerLabel ?? getAssistantTurnMetadata().speakerLabel,
-            kindroidParticipantId:
-              event.kindroidParticipantId ?? getAssistantTurnMetadata().kindroidParticipantId
-          };
-          if (assistantTurnMetadata.kindroidParticipantId) {
-            assistantTurnParticipantIdsRef.current.set(
-              event.turnId,
-              assistantTurnMetadata.kindroidParticipantId
-            );
-          }
-          if (stagedTextReplyMode) {
-            beginVisualReplyDelivery(event.text);
-          }
-          if (pendingUserTurnIdRef.current) {
-            const buffered = bufferedAssistantTurnRef.current;
-            bufferedAssistantTurnRef.current =
-              buffered && buffered.turnId === event.turnId
-                ? {
-                    turnId: event.turnId,
-                    text: buffered.text + event.text,
-                    speakerLabel: buffered.speakerLabel ?? assistantTurnMetadata.speakerLabel,
-                    kindroidParticipantId:
-                      buffered.kindroidParticipantId ??
-                      assistantTurnMetadata.kindroidParticipantId
-                  }
-                : {
-                    turnId: event.turnId,
-                    text: event.text,
-                    ...assistantTurnMetadata
-                  };
-            break;
-          }
-          setTurns((previous) =>
-            appendOrUpdateAssistantTurn(
-              previous,
-              event.turnId,
-              event.text,
-              "append",
-              assistantTurnMetadata
-            )
-          );
-          break;
-        }
-        case "assistant.response.completed": {
-          const completedAssistantTurnMetadata = {
-            ...getAssistantTurnMetadata(),
-            speakerLabel: event.speakerLabel ?? getAssistantTurnMetadata().speakerLabel,
-            kindroidParticipantId:
-              event.kindroidParticipantId ?? getAssistantTurnMetadata().kindroidParticipantId
-          };
-          if (completedAssistantTurnMetadata.kindroidParticipantId) {
-            assistantTurnParticipantIdsRef.current.set(
-              event.turnId,
-              completedAssistantTurnMetadata.kindroidParticipantId
-            );
-          }
-          if (stagedTextReplyMode) {
-            beginVisualReplyDelivery(event.text);
-          } else {
-            updatePerformance(inferPerformanceDirective(event.text), {
-              retriggerGesture: true
-            });
-          }
-          scheduleHotMicPlaybackRelease(event.text, event.kindroidParticipantId);
-          if (pendingUserTurnIdRef.current) {
-            bufferedAssistantTurnRef.current = {
-              turnId: event.turnId,
-              text: event.text,
-              ...completedAssistantTurnMetadata
-            };
-            setStatusCopy("Response complete.");
-            break;
-          }
-          setTurns((previous) =>
-            appendOrUpdateAssistantTurn(
-              previous,
-              event.turnId,
-              event.text,
-              "replace",
-              completedAssistantTurnMetadata
-            )
-          );
-          setStatusCopy("Response complete.");
-          break;
-        }
-        case "conversation.turn.pending":
-          if (event.turnOwner === "assistant" && event.speakerLabel) {
-            setStatusCopy(event.message ?? `${event.speakerLabel} is thinking...`);
-            setPendingConversationHint({
-              kind: "assistant",
-              kindroidParticipantId: event.kindroidParticipantId,
-              speakerLabel: event.speakerLabel,
-              message: event.message ?? `${event.speakerLabel} is thinking...`
-            });
-          } else {
-            setStatusCopy(event.message ?? "Your turn.");
-            setPendingConversationHint({
-              kind: "user",
-              message: event.message ?? "Your turn."
-            });
-          }
-          break;
-        case "assistant.audio.chunk":
-          if (event.captions?.length) {
-            assistantTurnCaptionCuesRef.current.set(event.turnId, {
-              cues: event.captions,
-              mode: event.captionsMode ?? "estimated",
-              offsetMs: event.captionOffsetMs ?? 0
-            });
-          }
-          if (kindroidStageCaptioningEnabled && event.effectCaptionText) {
-            assistantTurnEffectCaptionsRef.current.set(event.turnId, {
-              text: event.effectCaptionText,
-              durationMs: Math.max(0, event.effectCaptionDurationMs ?? 0)
-            });
-          }
-          if (!responseClock.current.firstAudioAt && responseClock.current.startedAt) {
-            const now = performance.now();
-            responseClock.current.firstAudioAt = now;
-            setMetrics((previous) => ({
-              ...previous,
-              timeToFirstSpeechMs: Math.round(now - (responseClock.current.startedAt ?? now))
-            }));
-          }
-          break;
-        case "assistant.audio.effect":
-          break;
-        case "assistant.interrupted":
-          clearPendingConversationHint();
-          clearPlaybackSuppressionTimer();
-          assistantTurnEffectCaptionsRef.current.clear();
-          releaseHotMicSuppression();
-          bufferedAssistantTurnRef.current = null;
-          clearStageTimeline();
-          setActiveStateId("listening");
-          updatePerformance(
-            createPerformanceDirective({
-              mood: "focused",
-              gesture: "none",
-              intensity: 0.25,
-              pace: "steady",
-              cue: "interrupted"
-            })
-          );
-          responseClock.current.interruptionStartedAt = performance.now();
-          setStatusCopy("Interrupted. Ready for the next utterance.");
-          break;
-        case "transport.error":
-          if (isBenignInterruptError(event.message, event.recoverable)) {
-            setStatusCopy(buildListeningStatusCopy(voiceInputMode, hotMicMutedRef.current));
-            break;
-          }
-          clearPendingConversationHint();
-          clearPlaybackSuppressionTimer();
-          assistantTurnParticipantIdsRef.current.clear();
-          assistantTurnCaptionCuesRef.current.clear();
-          assistantTurnEffectCaptionsRef.current.clear();
-          releaseHotMicSuppression();
-          clearPendingUserTurn();
-          bufferedAssistantTurnRef.current = null;
-          clearStageTimeline();
-          setActiveStateId("error");
-          updatePerformance(
-            createPerformanceDirective({
-              mood: "concerned",
-              gesture: "small_shrug",
-              intensity: 0.36,
-              pace: "calm",
-              cue: "error",
-              source: "default"
-            }),
-            { retriggerGesture: true }
-          );
-          setConnectionReady(false);
-          setConfigured(!(event.code?.startsWith("config.") && !event.recoverable));
-          setStatusCopy(event.message);
-          break;
-        case "memory.recall":
-          setLastMemoryRecall({
-            provider: event.provider,
-            contextBlock: event.contextBlock
-          });
-          break;
-        case "memory.ingest":
-          setLastMemoryIngest({
-            provider: event.provider,
-            written: event.written,
-            updated: event.updated,
-            ignored: event.ignored
-          });
-          break;
-        default:
-          break;
-      }
+      handleCadenceSessionEvent(event, {
+        mode,
+        voiceInputMode,
+        stagedTextReplyMode,
+        kindroidStageCaptioningEnabled,
+        hotMicMutedRef,
+        poseHoldTimerRef,
+        stageTimelineManagedRef,
+        pendingUserTurnIdRef,
+        bufferedAssistantTurnRef,
+        assistantTurnParticipantIdsRef,
+        assistantTurnCaptionCuesRef,
+        assistantTurnEffectCaptionsRef,
+        responseClock,
+        clearPlaybackSuppressionTimer,
+        suppressHotMicPlayback,
+        releaseHotMicSuppression,
+        clearPoseHold,
+        clearPendingConversationHint,
+        clearStageTimeline,
+        clearPendingUserTurn,
+        updatePerformance,
+        beginVisualReplyPrelude,
+        beginVisualReplyDelivery,
+        getAssistantTurnMetadata,
+        scheduleHotMicPlaybackRelease,
+        setActiveStateId,
+        setStatusCopy,
+        setConnectionReady,
+        setConfigured,
+        setPendingConversationHint,
+        setTurns,
+        setMetrics,
+        setLastMemoryRecall,
+        setLastMemoryIngest
+      });
     });
 
     const config =
