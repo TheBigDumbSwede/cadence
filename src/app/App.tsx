@@ -172,9 +172,9 @@ export function App() {
           activeState={activeState}
           avatar={settingsSnapshot?.avatar ?? null}
           avatarPoseDebug={avatarPoseDebug}
-          effectCaption={activeEffectCaption}
+          effectCaption={kindroidBackendActive ? activeEffectCaption : null}
           performance={performance}
-          speechCaption={activeSpeechCaption}
+          speechCaption={kindroidBackendActive ? activeSpeechCaption : null}
           stageMode={stageMode}
           waveformTheme={
             activeWaveformKindroidParticipant

@@ -229,6 +229,9 @@ export function useCadenceController() {
   );
   const groupKindroidHasAnySpeech =
     groupKindroidUsesOpenAiSpeech || groupKindroidUsesElevenLabsSpeech;
+  const kindroidStageCaptioningEnabled =
+    (mode === "voice" && voiceBackend === "kindroid") ||
+    (mode === "text" && textBackend === "kindroid");
   const activeWaveformKindroidParticipant = useMemo(() => {
     const usesKindroid =
       (mode === "voice" && voiceBackend === "kindroid") ||
@@ -440,6 +443,12 @@ export function useCadenceController() {
   }, [outputPlayback.activeTurnId, turns]);
 
   useEffect(() => {
+    if (!kindroidStageCaptioningEnabled) {
+      setActiveSpeechCaption(null);
+      setActiveEffectCaption(null);
+      return;
+    }
+
     if (!outputPlayback.activeTurnId || outputPlayback.startedAtMs === null) {
       setActiveSpeechCaption(null);
       setActiveEffectCaption(null);
@@ -510,6 +519,7 @@ export function useCadenceController() {
       setActiveEffectCaption(null);
     };
   }, [
+    kindroidStageCaptioningEnabled,
     outputPlayback.activeTurnId,
     outputPlayback.durationMs,
     outputPlayback.speechOffsetMs,
@@ -1443,7 +1453,7 @@ export function useCadenceController() {
               offsetMs: event.captionOffsetMs ?? 0
             });
           }
-          if (event.effectCaptionText) {
+          if (kindroidStageCaptioningEnabled && event.effectCaptionText) {
             assistantTurnEffectCaptionsRef.current.set(event.turnId, {
               text: event.effectCaptionText,
               durationMs: Math.max(0, event.effectCaptionDurationMs ?? 0)
