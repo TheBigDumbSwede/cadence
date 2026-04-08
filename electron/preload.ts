@@ -35,7 +35,7 @@ import type {
   RealtimeControlState,
   RealtimeSessionConfig
 } from "../src/shared/realtime-control";
-import type { AvatarSelection, SettingsSnapshot, SettingsUpdate } from "../src/shared/app-settings";
+import type { SettingsSnapshot, SettingsUpdate } from "../src/shared/app-settings";
 import type { SettingsBridge } from "../src/shared/settings-control";
 import type {
   TextBridge,
@@ -159,13 +159,7 @@ const cadenceBridge = {
   settings: {
     get: () => ipcRenderer.invoke("settings:get") as Promise<SettingsSnapshot>,
     update: (update: SettingsUpdate) =>
-      ipcRenderer.invoke("settings:update", update) as Promise<SettingsSnapshot>,
-    setAvatar: (filePath: string | null) =>
-      ipcRenderer.invoke("settings:set-avatar", filePath) as Promise<SettingsSnapshot>,
-    chooseAvatarFile: () =>
-      ipcRenderer.invoke("settings:choose-avatar-file") as Promise<AvatarSelection | null>,
-    readAvatarFile: (filePath: string) =>
-      ipcRenderer.invoke("settings:read-avatar-file", filePath) as Promise<ArrayBuffer>
+      ipcRenderer.invoke("settings:update", update) as Promise<SettingsSnapshot>
   } satisfies SettingsBridge,
   realtime: {
     connect: (config?: RealtimeSessionConfig) =>

@@ -1,21 +1,21 @@
-import type { AssistantPerformanceDirective } from "../../shared/performance-directive";
-import { DEFAULT_PERFORMANCE_DIRECTIVE } from "../../shared/performance-directive";
+import type { PresenceDirective } from "../../shared/performance-directive";
+import { DEFAULT_PRESENCE_DIRECTIVE } from "../../shared/performance-directive";
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
 export function createPerformanceDirective(
-  overrides: Partial<AssistantPerformanceDirective> = {}
-): AssistantPerformanceDirective {
+  overrides: Partial<PresenceDirective> = {}
+): PresenceDirective {
   return {
-    ...DEFAULT_PERFORMANCE_DIRECTIVE,
+    ...DEFAULT_PRESENCE_DIRECTIVE,
     ...overrides,
-    intensity: clamp01(overrides.intensity ?? DEFAULT_PERFORMANCE_DIRECTIVE.intensity)
+    intensity: clamp01(overrides.intensity ?? DEFAULT_PRESENCE_DIRECTIVE.intensity)
   };
 }
 
-export function inferPerformanceDirective(text: string): AssistantPerformanceDirective {
+export function inferPerformanceDirective(text: string): PresenceDirective {
   const normalized = text.trim().toLowerCase();
   const exclamationCount = (text.match(/!/g) ?? []).length;
   const hasQuestion = text.includes("?");

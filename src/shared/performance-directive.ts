@@ -9,7 +9,7 @@ export type PerformanceGesture =
 
 export type PerformancePace = "calm" | "steady" | "animated";
 
-export type AssistantPerformanceDirective = {
+export type PresenceDirective = {
   mood: PerformanceMood;
   gesture: PerformanceGesture;
   intensity: number;
@@ -18,11 +18,11 @@ export type AssistantPerformanceDirective = {
   cue: string;
 };
 
-export type AvatarPerformanceSnapshot = AssistantPerformanceDirective & {
+export type PresenceSnapshot = PresenceDirective & {
   gestureRevision: number;
 };
 
-export const DEFAULT_PERFORMANCE_DIRECTIVE: AssistantPerformanceDirective = {
+export const DEFAULT_PRESENCE_DIRECTIVE: PresenceDirective = {
   mood: "neutral",
   gesture: "none",
   intensity: 0.28,

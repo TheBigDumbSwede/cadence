@@ -1,4 +1,4 @@
-import type { AvatarPerformanceSnapshot } from "../../shared/performance-directive";
+import type { PresenceSnapshot } from "../../shared/performance-directive";
 
 export function timestampNow(): string {
   return new Intl.DateTimeFormat([], {
@@ -18,7 +18,7 @@ export function estimateUserReadMs(text: string): number {
 
 export function estimateAssistantDeliveryMs(
   text: string,
-  pace: AvatarPerformanceSnapshot["pace"]
+  pace: PresenceSnapshot["pace"]
 ): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
   const basePerWord =

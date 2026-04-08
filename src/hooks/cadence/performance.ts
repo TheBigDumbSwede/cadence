@@ -1,15 +1,15 @@
 import type {
-  AssistantPerformanceDirective,
-  AvatarPerformanceSnapshot
+  PresenceDirective,
+  PresenceSnapshot
 } from "../../shared/performance-directive";
 
 export function snapshotFromDirective(
-  directive: AssistantPerformanceDirective,
-  previous?: AvatarPerformanceSnapshot,
+  directive: PresenceDirective,
+  previous?: PresenceSnapshot,
   options?: {
     retriggerGesture?: boolean;
   }
-): AvatarPerformanceSnapshot {
+): PresenceSnapshot {
   const shouldRetrigger =
     directive.gesture !== "none" &&
     (options?.retriggerGesture || previous?.gesture !== directive.gesture);

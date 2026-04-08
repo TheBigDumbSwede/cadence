@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { SettingsUpdate } from "../shared/app-settings";
 import { ChatBreakDialog } from "../components/ChatBreakDialog";
 import { ChatPanel } from "../components/ChatPanel";
 import { KindroidPanel } from "../components/KindroidPanel";
@@ -9,8 +10,6 @@ import { SystemPanel } from "../components/SystemPanel";
 import { useCadenceController } from "../hooks/useCadenceController";
 import type { TextBackendProvider } from "../shared/backend-provider";
 import type { RuntimeInfo } from "../shared/runtime-info";
-import type { SettingsUpdate } from "../shared/app-settings";
-import type { StageMode } from "../shared/stage-mode";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
@@ -31,10 +30,8 @@ export function App() {
     activeSpeechCaption,
     activeWaveformKindroidParticipant,
     activeState,
-    avatarPoseDebug,
     backendConfig,
     newChatPending,
-    chooseAvatarFile,
     configured,
     connectionReady,
     composerPlaceholder,
@@ -45,15 +42,11 @@ export function App() {
     kindroidAwaitingUserTurn,
     metrics,
     mode,
-    performance,
     pendingAssistantHint,
     pendingSceneBreakLabel,
     requestKindroidGroupParticipantTurn,
     saveSettings,
     saveKindroidConfig,
-    setAvatar,
-    setAvatarPoseDebug,
-    stageMode,
     settingsFeedback,
     settingsLoaded,
     settingsSaveState,
@@ -66,7 +59,6 @@ export function App() {
     voiceInputMode,
     setInputText,
     setMode,
-    setStageMode,
     setTextBackend,
     setTtsProvider,
     setHotMicMuted,
@@ -170,12 +162,8 @@ export function App() {
       <section className="workspace-grid">
         <StagePanel
           activeState={activeState}
-          avatar={settingsSnapshot?.avatar ?? null}
-          avatarPoseDebug={avatarPoseDebug}
           effectCaption={kindroidBackendActive ? activeEffectCaption : null}
-          performance={performance}
           speechCaption={kindroidBackendActive ? activeSpeechCaption : null}
-          stageMode={stageMode}
           waveformTheme={
             activeWaveformKindroidParticipant
               ? {
@@ -294,28 +282,22 @@ export function App() {
       {settingsOpen ? (
         <MenuWindow
           title="Settings"
-          subtitle="Modes, stage, and keys"
+          subtitle="Modes and keys"
           onClose={() => setSettingsOpen(false)}
         >
           <SettingsPanel
             backendConfig={backendConfig}
-            avatarPoseDebug={avatarPoseDebug}
-            onChooseAvatar={chooseAvatarFile}
-            onSetAvatar={setAvatar}
             mode={mode}
             onSaveSettings={saveSettings as (update: Omit<SettingsUpdate, "preferences">) => Promise<void>}
             settingsFeedback={settingsFeedback}
             settingsLoaded={settingsLoaded}
             settingsSaveState={settingsSaveState}
             settingsSnapshot={settingsSnapshot}
-            setAvatarPoseDebug={setAvatarPoseDebug}
-            stageMode={stageMode}
             textBackend={textBackend}
             ttsProvider={ttsProvider}
             voiceBackend={voiceBackend}
             voiceInputMode={voiceInputMode}
             setMode={setMode}
-            setStageMode={setStageMode as (mode: StageMode) => void}
             setTextBackend={setTextBackend as (mode: TextBackendProvider) => void}
             setTtsProvider={setTtsProvider as (provider: TtsProvider) => void}
             setVoiceInputMode={setVoiceInputMode as (mode: VoiceInputMode) => void}

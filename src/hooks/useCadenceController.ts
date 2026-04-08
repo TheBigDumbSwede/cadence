@@ -7,12 +7,11 @@ import {
 import type { ConversationMetrics, ConversationTurn } from "../shared/conversation-types";
 import type { BackendConfigSummary } from "../shared/backend-config";
 import type { TextBackendProvider } from "../shared/backend-provider";
-import type { AvatarSelection, SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
+import type { SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
 import type { InteractionMode } from "../shared/interaction-mode";
-import type { StageMode } from "../shared/stage-mode";
 import type {
-  AssistantPerformanceDirective,
-  AvatarPerformanceSnapshot
+  PresenceDirective,
+  PresenceSnapshot
 } from "../shared/performance-directive";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
@@ -39,7 +38,7 @@ import {
 import {
   createPerformanceDirective,
   inferPerformanceDirective
-} from "../services/avatar/performanceHeuristics";
+} from "../services/stage/performanceHeuristics";
 import { getCadenceBridge } from "../services/bridge";
 import { snapshotFromDirective } from "./cadence/performance";
 import {
@@ -106,7 +105,6 @@ export function useCadenceController() {
   const [kindroidSession] = useState(() => createKindroidSession());
   const [kindroidGroupSession] = useState(() => createKindroidGroupSession());
   const [mode, setMode] = useState<InteractionMode>("voice");
-  const [stageMode, setStageMode] = useState<StageMode>("waveform");
   const [voiceBackend, setVoiceBackend] = useState<VoiceBackendProvider>("openai");
   const [voiceInputMode, setVoiceInputMode] = useState<VoiceInputMode>("push_to_talk");
   const [hotMicMuted, setHotMicMuted] = useState(false);
@@ -119,10 +117,9 @@ export function useCadenceController() {
     "idle"
   );
   const [settingsFeedback, setSettingsFeedback] = useState("");
-  const [avatarPoseDebug, setAvatarPoseDebug] = useState(false);
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [activeStateId, setActiveStateId] = useState<PreviewAssistantStateId>("idle");
-  const [avatarPerformance, setAvatarPerformance] = useState<AvatarPerformanceSnapshot>(() =>
+  const [presenceSnapshot, setPresenceSnapshot] = useState<PresenceSnapshot>(() =>
     snapshotFromDirective(createPerformanceDirective())
   );
   const [statusCopy, setStatusCopy] = useState("Connect to OpenAI to begin.");
@@ -319,7 +316,6 @@ export function useCadenceController() {
         ((usesKindroidGroupConversation && !groupKindroidHasAnySpeech) ||
           (!usesKindroidGroupConversation && effectiveKindroidTtsProvider === "none"))) ||
         (voiceBackend === "openai-batch" && ttsProvider === "none")));
-  const visualReplyPoseMode = stageMode === "avatar" && stagedTextReplyMode;
   const topology = useMemo(() => activeSession.describeTopology(), [activeSession]);
 
   function getAssistantTurnMetadata(): {
@@ -541,7 +537,7 @@ export function useCadenceController() {
     }
   }
 
-  function clearAvatarTimeline(): void {
+  function clearStageTimeline(): void {
     clearPoseHold();
     clearStagePhaseTimer();
     stageTimelineManagedRef.current = false;
@@ -622,12 +618,12 @@ export function useCadenceController() {
   }
 
   function updatePerformance(
-    directive: AssistantPerformanceDirective,
+    directive: PresenceDirective,
     options?: {
       retriggerGesture?: boolean;
     }
   ): void {
-    setAvatarPerformance((previous) => snapshotFromDirective(directive, previous, options));
+    setPresenceSnapshot((previous) => snapshotFromDirective(directive, previous, options));
   }
 
   function insertPendingUserTurn(): void {
@@ -645,7 +641,7 @@ export function useCadenceController() {
   }
 
   function beginVisualReplyPrelude(text: string): void {
-    clearAvatarTimeline();
+    clearStageTimeline();
     stageTimelineManagedRef.current = true;
     setActiveStateId("listening");
     updatePerformance(
@@ -716,7 +712,6 @@ export function useCadenceController() {
       .then((snapshot) => {
         setSettingsSnapshot(snapshot);
         setMode(snapshot.preferences.mode);
-        setStageMode(snapshot.preferences.stageMode);
         setTextBackend(snapshot.preferences.textBackend);
         setTtsProvider(snapshot.preferences.ttsProvider);
         setVoiceInputMode(snapshot.preferences.voiceInputMode);
@@ -1201,7 +1196,7 @@ export function useCadenceController() {
             case "thinking":
               clearPlaybackSuppressionTimer();
               releaseHotMicSuppression();
-              if (visualReplyPoseMode && stageTimelineManagedRef.current) {
+              if (stagedTextReplyMode && stageTimelineManagedRef.current) {
                 break;
               }
               clearPoseHold();
@@ -1221,7 +1216,7 @@ export function useCadenceController() {
                 assistantSpeakingRef.current = true;
                 hotMicRecorderRef.current?.setSuppressed(true);
               }
-              if (visualReplyPoseMode) {
+              if (stagedTextReplyMode) {
                 break;
               }
               clearPoseHold();
@@ -1234,7 +1229,7 @@ export function useCadenceController() {
               if (!poseHoldTimerRef.current && !stageTimelineManagedRef.current) {
                 setActiveStateId("idle");
               }
-              if (!visualReplyPoseMode && !stageTimelineManagedRef.current) {
+              if (!stagedTextReplyMode && !stageTimelineManagedRef.current) {
                 updatePerformance(
                   createPerformanceDirective({
                     mood: "neutral",
@@ -1260,7 +1255,7 @@ export function useCadenceController() {
               clearPlaybackSuppressionTimer();
               assistantTurnParticipantIdsRef.current.clear();
               releaseHotMicSuppression();
-              clearAvatarTimeline();
+              clearStageTimeline();
               setActiveStateId("idle");
               updatePerformance(createPerformanceDirective());
               setConnectionReady(false);
@@ -1476,7 +1471,7 @@ export function useCadenceController() {
           assistantTurnEffectCaptionsRef.current.clear();
           releaseHotMicSuppression();
           bufferedAssistantTurnRef.current = null;
-          clearAvatarTimeline();
+          clearStageTimeline();
           setActiveStateId("listening");
           updatePerformance(
             createPerformanceDirective({
@@ -1503,7 +1498,7 @@ export function useCadenceController() {
           releaseHotMicSuppression();
           clearPendingUserTurn();
           bufferedAssistantTurnRef.current = null;
-          clearAvatarTimeline();
+          clearStageTimeline();
           setActiveStateId("error");
           updatePerformance(
             createPerformanceDirective({
@@ -1614,7 +1609,6 @@ export function useCadenceController() {
     textBackend,
     ttsProvider,
     usesKindroidGroupConversation,
-    visualReplyPoseMode,
     voiceBackend,
     voiceInputMode
   ]);
@@ -1643,7 +1637,7 @@ export function useCadenceController() {
         if (assistantSpeakingRef.current) {
           void activeSession.interrupt();
         }
-        clearAvatarTimeline();
+        clearStageTimeline();
         setActiveStateId("listening");
         updatePerformance(
           createPerformanceDirective({
@@ -1773,7 +1767,7 @@ export function useCadenceController() {
     }
     await recorderRef.current.start();
     setIsRecording(true);
-    clearAvatarTimeline();
+    clearStageTimeline();
     setActiveStateId("listening");
     setStatusCopy("Listening...");
   }
@@ -1911,7 +1905,7 @@ export function useCadenceController() {
       await getCadenceBridge().kindroid.chatBreak(nextGreeting);
       clearPlaybackSuppressionTimer();
       releaseHotMicSuppression();
-      clearAvatarTimeline();
+      clearStageTimeline();
       clearPendingUserTurn();
       bufferedAssistantTurnRef.current = null;
       setInputText("");
@@ -1968,7 +1962,6 @@ export function useCadenceController() {
         ...update,
         preferences: {
           mode,
-          stageMode,
           textBackend,
           ttsProvider,
           voiceInputMode,
@@ -2065,33 +2058,6 @@ export function useCadenceController() {
     await activeSession.interrupt();
   }
 
-  async function chooseAvatarFile(): Promise<AvatarSelection | null> {
-    const bridge = getCadenceBridge();
-    return bridge.settings.chooseAvatarFile();
-  }
-
-  async function setAvatar(filePath: string | null): Promise<void> {
-    const bridge = getCadenceBridge();
-
-    clearSettingsFeedbackTimer();
-    setSettingsSaveState("saving");
-    setSettingsFeedback(filePath ? "Updating avatar..." : "Clearing avatar...");
-
-    try {
-      const snapshot = await bridge.settings.setAvatar(filePath);
-      setSettingsSnapshot(snapshot);
-      setSettingsSaveState("saved");
-      setSettingsFeedback(filePath ? "Avatar updated." : "Avatar cleared.");
-      scheduleSettingsFeedbackReset();
-    } catch (error) {
-      clearSettingsFeedbackTimer();
-      setSettingsSaveState("error");
-      setSettingsFeedback(
-        error instanceof Error ? error.message : "Failed to update avatar."
-      );
-    }
-  }
-
   const activeState: AssistantStateSnapshot = useMemo(() => {
     const base = buildAssistantSnapshot(activeStateId);
     return {
@@ -2108,7 +2074,6 @@ export function useCadenceController() {
     activeKindroidGroupParticipants,
     activeKindroidParticipant,
     activeWaveformKindroidParticipant,
-    avatarPoseDebug,
     configured,
     connectionReady,
     composerPlaceholder:
@@ -2124,7 +2089,6 @@ export function useCadenceController() {
     mode,
     newChatPending,
     backendConfig,
-    chooseAvatarFile,
     pendingAssistantHint:
       pendingConversationHint?.kind === "assistant"
         ? pendingConversationHint
@@ -2133,13 +2097,9 @@ export function useCadenceController() {
       usesKindroidGroupConversation && pendingConversationHint?.kind === "user"
         ? pendingConversationHint.message
         : null,
-    performance: avatarPerformance,
     requestKindroidGroupParticipantTurn,
     saveSettings,
     saveKindroidConfig,
-    setAvatar,
-    setAvatarPoseDebug,
-    stageMode,
     settingsFeedback,
     settingsLoaded,
     settingsSaveState,
@@ -2155,7 +2115,6 @@ export function useCadenceController() {
     voiceInputMode,
     setInputText,
     setMode,
-    setStageMode,
     setTextBackend,
     setTtsProvider,
     setVoiceInputMode,

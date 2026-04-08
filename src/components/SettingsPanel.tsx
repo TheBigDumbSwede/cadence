@@ -1,36 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import type {
-  AvatarSelection,
-  SettingsSnapshot,
-  SettingsUpdate
-} from "../shared/app-settings";
+import type { SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
 import type { BackendConfigSummary } from "../shared/backend-config";
 import type { TextBackendProvider } from "../shared/backend-provider";
 import type { InteractionMode } from "../shared/interaction-mode";
-import type { StageMode } from "../shared/stage-mode";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 type SettingsPanelProps = {
-  avatarPoseDebug: boolean;
   backendConfig: BackendConfigSummary;
   mode: InteractionMode;
-  onChooseAvatar: () => Promise<AvatarSelection | null>;
-  onSetAvatar: (filePath: string | null) => Promise<void>;
   onSaveSettings: (update: Omit<SettingsUpdate, "preferences">) => Promise<void>;
   settingsFeedback: string;
   settingsLoaded: boolean;
   settingsSaveState: "idle" | "saving" | "saved" | "error";
   settingsSnapshot: SettingsSnapshot | null;
-  setAvatarPoseDebug: (enabled: boolean) => void;
-  stageMode: StageMode;
   textBackend: TextBackendProvider;
   ttsProvider: TtsProvider;
   voiceBackend: VoiceBackendProvider;
   voiceInputMode: VoiceInputMode;
   setMode: (mode: InteractionMode) => void;
-  setStageMode: (mode: StageMode) => void;
   setTextBackend: (provider: TextBackendProvider) => void;
   setTtsProvider: (provider: TtsProvider) => void;
   setVoiceInputMode: (mode: VoiceInputMode) => void;
@@ -58,24 +47,18 @@ function normalizeValue(value: string): string {
 }
 
 export function SettingsPanel({
-  avatarPoseDebug,
   backendConfig,
   mode,
-  onChooseAvatar,
-  onSetAvatar,
   onSaveSettings,
   settingsFeedback,
   settingsLoaded,
   settingsSaveState,
   settingsSnapshot,
-  setAvatarPoseDebug,
-  stageMode,
   textBackend,
   ttsProvider,
   voiceBackend,
   voiceInputMode,
   setMode,
-  setStageMode,
   setTextBackend,
   setTtsProvider,
   setVoiceInputMode,
@@ -121,7 +104,6 @@ export function SettingsPanel({
 
     return (
       mode !== settingsSnapshot.preferences.mode ||
-      stageMode !== settingsSnapshot.preferences.stageMode ||
       textBackend !== settingsSnapshot.preferences.textBackend ||
       ttsProvider !== settingsSnapshot.preferences.ttsProvider ||
       voiceInputMode !== settingsSnapshot.preferences.voiceInputMode ||
@@ -154,7 +136,6 @@ export function SettingsPanel({
     openAiTtsInstructions,
     openAiTtsVoice,
     settingsSnapshot,
-    stageMode,
     textBackend,
     ttsProvider,
     voiceBackend,
@@ -327,117 +308,6 @@ export function SettingsPanel({
           </div>
         </section>
       ) : null}
-
-      <section className="menu-section">
-        <div className="menu-section-header">
-          <div>
-            <p className="eyebrow">Avatar</p>
-            <h3 className="panel-title">Stage</h3>
-          </div>
-        </div>
-        <div className="mode-switch">
-          <button
-            type="button"
-            className={`preview-button ${stageMode === "avatar" ? "active" : ""}`}
-            onClick={() => setStageMode("avatar")}
-          >
-            <strong>Avatar</strong>
-            <span>VRM character stage.</span>
-          </button>
-          <button
-            type="button"
-            className={`preview-button ${stageMode === "waveform" ? "active" : ""}`}
-            onClick={() => setStageMode("waveform")}
-          >
-            <strong>Waveform</strong>
-            <span>Live waveform from output audio.</span>
-          </button>
-        </div>
-        <div className="settings-grid">
-          <article className="setting-card">
-            <strong>Current avatar</strong>
-            <p className="setting-copy">
-              {settingsSnapshot?.avatar?.label ?? "No avatar selected."}
-            </p>
-            <p className="field-status">
-              {settingsSnapshot?.avatar?.path ?? "Choose a local .vrm file from disk."}
-            </p>
-            <div className="settings-inline-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => {
-                  void onChooseAvatar().then((selection) => {
-                    if (!selection) {
-                      return;
-                    }
-
-                    void onSetAvatar(selection.path);
-                  });
-                }}
-              >
-                Choose Avatar...
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={!settingsSnapshot?.avatar}
-                onClick={() => void onSetAvatar(null)}
-              >
-                Clear Avatar
-              </button>
-            </div>
-            {settingsSnapshot?.recentAvatars.length ? (
-              <div className="settings-chip-list">
-                {settingsSnapshot.recentAvatars.map((avatar) => {
-                  const isActive = settingsSnapshot.avatar?.path === avatar.path;
-
-                  return (
-                    <button
-                      key={avatar.path}
-                      type="button"
-                      className={`secondary-button settings-chip ${isActive ? "active" : ""}`}
-                      disabled={isActive}
-                      onClick={() => void onSetAvatar(avatar.path)}
-                    >
-                      {avatar.label}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-          </article>
-          {stageMode === "avatar" ? (
-            <article className="setting-card">
-              <strong>Pose debug</strong>
-              <p className="setting-copy">
-                Show arm-chain axes and live rotation readouts on the stage while we tune the idle.
-              </p>
-              <div className="settings-inline-actions">
-                <button
-                  type="button"
-                  className={`secondary-button ${avatarPoseDebug ? "active" : ""}`}
-                  onClick={() => setAvatarPoseDebug(!avatarPoseDebug)}
-                >
-                  {avatarPoseDebug ? "Disable Debug" : "Enable Debug"}
-                </button>
-              </div>
-              <p className="field-status">
-                {avatarPoseDebug
-                  ? "Debug helpers are visible on the stage."
-                  : "Debug helpers are hidden."}
-              </p>
-            </article>
-          ) : (
-            <article className="setting-card">
-              <strong>Waveform stage</strong>
-              <p className="setting-copy">
-                Driven from the real playback signal.
-              </p>
-            </article>
-          )}
-        </div>
-      </section>
 
       <section className="menu-section">
         <div className="menu-section-header">

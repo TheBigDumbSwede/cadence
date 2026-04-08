@@ -28,9 +28,4 @@ declare global {
   }
 }
 
-declare module "*.vrma" {
-  const src: string;
-  export default src;
-}
-
 export {};

@@ -5,24 +5,16 @@ import type {
   KindroidGroupMirror
 } from "./kindroid-group-mirrors";
 import type { KindroidParticipant } from "./kindroid-participants";
-import type { StageMode } from "./stage-mode";
 import type { TtsProvider } from "./tts-provider";
 import type { VoiceInputMode } from "./voice-input-mode";
 import type { VoiceBackendProvider } from "./voice-backend";
 
 export type SettingsPreferences = {
   mode: InteractionMode;
-  stageMode: StageMode;
   textBackend: TextBackendProvider;
   ttsProvider: TtsProvider;
   voiceInputMode: VoiceInputMode;
   voiceBackend: VoiceBackendProvider;
-};
-
-export type AvatarSelection = {
-  path: string;
-  label: string;
-  fileUrl: string;
 };
 
 export type SettingsSnapshot = {
@@ -40,8 +32,6 @@ export type SettingsSnapshot = {
   kindroidGroupMirrors: KindroidGroupMirror[];
   activeKindroidGroupMirrorId: string | null;
   activeKindroidGroupSpeakerParticipantId: string | null;
-  avatar: AvatarSelection | null;
-  recentAvatars: AvatarSelection[];
   hasOpenAiApiKey: boolean;
   hasElevenLabsApiKey: boolean;
   hasKindroidApiKey: boolean;
@@ -66,9 +56,7 @@ export type SettingsUpdate = {
   openAiApiKey?: string;
   elevenLabsApiKey?: string;
   kindroidApiKey?: string;
-  avatarPath?: string;
   clearOpenAiApiKey?: boolean;
   clearElevenLabsApiKey?: boolean;
   clearKindroidApiKey?: boolean;
-  clearAvatar?: boolean;
 };

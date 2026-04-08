@@ -29,7 +29,6 @@ function createSettingsUpdate() {
   return {
     preferences: {
       mode: "voice" as const,
-      stageMode: "waveform" as const,
       textBackend: "openai" as const,
       ttsProvider: "elevenlabs" as const,
       voiceInputMode: "push_to_talk" as const,
@@ -110,7 +109,6 @@ describe("SettingsService", () => {
         {
           preferences: {
             mode: "voice",
-            stageMode: "waveform",
             textBackend: "kindroid",
             ttsProvider: "openai",
             voiceInputMode: "push_to_talk",

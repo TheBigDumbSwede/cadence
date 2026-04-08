@@ -50,19 +50,16 @@ That may change later, but it is not the posture today.
 - `OpenAI Voice`
 - `ElevenLabs Voice`
 
-### Stage modes
+### Stage
 
 - `Waveform`
-- `Avatar`
-
-The default stage for a brand-new profile is `Waveform`.
 
 ## Why It Exists
 
 Cadence is exploring a few specific ideas:
 - a companion surface instead of a dashboard
 - low-latency voice interaction without locking the whole app to one provider
-- a stage layer that can be either stylized waveform or VRM avatar
+- a persistent waveform stage tied to real conversational state
 - persistent local settings instead of forcing `.env` for normal use
 - multi-character Kindroid scenes without turning the app into a Kin management panel
 - narration-aware staging, including optional Foley-style scene accents
@@ -87,8 +84,8 @@ That means Cadence should stay the conversational shell, not become a giant inte
   UI and stage renderers
 - `src/services/audio/`
   capture, playback, waveform analysis
-- `src/services/avatar/`
-  performance heuristics and stage motion support
+- `src/services/stage/`
+  stage-facing presence heuristics
 
 ## Settings
 
@@ -100,10 +97,8 @@ That includes:
 - mirrored Kindroid group ids and local group membership
 - OpenAI batch TTS voice instructions
 - Kindroid new-chat greeting
-- selected stage mode
 - selected voice mode/backend
 - TTS voice settings
-- avatar selection
 
 `.env` still works as a fallback for development, but it is no longer the preferred runtime path.
 
@@ -165,13 +160,6 @@ Current behavior:
 - if ElevenLabs is unavailable or narration FX is disabled, the visual Foley caption still appears without delaying spoken captions
 
 This is intentionally prototype territory. It is meant to add atmosphere, not become a full sound-design engine.
-
-## VRM / Stage Notes
-
-Avatar mode currently supports:
-- local `.vrm` import
-- authored `.vrma` loop states for idle/listening/thinking
-- procedural speaking behavior layered on top
 
 Waveform mode is not a fallback. It is a first-class stage path:
 - audio-driven when speech is actually playing
@@ -237,7 +225,6 @@ npm run build:icon
 - `src/hooks/useCadenceController.ts` is still the main orchestration pressure point
 - turn timing and stage timing are good enough, not fully elegant
 - hot mic is useful, but still prototype-tuned
-- avatar animation is intentionally restrained and not yet a full animation system
 - no claim of production hardening or broad platform support yet
 
 ## Repo Hygiene
@@ -246,7 +233,6 @@ Local-only files that should stay untracked include:
 - `.env`
 - `.env.local`
 - profile settings files under Electron user data
-- imported local avatar files under `assets/avatars/`
 - build outputs under `dist/`, `dist-electron/`, and `release/`
 
 ## Suggested Framing
@@ -255,6 +241,6 @@ If you share the project, the honest framing is:
 - experimental desktop companion
 - voice/text presence prototype
 - OpenAI + Kindroid backend exploration
-- waveform and VRM stage experiments
+- waveform stage and conversational orchestration experiments
 
 That is strong enough. It does not need fake maturity language.

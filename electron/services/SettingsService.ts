@@ -3,9 +3,7 @@ import "dotenv/config";
 import { app, safeStorage } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import type {
-  AvatarSelection,
   SettingsPreferences,
   SettingsSnapshot,
   SettingsUpdate
@@ -40,8 +38,6 @@ type StoredSettings = {
   kindroidGroupMirrors?: KindroidGroupMirror[];
   activeKindroidGroupMirrorId?: string;
   activeKindroidGroupSpeakerParticipantId?: string;
-  avatarPath?: string;
-  recentAvatarPaths?: string[];
   secrets?: {
     openAiApiKey?: string;
     elevenLabsApiKey?: string;
@@ -51,7 +47,6 @@ type StoredSettings = {
 
 const DEFAULT_PREFERENCES: SettingsPreferences = {
   mode: "voice",
-  stageMode: "waveform",
   textBackend: "openai",
   ttsProvider: "elevenlabs",
   voiceInputMode: "push_to_talk",
@@ -64,7 +59,6 @@ const DEFAULT_KINDROID_CONVERSATION_MODE: KindroidConversationMode = "solo";
 const DEFAULT_KINDROID_NARRATION_DELIMITER = "*";
 const DEFAULT_KINDROID_WAVEFORM_COLOR = getDefaultKindroidWaveformColor(0);
 const LEGACY_KINDROID_PARTICIPANT_ID = "legacy-kindroid";
-const MAX_RECENT_AVATARS = 6;
 
 function normalizeValue(value: string | undefined | null): string {
   return value?.trim() ?? "";
@@ -117,7 +111,6 @@ export class SettingsService {
     return {
       preferences: {
         mode: stored.preferences?.mode ?? DEFAULT_PREFERENCES.mode,
-        stageMode: stored.preferences?.stageMode ?? DEFAULT_PREFERENCES.stageMode,
         textBackend: stored.preferences?.textBackend ?? DEFAULT_PREFERENCES.textBackend,
         ttsProvider: stored.preferences?.ttsProvider ?? DEFAULT_PREFERENCES.ttsProvider,
         voiceInputMode:
@@ -137,8 +130,6 @@ export class SettingsService {
       kindroidGroupMirrors,
       activeKindroidGroupMirrorId,
       activeKindroidGroupSpeakerParticipantId,
-      avatar: this.getAvatarSelection(),
-      recentAvatars: this.getRecentAvatarSelections(),
       hasOpenAiApiKey: Boolean(this.getOpenAiApiKey()),
       hasElevenLabsApiKey: Boolean(this.getElevenLabsApiKey()),
       hasKindroidApiKey: Boolean(this.getKindroidApiKey()),
@@ -162,7 +153,6 @@ export class SettingsService {
 
     stored.preferences = {
       mode: update.preferences.mode,
-      stageMode: update.preferences.stageMode,
       textBackend: update.preferences.textBackend,
       ttsProvider: update.preferences.ttsProvider,
       voiceInputMode: update.preferences.voiceInputMode,
@@ -193,21 +183,6 @@ export class SettingsService {
         normalizedKindroidGroupMirrors,
         normalizedActiveKindroidGroupMirrorId
       );
-    if (typeof update.avatarPath === "string") {
-      const normalizedPath = normalizeValue(update.avatarPath);
-      if (normalizedPath) {
-        this.assertAvatarPath(normalizedPath);
-        stored.avatarPath = normalizedPath;
-        stored.recentAvatarPaths = this.buildRecentAvatarPaths(
-          normalizedPath,
-          stored.recentAvatarPaths
-        );
-      } else {
-        delete stored.avatarPath;
-      }
-    } else if (update.clearAvatar) {
-      delete stored.avatarPath;
-    }
     stored.secrets ??= {};
 
     if (typeof update.openAiApiKey === "string" && update.openAiApiKey.trim()) {
@@ -226,25 +201,6 @@ export class SettingsService {
       stored.secrets.kindroidApiKey = this.encodeSecret(update.kindroidApiKey.trim());
     } else if (update.clearKindroidApiKey) {
       delete stored.secrets.kindroidApiKey;
-    }
-
-    this.writeStore(stored);
-    return this.getSnapshot();
-  }
-
-  setAvatar(filePath: string | null): SettingsSnapshot {
-    const stored = this.readStore();
-
-    if (filePath) {
-      const normalizedPath = normalizeValue(filePath);
-      this.assertAvatarPath(normalizedPath);
-      stored.avatarPath = normalizedPath;
-      stored.recentAvatarPaths = this.buildRecentAvatarPaths(
-        normalizedPath,
-        stored.recentAvatarPaths
-      );
-    } else {
-      delete stored.avatarPath;
     }
 
     this.writeStore(stored);
@@ -401,38 +357,6 @@ export class SettingsService {
       participants,
       groupMirrors,
       activeGroupMirrorId
-    );
-  }
-
-  getAvatarSelection(): AvatarSelection | null {
-    const storedPath = this.getStoredNonSecret("avatarPath");
-    if (!storedPath || !existsSync(storedPath)) {
-      return null;
-    }
-
-    return this.createAvatarSelection(storedPath);
-  }
-
-  getRecentAvatarSelections(): AvatarSelection[] {
-    const recentPaths = this.readStore().recentAvatarPaths ?? [];
-    return recentPaths
-      .map((filePath) => normalizeValue(filePath))
-      .filter((filePath, index, allPaths) =>
-        Boolean(filePath) &&
-        existsSync(filePath) &&
-        path.extname(filePath).toLowerCase() === ".vrm" &&
-        allPaths.indexOf(filePath) === index
-      )
-      .slice(0, MAX_RECENT_AVATARS)
-      .map((filePath) => this.createAvatarSelection(filePath));
-  }
-
-  readAvatarFile(filePath: string): ArrayBuffer {
-    this.assertAvatarPath(filePath);
-    const buffer = readFileSync(filePath);
-    return buffer.buffer.slice(
-      buffer.byteOffset,
-      buffer.byteOffset + buffer.byteLength
     );
   }
 
@@ -710,33 +634,6 @@ export class SettingsService {
     }
   }
 
-  private assertAvatarPath(filePath: string): void {
-    if (!existsSync(filePath)) {
-      throw new Error("Selected avatar file no longer exists.");
-    }
-
-    if (path.extname(filePath).toLowerCase() !== ".vrm") {
-      throw new Error("Avatar selection must point to a .vrm file.");
-    }
-  }
-
-  private buildRecentAvatarPaths(
-    filePath: string,
-    existingPaths: string[] | undefined
-  ): string[] {
-    return [filePath, ...(existingPaths ?? [])]
-      .map((value) => normalizeValue(value))
-      .filter((value, index, allValues) => Boolean(value) && allValues.indexOf(value) === index)
-      .slice(0, MAX_RECENT_AVATARS);
-  }
-
-  private createAvatarSelection(filePath: string): AvatarSelection {
-    return {
-      path: filePath,
-      label: path.basename(filePath),
-      fileUrl: pathToFileURL(filePath).href
-    };
-  }
 }
 
 let settingsService: SettingsService | null = null;

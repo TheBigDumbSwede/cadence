@@ -1,23 +1,15 @@
 import { useEffect, useState } from "react";
-import type { AvatarSelection } from "../shared/app-settings";
 import type { AssistantStateSnapshot } from "../shared/assistant-state";
-import type { AvatarPerformanceSnapshot } from "../shared/performance-directive";
 import type { KindroidWaveformAccent } from "../shared/kindroid-participants";
-import type { StageMode } from "../shared/stage-mode";
-import { VrmStage } from "./VrmStage";
 import { WaveformStage } from "./WaveformStage";
 
 type StagePanelProps = {
   activeState: AssistantStateSnapshot;
-  avatar: AvatarSelection | null;
-  avatarPoseDebug: boolean;
-  performance: AvatarPerformanceSnapshot;
   effectCaption: string | null;
   speechCaption: {
     speakerLabel?: string;
     text: string;
   } | null;
-  stageMode: StageMode;
   waveformTheme: {
     color: string;
     accent: KindroidWaveformAccent;
@@ -26,12 +18,8 @@ type StagePanelProps = {
 
 export function StagePanel({
   activeState,
-  avatar,
-  avatarPoseDebug,
   effectCaption,
-  performance,
   speechCaption,
-  stageMode,
   waveformTheme
 }: StagePanelProps) {
   const [displayedEffectCaption, setDisplayedEffectCaption] = useState(effectCaption);
@@ -59,21 +47,12 @@ export function StagePanel({
   return (
     <section className={`panel stage stage-state-${activeState.type}`}>
       <div className="stage-header">
-        <p className="eyebrow">Stage</p>
+        <p className="eyebrow">Presence</p>
         <div className="state-chip">{activeState.badge}</div>
       </div>
 
       <div className="stage-canvas">
-        {stageMode === "waveform" ? (
-          <WaveformStage activeState={activeState} theme={waveformTheme} />
-        ) : (
-          <VrmStage
-            activeState={activeState}
-            avatar={avatar}
-            debugPose={avatarPoseDebug}
-            performance={performance}
-          />
-        )}
+        <WaveformStage activeState={activeState} theme={waveformTheme} />
         {displayedEffectCaption ? (
           <div
             className={`stage-effect-caption${effectCaptionVisible ? " is-visible" : ""}`}

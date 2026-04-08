@@ -14,7 +14,6 @@ The product center is:
 The app should feel like one product across:
 - voice
 - text-only
-- avatar stage
 - waveform stage
 
 Do not let it drift into:
@@ -41,8 +40,8 @@ Current major layers:
   UI and stage renderers
 - `src/services/audio/`
   capture/playback/waveform plumbing
-- `src/services/avatar/`
-  performance heuristics and motion support
+- `src/services/stage/`
+  stage-facing presence heuristics
 - `src/shared/`
   shared contracts and settings types
 
@@ -101,45 +100,19 @@ Narration staging rule:
 - visual Foley cues may still appear even when ElevenLabs sound-effect playback is unavailable or disabled
 - spoken-caption timing must not be delayed unless real pre-speech Foley audio is actually present
 
-## Stage Modes
+## Stage
 
-Cadence has two stage modes:
-- `avatar`
-- `waveform`
+Cadence is now waveform-only.
 
-### Default
+### Waveform
 
-For a brand-new profile, the default stage is:
-- `waveform`
-
-Existing saved preferences still win over defaults.
-
-### Avatar mode
-
-- uses imported local `.vrm` files
-- supports authored `.vrma` loop states
-- current authored loop files live in `assets/animations/`
-- speaking remains mostly procedural
-
-Current clip-backed loop states:
-- `idle`
-- `listening`
-- `thinking` / `transcribing`
-
-Do not overcomplicate avatar animation prematurely. Keep:
-- loop states clip-backed
-- speaking responsive/procedural
-
-### Waveform mode
-
-- is a real peer to avatar mode, not a fallback
 - speaking should be driven by actual output audio samples when available
 - non-speaking states use procedural motion
 - there is a short speaking pre-roll to bridge the gap before real output samples arrive
 - Kindroid can tint the waveform per participant; that theming should follow the actually audible speaker, not the next queued turn
 - stage overlays may include a short-lived Foley caption above the spoken caption; keep it subordinate and lightweight
 
-Do not reintroduce avatar-specific timing hacks into the waveform path.
+Do not reintroduce a second stage mode casually. The current product shape is narrower on purpose.
 
 ## Settings and Persistence
 
@@ -281,9 +254,7 @@ If changing the icon, update the generator or source asset rather than dropping 
 - Preserve the distinction between presence logic and conversation logic.
 - Prefer small, coherent extractions over sweeping rewrites.
 - Do not expand the main window with low-value status chrome.
-- Keep waveform and avatar as equal stage modes.
 - Keep new defaults low-drama and profile-safe; do not clobber saved user settings.
-- When behavior differs by stage mode, make that explicit instead of smuggling avatar assumptions into waveform.
 - When behavior differs by voice backend, keep the split in transports/config, not scattered through UI.
 
 ## What "Good" Looks Like Here
