@@ -65,7 +65,7 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
-app.whenReady().then(() => {
+void app.whenReady().then(() => {
   registerAppIpc();
   registerElevenLabsIpc();
   registerKindroidExperimentalIpc();

@@ -254,8 +254,6 @@ export function KindroidPanel({
         : groupMirrors.some((groupMirror) => groupMirror.id === activeKindroidGroupMirrorId)
           ? activeKindroidGroupMirrorId
           : groupMirrors[0].id;
-    const nextActiveGroupMirror =
-      groupMirrors.find((groupMirror) => groupMirror.id === nextActiveGroupMirrorId) ?? null;
     setValidationMessage("");
 
     await onSaveKindroidConfig({

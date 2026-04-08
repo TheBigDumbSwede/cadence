@@ -20,7 +20,7 @@ export async function resolveKindroidGroupTurn(options: {
   participants: KindroidParticipant[];
   transportId: string;
 }): Promise<KindroidGroupTurnResolution> {
-  const { groupMirror, participants, transportId } = options;
+  const { groupMirror, participants } = options;
   const groupParticipants = participants.filter((participant) =>
     groupMirror.participantIds.includes(participant.id)
   );

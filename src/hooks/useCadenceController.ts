@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildAssistantSnapshot,
   type AssistantStateSnapshot,
@@ -16,7 +16,6 @@ import type {
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
-import type { CadenceEvent } from "../shared/voice-events";
 import type {
   SpeechCaptionCue,
   SpeechCaptionMode
@@ -119,7 +118,7 @@ export function useCadenceController() {
   const [settingsFeedback, setSettingsFeedback] = useState("");
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [activeStateId, setActiveStateId] = useState<PreviewAssistantStateId>("idle");
-  const [presenceSnapshot, setPresenceSnapshot] = useState<PresenceSnapshot>(() =>
+  const [, setPresenceSnapshot] = useState<PresenceSnapshot>(() =>
     snapshotFromDirective(createPerformanceDirective())
   );
   const [statusCopy, setStatusCopy] = useState("Connect to OpenAI to begin.");
@@ -203,7 +202,10 @@ export function useCadenceController() {
 
     return activeParticipant ?? null;
   }, [settingsSnapshot]);
-  const kindroidGroupMirrors = settingsSnapshot?.kindroidGroupMirrors ?? [];
+  const kindroidGroupMirrors = useMemo(
+    () => settingsSnapshot?.kindroidGroupMirrors ?? [],
+    [settingsSnapshot?.kindroidGroupMirrors]
+  );
   const activeKindroidGroupMirror = useMemo(() => {
     if (kindroidGroupMirrors.length === 0 || !settingsSnapshot?.activeKindroidGroupMirrorId) {
       return kindroidGroupMirrors[0] ?? null;
@@ -535,25 +537,25 @@ export function useCadenceController() {
     turns
   ]);
 
-  function clearStagePhaseTimer(): void {
+  const clearStagePhaseTimer = useCallback((): void => {
     if (stagePhaseTimerRef.current !== null) {
       window.clearTimeout(stagePhaseTimerRef.current);
       stagePhaseTimerRef.current = null;
     }
-  }
+  }, []);
 
-  function clearPoseHold(): void {
+  const clearPoseHold = useCallback((): void => {
     if (poseHoldTimerRef.current !== null) {
       window.clearTimeout(poseHoldTimerRef.current);
       poseHoldTimerRef.current = null;
     }
-  }
+  }, []);
 
-  function clearStageTimeline(): void {
+  const clearStageTimeline = useCallback((): void => {
     clearPoseHold();
     clearStagePhaseTimer();
     stageTimelineManagedRef.current = false;
-  }
+  }, [clearPoseHold, clearStagePhaseTimer]);
 
   function clearPlaybackSuppressionTimer(): void {
     if (playbackSuppressionTimerRef.current !== null) {
@@ -737,6 +739,10 @@ export function useCadenceController() {
       });
   }, []);
 
+  // This effect intentionally tracks session/config seams rather than every helper it calls.
+  // Pulling all transient orchestration callbacks into the dependency list would cause
+  // needless reconnects and duplicate subscriptions.
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     if (!settingsLoaded) {
       setConnectionReady(false);
@@ -1638,6 +1644,7 @@ export function useCadenceController() {
     voiceBackend,
     voiceInputMode
   ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     const hotMicRecorder = hotMicRecorderRef.current;
@@ -1736,7 +1743,65 @@ export function useCadenceController() {
       cancelled = true;
       void hotMicRecorder.stop();
     };
-  }, [activeSession, interactionReady, mode, voiceInputMode]);
+  }, [activeSession, clearStageTimeline, interactionReady, mode, voiceInputMode]);
+
+  const startRecording = useCallback(async (): Promise<void> => {
+    if (
+      mode !== "voice" ||
+      voiceInputMode !== "push_to_talk" ||
+      isRecording ||
+      !interactionReady ||
+      !recorderRef.current
+    ) {
+      return;
+    }
+
+    clearPendingConversationHint();
+    responseClock.current.interruptionStartedAt = performance.now();
+    if (assistantSpeakingRef.current) {
+      await activeSession.interrupt();
+    }
+    await recorderRef.current.start();
+    setIsRecording(true);
+    clearStageTimeline();
+    setActiveStateId("listening");
+    setStatusCopy("Listening...");
+  }, [activeSession, clearStageTimeline, interactionReady, isRecording, mode, voiceInputMode]);
+
+  const stopRecording = useCallback(async (): Promise<void> => {
+    if (
+      mode !== "voice" ||
+      voiceInputMode !== "push_to_talk" ||
+      !isRecording ||
+      !recorderRef.current
+    ) {
+      return;
+    }
+
+    const stoppedAt = performance.now();
+    const audio = await recorderRef.current.stop();
+    setIsRecording(false);
+    if (audio.byteLength === 0) {
+      clearPendingUserTurn();
+      setStatusCopy("No audio captured.");
+      return;
+    }
+
+    insertPendingUserTurn();
+    responseClock.current.startedAt = stoppedAt;
+    responseClock.current.firstAudioAt = null;
+    setMetrics((previous) => ({
+      ...previous,
+      timeToListeningMs: previous.timeToListeningMs || 180,
+      interruptRecoveryMs: Math.round(
+        stoppedAt - (responseClock.current.interruptionStartedAt ?? stoppedAt)
+      )
+    }));
+
+    setActiveStateId("transcribing");
+    setStatusCopy("Uploading captured audio...");
+    await activeSession.sendUserAudio(audio);
+  }, [activeSession, isRecording, mode, voiceInputMode]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1773,65 +1838,7 @@ export function useCadenceController() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [interactionReady, isRecording, mode, voiceBackend, voiceInputMode]);
-
-  async function startRecording(): Promise<void> {
-    if (
-      mode !== "voice" ||
-      voiceInputMode !== "push_to_talk" ||
-      isRecording ||
-      !interactionReady ||
-      !recorderRef.current
-    ) {
-      return;
-    }
-
-    clearPendingConversationHint();
-    responseClock.current.interruptionStartedAt = performance.now();
-    if (assistantSpeakingRef.current) {
-      await activeSession.interrupt();
-    }
-    await recorderRef.current.start();
-    setIsRecording(true);
-    clearStageTimeline();
-    setActiveStateId("listening");
-    setStatusCopy("Listening...");
-  }
-
-  async function stopRecording(): Promise<void> {
-    if (
-      mode !== "voice" ||
-      voiceInputMode !== "push_to_talk" ||
-      !isRecording ||
-      !recorderRef.current
-    ) {
-      return;
-    }
-
-    const stoppedAt = performance.now();
-    const audio = await recorderRef.current.stop();
-    setIsRecording(false);
-    if (audio.byteLength === 0) {
-      clearPendingUserTurn();
-      setStatusCopy("No audio captured.");
-      return;
-    }
-
-    insertPendingUserTurn();
-    responseClock.current.startedAt = stoppedAt;
-    responseClock.current.firstAudioAt = null;
-    setMetrics((previous) => ({
-      ...previous,
-      timeToListeningMs: previous.timeToListeningMs || 180,
-      interruptRecoveryMs: Math.round(
-        stoppedAt - (responseClock.current.interruptionStartedAt ?? stoppedAt)
-      )
-    }));
-
-    setActiveStateId("transcribing");
-    setStatusCopy("Uploading captured audio...");
-    await activeSession.sendUserAudio(audio);
-  }
+  }, [mode, startRecording, stopRecording, voiceInputMode]);
 
   async function submitText(): Promise<void> {
     if (!inputText.trim()) {

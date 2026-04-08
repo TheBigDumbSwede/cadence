@@ -298,7 +298,7 @@ export function WaveformStage({ activeState, theme }: WaveformStageProps) {
     }
 
     return 0.08;
-  }, [activeState.type, phase, speakingBridgeStartedAt, waveform.active, waveform.level]);
+  }, [activeState.type, speakingBridgeStartedAt, waveform.active, waveform.level]);
 
   const samples = useMemo(() => {
     if (waveform.active && waveform.samples.some((sample) => Math.abs(sample) > 0.002)) {

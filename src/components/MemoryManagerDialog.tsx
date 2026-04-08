@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MemoryStoredItem, MemoryStoredSession } from "../shared/memory-control";
 
 type MemoryManagerDialogProps = {
@@ -38,7 +38,7 @@ export function MemoryManagerDialog({
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState("");
 
-  async function loadItems(): Promise<void> {
+  const loadItems = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       const nextState = await onRefresh();
@@ -57,11 +57,11 @@ export function MemoryManagerDialog({
     } finally {
       setLoading(false);
     }
-  }
+  }, [onRefresh]);
 
   useEffect(() => {
     void loadItems();
-  }, []);
+  }, [loadItems]);
 
   const allSelected = useMemo(
     () => items.length > 0 && selectedIds.length === items.length,

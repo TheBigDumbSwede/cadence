@@ -45,6 +45,10 @@ import type {
   TextResponseOptions
 } from "../src/shared/text-control";
 import type { RuntimeInfo } from "../src/shared/runtime-info";
+import type {
+  SpeechCaptionCue,
+  SpeechCaptionMode
+} from "../src/shared/speech-captions";
 import type { CadenceEvent } from "../src/shared/voice-events";
 
 const cadenceBridge = {
@@ -57,8 +61,8 @@ const cadenceBridge = {
         format: "mp3";
         model: string;
         voiceId: string;
-        captions: import("../src/shared/speech-captions").SpeechCaptionCue[];
-        captionsMode: import("../src/shared/speech-captions").SpeechCaptionMode;
+        captions: SpeechCaptionCue[];
+        captionsMode: SpeechCaptionMode;
       }>,
     synthesizeSoundEffect: (
       text: string,
@@ -170,8 +174,8 @@ const cadenceBridge = {
         format: "mp3";
         model: string;
         voice: string;
-        captions: import("../src/shared/speech-captions").SpeechCaptionCue[];
-        captionsMode: import("../src/shared/speech-captions").SpeechCaptionMode;
+        captions: SpeechCaptionCue[];
+        captionsMode: SpeechCaptionMode;
       }>
   } satisfies OpenAiSpeechBridge,
   settings: {

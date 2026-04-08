@@ -64,7 +64,6 @@ export function estimateSpeechCaptionCues(text: string): SpeechCaptionCue[] {
     const wordCount = span.text.split(/\s+/).filter(Boolean).length;
     return Math.max(1, wordCount);
   });
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   const totalDurationMs = Math.max(
     900,
     Math.round(
