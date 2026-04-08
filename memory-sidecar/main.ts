@@ -7,7 +7,6 @@ import {
   type ServerResponse
 } from "node:http";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import type {
   MemoryIngestRequest,
   MemoryIngestResult,
@@ -384,6 +383,10 @@ export function startMemorySidecarServer(
   };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  typeof require !== "undefined" &&
+  typeof module !== "undefined" &&
+  require.main === module
+) {
   startMemorySidecarServer();
 }
