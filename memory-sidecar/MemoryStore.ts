@@ -36,10 +36,12 @@ type UpsertMemoryInput = {
   keywords: string[];
 };
 
-const EMPTY_STORE: StoreFile = {
-  memories: [],
-  sessions: []
-};
+function createEmptyStore(): StoreFile {
+  return {
+    memories: [],
+    sessions: []
+  };
+}
 
 function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, " ");
@@ -235,7 +237,7 @@ export class MemoryStore {
     }
 
     if (!existsSync(this.storePath)) {
-      this.cache = EMPTY_STORE;
+      this.cache = createEmptyStore();
       return this.cache;
     }
 
@@ -247,7 +249,7 @@ export class MemoryStore {
       };
       return this.cache;
     } catch {
-      this.cache = EMPTY_STORE;
+      this.cache = createEmptyStore();
       return this.cache;
     }
   }
