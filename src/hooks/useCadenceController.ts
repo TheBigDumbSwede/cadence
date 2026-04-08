@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toAppError } from "../shared/app-error";
 import {
   buildAssistantSnapshot,
   type AssistantStateSnapshot,
@@ -20,11 +19,7 @@ import {
   offsetSpeechCaptionCues,
   scaleSpeechCaptionCues
 } from "../shared/speech-captions";
-import {
-  HotMicRecorder,
-  type HotMicMonitorState,
-  PushToTalkRecorder
-} from "../services/audio/audioCapture";
+import type { HotMicRecorder, PushToTalkRecorder } from "../services/audio/audioCapture";
 import {
   getOutputPlaybackSnapshot,
   subscribeToOutputPlayback
@@ -35,11 +30,11 @@ import {
 } from "../services/stage/performanceHeuristics";
 import { getCadenceBridge } from "../services/bridge";
 import { snapshotFromDirective } from "./cadence/performance";
+import { useCadenceInputOrchestrator } from "./cadence/useCadenceInputOrchestrator";
 import {
   buildListeningStatusCopy,
   buildPreparingStatusCopy,
-  buildReadyStatusCopy,
-  buildSubmitStatusCopy
+  buildReadyStatusCopy
 } from "./cadence/statusCopy";
 import {
   estimateAssistantDeliveryMs,
@@ -375,16 +370,6 @@ export function useCadenceController() {
     return effectiveKindroidTtsProvider !== "none";
   }
 
-  useEffect(() => {
-    recorderRef.current = new PushToTalkRecorder();
-    hotMicRecorderRef.current = new HotMicRecorder();
-  }, []);
-
-  useEffect(() => {
-    hotMicMutedRef.current = hotMicMuted;
-    hotMicRecorderRef.current?.setSuppressed(hotMicMuted || assistantSpeakingRef.current);
-  }, [hotMicMuted]);
-
   useEffect(
     () => () => {
       if (poseHoldTimerRef.current !== null) {
@@ -608,6 +593,18 @@ export function useCadenceController() {
     }, releaseInMs);
   }
 
+  const updatePerformance = useCallback(
+    (
+      directive: PresenceDirective,
+      options?: {
+        retriggerGesture?: boolean;
+      }
+    ): void => {
+      setPresenceSnapshot((previous) => snapshotFromDirective(directive, previous, options));
+    },
+    []
+  );
+
   function holdPoseState(state: PreviewAssistantStateId, durationMs = 1100): void {
     clearPoseHold();
     setActiveStateId(state);
@@ -627,20 +624,11 @@ export function useCadenceController() {
     }, durationMs);
   }
 
-  function updatePerformance(
-    directive: PresenceDirective,
-    options?: {
-      retriggerGesture?: boolean;
-    }
-  ): void {
-    setPresenceSnapshot((previous) => snapshotFromDirective(directive, previous, options));
-  }
-
-  function insertPendingUserTurn(): void {
+  const insertPendingUserTurn = useCallback((): void => {
     pendingUserTurnIdRef.current = `pending-user-${crypto.randomUUID()}`;
-  }
+  }, []);
 
-  function clearPendingUserTurn(): void {
+  const clearPendingUserTurn = useCallback((): void => {
     const pendingId = pendingUserTurnIdRef.current;
     if (!pendingId) {
       return;
@@ -648,52 +636,43 @@ export function useCadenceController() {
 
     pendingUserTurnIdRef.current = null;
     setTurns((previous) => previous.filter((turn) => turn.id !== pendingId));
-  }
+  }, []);
 
-  function handleSessionActionError(error: unknown, fallbackMessage: string): void {
-    const appError = toAppError(error, {
-      code: "unknown",
-      message: fallbackMessage,
-      retryable: true
-    });
-    setStatusCopy(appError.message);
-    if (appError.code.startsWith("config.")) {
-      setConfigured(false);
-    }
-  }
-
-  function beginVisualReplyPrelude(text: string): void {
-    clearStageTimeline();
-    stageTimelineManagedRef.current = true;
-    setActiveStateId("listening");
-    updatePerformance(
-      createPerformanceDirective({
-        mood: "focused",
-        gesture: "none",
-        intensity: 0.3,
-        pace: "steady",
-        cue: "user-turn"
-      })
-    );
-
-    stagePhaseTimerRef.current = window.setTimeout(() => {
-      stagePhaseTimerRef.current = null;
-      if (!stageTimelineManagedRef.current) {
-        return;
-      }
-
-      setActiveStateId("thinking");
+  const beginVisualReplyPrelude = useCallback(
+    (text: string): void => {
+      clearStageTimeline();
+      stageTimelineManagedRef.current = true;
+      setActiveStateId("listening");
       updatePerformance(
         createPerformanceDirective({
           mood: "focused",
-          gesture: "thinking_touch",
-          intensity: 0.32,
-          pace: "calm",
-          cue: "thinking"
+          gesture: "none",
+          intensity: 0.3,
+          pace: "steady",
+          cue: "user-turn"
         })
       );
-    }, estimateUserReadMs(text));
-  }
+
+      stagePhaseTimerRef.current = window.setTimeout(() => {
+        stagePhaseTimerRef.current = null;
+        if (!stageTimelineManagedRef.current) {
+          return;
+        }
+
+        setActiveStateId("thinking");
+        updatePerformance(
+          createPerformanceDirective({
+            mood: "focused",
+            gesture: "thinking_touch",
+            intensity: 0.32,
+            pace: "calm",
+            cue: "thinking"
+          })
+        );
+      }, estimateUserReadMs(text));
+    },
+    [clearStageTimeline, updatePerformance]
+  );
 
   function beginVisualReplyDelivery(text: string): void {
     const directive = inferPerformanceDirective(text);
@@ -708,9 +687,9 @@ export function useCadenceController() {
     );
   }
 
-  function clearPendingConversationHint(): void {
+  const clearPendingConversationHint = useCallback((): void => {
     setPendingConversationHint(null);
-  }
+  }, []);
 
   function clearSettingsFeedbackTimer(): void {
     if (settingsFeedbackTimerRef.current !== null) {
@@ -1668,244 +1647,37 @@ export function useCadenceController() {
   ]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
-  useEffect(() => {
-    const hotMicRecorder = hotMicRecorderRef.current;
-    if (!hotMicRecorder) {
-      return;
-    }
-
-    if (mode !== "voice" || voiceInputMode !== "hot_mic" || !interactionReady) {
-      void hotMicRecorder.stop();
-      return;
-    }
-
-    let cancelled = false;
-
-    void hotMicRecorder.start({
-      onSpeechStart: () => {
-        if (cancelled) {
-          return;
-        }
-
-        clearPendingConversationHint();
-        responseClock.current.interruptionStartedAt = performance.now();
-        if (assistantSpeakingRef.current) {
-          void activeSession.interrupt();
-        }
-        clearStageTimeline();
-        setActiveStateId("listening");
-        updatePerformance(
-          createPerformanceDirective({
-            mood: "focused",
-            gesture: "none",
-            intensity: 0.24,
-            pace: "steady",
-            cue: "listening"
-          })
-        );
-        setStatusCopy("Hot mic detected speech...");
-      },
-      onStateChange: (hotMicState: HotMicMonitorState) => {
-        if (cancelled) {
-          return;
-        }
-
-        if (assistantSpeakingRef.current && hotMicState !== "suppressed") {
-          return;
-        }
-
-        switch (hotMicState) {
-          case "armed":
-            if (!assistantSpeakingRef.current && interactionReady) {
-              setStatusCopy(
-                hotMicMutedRef.current ? "Hot mic is paused." : "Hot mic is armed."
-              );
-            }
-            break;
-          case "waiting_for_end_silence":
-            setStatusCopy("Waiting for the end of your turn...");
-            break;
-          case "cooldown":
-            setStatusCopy("Hot mic cooling down...");
-            break;
-          case "suppressed":
-            setStatusCopy(
-              hotMicMutedRef.current
-                ? "Hot mic is paused."
-                : "Hot mic is paused while Cadence speaks."
-            );
-            break;
-          default:
-            break;
-        }
-      },
-      onUtterance: async (audio: ArrayBuffer) => {
-        if (cancelled || audio.byteLength === 0) {
-          return;
-        }
-
-        const capturedAt = performance.now();
-        insertPendingUserTurn();
-        responseClock.current.startedAt = capturedAt;
-        responseClock.current.firstAudioAt = null;
-        setMetrics((previous) => ({
-          ...previous,
-          timeToListeningMs: previous.timeToListeningMs || 180,
-          interruptRecoveryMs: Math.round(
-            capturedAt - (responseClock.current.interruptionStartedAt ?? capturedAt)
-          )
-        }));
-        setActiveStateId("transcribing");
-        setStatusCopy("Uploading captured audio...");
-        await activeSession.sendUserAudio(audio);
-      }
-    });
-
-    hotMicRecorder.setSuppressed(assistantSpeakingRef.current);
-
-    return () => {
-      cancelled = true;
-      void hotMicRecorder.stop();
-    };
-  }, [activeSession, clearStageTimeline, interactionReady, mode, voiceInputMode]);
-
-  const startRecording = useCallback(async (): Promise<void> => {
-    if (
-      mode !== "voice" ||
-      voiceInputMode !== "push_to_talk" ||
-      isRecording ||
-      !interactionReady ||
-      !recorderRef.current
-    ) {
-      return;
-    }
-
-    clearPendingConversationHint();
-    responseClock.current.interruptionStartedAt = performance.now();
-    try {
-      if (assistantSpeakingRef.current) {
-        await activeSession.interrupt();
-      }
-      await recorderRef.current.start();
-      setIsRecording(true);
-      clearStageTimeline();
-      setActiveStateId("listening");
-      setStatusCopy("Listening...");
-    } catch (error) {
-      handleSessionActionError(error, "Failed to start recording.");
-    }
-  }, [activeSession, clearStageTimeline, interactionReady, isRecording, mode, voiceInputMode]);
-
-  const stopRecording = useCallback(async (): Promise<void> => {
-    if (
-      mode !== "voice" ||
-      voiceInputMode !== "push_to_talk" ||
-      !isRecording ||
-      !recorderRef.current
-    ) {
-      return;
-    }
-
-    try {
-      const stoppedAt = performance.now();
-      const audio = await recorderRef.current.stop();
-      setIsRecording(false);
-      if (audio.byteLength === 0) {
-        clearPendingUserTurn();
-        setStatusCopy("No audio captured.");
-        return;
-      }
-
-      insertPendingUserTurn();
-      responseClock.current.startedAt = stoppedAt;
-      responseClock.current.firstAudioAt = null;
-      setMetrics((previous) => ({
-        ...previous,
-        timeToListeningMs: previous.timeToListeningMs || 180,
-        interruptRecoveryMs: Math.round(
-          stoppedAt - (responseClock.current.interruptionStartedAt ?? stoppedAt)
-        )
-      }));
-
-      setActiveStateId("transcribing");
-      setStatusCopy("Uploading captured audio...");
-      await activeSession.sendUserAudio(audio);
-    } catch (error) {
-      setIsRecording(false);
-      handleSessionActionError(error, "Failed to stop recording.");
-    }
-  }, [activeSession, isRecording, mode, voiceInputMode]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat || event.code !== "Space" || voiceInputMode !== "push_to_talk") {
-        return;
-      }
-
-      if (mode !== "voice") {
-        return;
-      }
-
-      const target = event.target as HTMLElement | null;
-      if (target && /input|textarea|button|select/i.test(target.tagName)) {
-        return;
-      }
-
-      event.preventDefault();
-      void startRecording();
-    };
-
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || mode !== "voice" || voiceInputMode !== "push_to_talk") {
-        return;
-      }
-
-      event.preventDefault();
-      void stopRecording();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [mode, startRecording, stopRecording, voiceInputMode]);
-
-  async function submitText(): Promise<void> {
-    if (!inputText.trim()) {
-      return;
-    }
-
-    clearPendingConversationHint();
-    responseClock.current.startedAt = performance.now();
-    responseClock.current.firstAudioAt = null;
-    const text = inputText.trim();
-    setInputText("");
-    if (stagedTextReplyMode) {
-      beginVisualReplyPrelude(text);
-    }
-    setStatusCopy(
-      buildSubmitStatusCopy({
-        mode,
-        voiceBackend,
-        textBackend,
-        ttsProvider: effectiveTtsProvider
-      })
-    );
-    try {
-      await activeSession.sendUserText(
-        text,
-        turns.map((turn) => ({
-          speaker: turn.speaker,
-          text: turn.text
-        }))
-      );
-    } catch (error) {
-      handleSessionActionError(error, "Failed to submit text.");
-    }
-  }
+  const { startRecording, stopRecording, submitText } = useCadenceInputOrchestrator({
+    activeSession,
+    mode,
+    voiceBackend,
+    voiceInputMode,
+    textBackend,
+    effectiveTtsProvider,
+    hotMicMuted,
+    interactionReady,
+    isRecording,
+    inputText,
+    turns,
+    stagedTextReplyMode,
+    recorderRef,
+    hotMicRecorderRef,
+    assistantSpeakingRef,
+    hotMicMutedRef,
+    responseClock,
+    clearPendingConversationHint,
+    insertPendingUserTurn,
+    clearPendingUserTurn,
+    clearStageTimeline,
+    updatePerformance,
+    beginVisualReplyPrelude,
+    setConfigured,
+    setIsRecording,
+    setInputText,
+    setStatusCopy,
+    setActiveStateId,
+    setMetrics
+  });
 
   async function playKindroidGreeting(turnId: string, text: string): Promise<void> {
     const usesSpokenKindroidGreeting =
