@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-electron
+dist-sidecar
 release
 tmp
 assets/avatars

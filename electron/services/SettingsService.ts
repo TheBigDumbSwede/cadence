@@ -29,6 +29,7 @@ type StoredSettings = {
   preferences?: Partial<SettingsPreferences>;
   openAiTtsVoice?: string;
   openAiTtsInstructions?: string;
+  memoryBaseUrl?: string;
   elevenLabsVoiceId?: string;
   kindroidAiId?: string;
   kindroidBaseUrl?: string;
@@ -125,6 +126,7 @@ export class SettingsService {
       },
       openAiTtsVoice: this.getOpenAiTtsVoice(),
       openAiTtsInstructions: this.getOpenAiTtsInstructions(),
+      memoryBaseUrl: this.getMemoryBaseUrl(),
       elevenLabsVoiceId: this.getElevenLabsVoiceId() ?? "",
       kindroidAiId: this.getKindroidAiId() ?? "",
       kindroidBaseUrl: this.getKindroidBaseUrl(),
@@ -168,6 +170,7 @@ export class SettingsService {
     };
     stored.openAiTtsVoice = normalizeValue(update.openAiTtsVoice);
     stored.openAiTtsInstructions = normalizeValue(update.openAiTtsInstructions);
+    stored.memoryBaseUrl = normalizeValue(update.memoryBaseUrl);
     stored.elevenLabsVoiceId = normalizeValue(update.elevenLabsVoiceId);
     stored.kindroidAiId = normalizeValue(update.kindroidAiId);
     stored.kindroidBaseUrl = normalizeValue(update.kindroidBaseUrl);
@@ -262,6 +265,10 @@ export class SettingsService {
 
   getOpenAiTtsInstructions(): string {
     return this.getStoredNonSecret("openAiTtsInstructions") ?? this.getEnv("OPENAI_TTS_INSTRUCTIONS") ?? "";
+  }
+
+  getMemoryBaseUrl(): string {
+    return this.getStoredNonSecret("memoryBaseUrl") ?? this.getEnv("CADENCE_MEMORY_BASE_URL") ?? "";
   }
 
   getElevenLabsApiKey(): string | null {

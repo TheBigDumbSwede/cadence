@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import type { TextResponseOptions } from "../../src/shared/text-control";
 import { OpenAIResponsesClient } from "../services/OpenAIResponsesClient";
 
 export function registerTextIpc(): void {
@@ -11,7 +12,7 @@ export function registerTextIpc(): void {
     async (
       _event,
       input: string,
-      options?: { instructions?: string; model?: string }
+      options?: TextResponseOptions
     ) => client.createResponse(input, options)
   );
 }

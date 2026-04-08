@@ -6,6 +6,7 @@ import { registerAppIpc } from "./ipc/app";
 import { registerElevenLabsIpc } from "./ipc/elevenlabs";
 import { registerKindroidExperimentalIpc } from "./ipc/kindroid-experimental";
 import { registerKindroidIpc } from "./ipc/kindroid";
+import { registerMemoryIpc } from "./ipc/memory";
 import { registerOpenAiAudioIpc } from "./ipc/openai-audio";
 import { registerOpenAiSpeechIpc } from "./ipc/openai-speech";
 import { registerRealtimeIpc } from "./ipc/realtime";
@@ -67,6 +68,7 @@ app.whenReady().then(() => {
   registerElevenLabsIpc();
   registerKindroidExperimentalIpc();
   registerKindroidIpc();
+  registerMemoryIpc();
   registerOpenAiAudioIpc();
   registerOpenAiSpeechIpc();
   registerRealtimeIpc(() => mainWindow);

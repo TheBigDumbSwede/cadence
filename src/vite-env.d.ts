@@ -3,6 +3,7 @@
 import type { ElevenLabsBridge } from "./shared/elevenlabs-control";
 import type { KindroidExperimentalBridge } from "./shared/kindroid-experimental-control";
 import type { KindroidBridge } from "./shared/kindroid-control";
+import type { MemoryBridge } from "./shared/memory-control";
 import type { OpenAiAudioBridge } from "./shared/openai-audio-control";
 import type { OpenAiSpeechBridge } from "./shared/openai-speech-control";
 import type { RealtimeBridge } from "./shared/realtime-control";
@@ -17,6 +18,7 @@ declare global {
       getRuntimeInfo: () => Promise<RuntimeInfo>;
       kindroid: KindroidBridge;
       kindroidExperimental: KindroidExperimentalBridge;
+      memory: MemoryBridge;
       openaiAudio: OpenAiAudioBridge;
       openaiSpeech: OpenAiSpeechBridge;
       realtime: RealtimeBridge;

@@ -7,8 +7,15 @@ export type RealtimeControlState = {
   model: string | null;
 };
 
+export type RealtimeSessionConfig = {
+  model: string;
+  voice: string;
+  instructions: string;
+  modalities: Array<"text" | "audio">;
+};
+
 export type RealtimeBridge = {
-  connect: () => Promise<void>;
+  connect: (config?: RealtimeSessionConfig) => Promise<void>;
   disconnect: () => Promise<void>;
   sendUserText: (text: string) => Promise<void>;
   sendUserAudio: (audio: ArrayBuffer) => Promise<void>;

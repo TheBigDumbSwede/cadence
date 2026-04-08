@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { getSettingsService } from "./SettingsService";
+import type { TextResponseOptions } from "../../src/shared/text-control";
 
 const DEFAULT_MODEL = "gpt-5-mini";
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -29,6 +30,18 @@ function extractOutputText(result: ResponsesApiResult): string {
   return fragments.join("");
 }
 
+function buildInstructions(
+  instructions?: string,
+  memoryContext?: string
+): string | undefined {
+  const parts = [instructions?.trim() ?? "", memoryContext?.trim() ?? ""].filter(Boolean);
+  if (parts.length === 0) {
+    return undefined;
+  }
+
+  return parts.join("\n\n");
+}
+
 export class OpenAIResponsesClient {
   isConfigured(): boolean {
     return Boolean(getSettingsService().getOpenAiApiKey());
@@ -42,7 +55,7 @@ export class OpenAIResponsesClient {
     };
   }
 
-  async createResponse(input: string, options?: { instructions?: string; model?: string }) {
+  async createResponse(input: string, options?: TextResponseOptions) {
     if (!this.isConfigured()) {
       throw new Error("OPENAI_API_KEY is not configured.");
     }
@@ -57,7 +70,7 @@ export class OpenAIResponsesClient {
       body: JSON.stringify({
         model: options?.model ?? DEFAULT_MODEL,
         input,
-        instructions: options?.instructions
+        instructions: buildInstructions(options?.instructions, options?.memoryContext)
       })
     });
 

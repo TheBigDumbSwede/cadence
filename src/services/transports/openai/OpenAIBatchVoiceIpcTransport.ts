@@ -1,5 +1,10 @@
 import { getCadenceBridge } from "../../bridge";
 import type {
+  MemoryRecallResult,
+  MemoryScope,
+  MemoryTurn
+} from "../../../shared/memory-control";
+import type {
   LiveConversationTransport,
   TextTurnInput,
   TransportConfig,
@@ -13,6 +18,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
 
   private readonly listeners = new Set<(event: CadenceEvent) => void>();
   private config: TransportConfig | null = null;
+  private conversationId = crypto.randomUUID();
 
   private getResponsesModel(): string | undefined {
     const model = this.config?.model;
@@ -25,6 +31,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
 
   async connect(config: TransportConfig): Promise<void> {
     this.config = config;
+    this.conversationId = crypto.randomUUID();
     const bridge = getCadenceBridge();
     const [openAiAudioState, textState, elevenLabsState, openAiSpeechState] = await Promise.all([
       bridge.openaiAudio.getState(),
@@ -88,6 +95,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
   }
 
   async disconnect(): Promise<void> {
+    await this.closeMemorySession();
     this.emit({
       type: "session.status",
       provider: this.id,
@@ -95,7 +103,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
     });
   }
 
-  async sendUserText(text: string, _turns?: TextTurnInput[]): Promise<void> {
+  async sendUserText(text: string, turns: TextTurnInput[] = []): Promise<void> {
     const userTurnId = crypto.randomUUID();
     this.emit({
       type: "transcript.final",
@@ -103,7 +111,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       text
     });
 
-    await this.respondFromText(text);
+    await this.respondFromText(text, turns);
   }
 
   async sendUserAudio(audio: ArrayBuffer): Promise<void> {
@@ -141,7 +149,10 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
     };
   }
 
-  private async respondFromText(input: string): Promise<void> {
+  private async respondFromText(
+    input: string,
+    turns: TextTurnInput[] = []
+  ): Promise<void> {
     if (!input.trim()) {
       this.emit({
         type: "transport.error",
@@ -159,9 +170,11 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       status: "thinking"
     });
 
+    const memoryContext = await this.recallMemory(input, turns);
     const response = await bridge.text.createResponse(input, {
       instructions: this.config?.instructions,
-      model: this.getResponsesModel()
+      model: this.getResponsesModel(),
+      memoryContext
     });
 
     const assistantTurnId = crypto.randomUUID();
@@ -175,6 +188,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       turnId: assistantTurnId,
       text: response.text
     });
+    await this.ingestMemory(turns, input, response.text);
 
     if (this.config?.model.includes("text-only")) {
       this.emit({
@@ -220,5 +234,102 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
     for (const listener of this.listeners) {
       listener(event);
     }
+  }
+
+  private getMemoryScope(): MemoryScope {
+    return {
+      profileId: "default",
+      conversationId: this.conversationId,
+      backend: "openai-batch"
+    };
+  }
+
+  private async recallMemory(
+    text: string,
+    turns: TextTurnInput[]
+  ): Promise<string | undefined> {
+    try {
+      const result = await getCadenceBridge().memory.recall({
+        scope: this.getMemoryScope(),
+        recentTurns: this.buildRecentTurns(turns, text)
+      });
+
+      return this.extractContextBlock(result);
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        message:
+          error instanceof Error ? error.message : "Memory recall failed.",
+        recoverable: true
+      });
+      return undefined;
+    }
+  }
+
+  private async ingestMemory(
+    turns: TextTurnInput[],
+    userText: string,
+    assistantText: string
+  ): Promise<void> {
+    try {
+      await getCadenceBridge().memory.ingest({
+        scope: this.getMemoryScope(),
+        turns: this.buildRecentTurns(turns, userText, assistantText),
+        reason: "turn"
+      });
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        message:
+          error instanceof Error ? error.message : "Memory ingest failed.",
+        recoverable: true
+      });
+    }
+  }
+
+  private async closeMemorySession(): Promise<void> {
+    try {
+      await getCadenceBridge().memory.closeSession(this.getMemoryScope());
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        message:
+          error instanceof Error ? error.message : "Memory session close failed.",
+        recoverable: true
+      });
+    }
+  }
+
+  private buildRecentTurns(
+    turns: TextTurnInput[],
+    userText: string,
+    assistantText?: string
+  ): MemoryTurn[] {
+    const recentTurns = turns.slice(-6).map((turn) => ({
+      role: turn.speaker,
+      text: turn.text
+    } satisfies MemoryTurn));
+
+    recentTurns.push({
+      role: "user",
+      text: userText
+    });
+
+    if (assistantText) {
+      recentTurns.push({
+        role: "assistant",
+        text: assistantText
+      });
+    }
+
+    return recentTurns;
+  }
+
+  private extractContextBlock(result: MemoryRecallResult): string | undefined {
+    const contextBlock = result.contextBlock.trim();
+    return contextBlock ? contextBlock : undefined;
   }
 }

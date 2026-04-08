@@ -19,12 +19,29 @@ import type {
   UpdateUserProfileOptions
 } from "../src/shared/kindroid-experimental-control";
 import type { KindroidBridge, KindroidControlState } from "../src/shared/kindroid-control";
+import type {
+  MemoryBridge,
+  MemoryControlState,
+  MemoryIngestRequest,
+  MemoryIngestResult,
+  MemoryRecallRequest,
+  MemoryRecallResult,
+  MemoryScope
+} from "../src/shared/memory-control";
 import type { OpenAiAudioBridge, OpenAiAudioControlState } from "../src/shared/openai-audio-control";
 import type { OpenAiSpeechBridge, OpenAiSpeechControlState } from "../src/shared/openai-speech-control";
-import type { RealtimeBridge, RealtimeControlState } from "../src/shared/realtime-control";
+import type {
+  RealtimeBridge,
+  RealtimeControlState,
+  RealtimeSessionConfig
+} from "../src/shared/realtime-control";
 import type { AvatarSelection, SettingsSnapshot, SettingsUpdate } from "../src/shared/app-settings";
 import type { SettingsBridge } from "../src/shared/settings-control";
-import type { TextBridge, TextControlState } from "../src/shared/text-control";
+import type {
+  TextBridge,
+  TextControlState,
+  TextResponseOptions
+} from "../src/shared/text-control";
 import type { RuntimeInfo } from "../src/shared/runtime-info";
 import type { CadenceEvent } from "../src/shared/voice-events";
 
@@ -107,6 +124,16 @@ const cadenceBridge = {
         ipcRenderer.invoke("kindroid-experimental:suggestions:user-group-message", options) as Promise<string>
     }
   } satisfies KindroidExperimentalBridge,
+  memory: {
+    getState: () =>
+      ipcRenderer.invoke("memory:get-state") as Promise<MemoryControlState>,
+    recall: (request: MemoryRecallRequest) =>
+      ipcRenderer.invoke("memory:recall", request) as Promise<MemoryRecallResult>,
+    ingest: (request: MemoryIngestRequest) =>
+      ipcRenderer.invoke("memory:ingest", request) as Promise<MemoryIngestResult>,
+    closeSession: (scope: MemoryScope) =>
+      ipcRenderer.invoke("memory:close-session", scope) as Promise<void>
+  } satisfies MemoryBridge,
   openaiAudio: {
     getState: () =>
       ipcRenderer.invoke("openai-audio:get-state") as Promise<OpenAiAudioControlState>,
@@ -141,7 +168,8 @@ const cadenceBridge = {
       ipcRenderer.invoke("settings:read-avatar-file", filePath) as Promise<ArrayBuffer>
   } satisfies SettingsBridge,
   realtime: {
-    connect: () => ipcRenderer.invoke("realtime:connect") as Promise<void>,
+    connect: (config?: RealtimeSessionConfig) =>
+      ipcRenderer.invoke("realtime:connect", config) as Promise<void>,
     disconnect: () => ipcRenderer.invoke("realtime:disconnect") as Promise<void>,
     sendUserText: (text: string) =>
       ipcRenderer.invoke("realtime:send-user-text", text) as Promise<void>,
@@ -167,7 +195,7 @@ const cadenceBridge = {
       ipcRenderer.invoke("text:get-state") as Promise<TextControlState>,
     createResponse: (
       input: string,
-      options?: { instructions?: string; model?: string }
+      options?: TextResponseOptions
     ) =>
       ipcRenderer.invoke("text:create-response", input, options) as Promise<{
         text: string;

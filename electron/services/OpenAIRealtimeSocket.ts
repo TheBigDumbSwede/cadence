@@ -4,7 +4,12 @@ import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
 import type { BrowserWindow } from "electron";
 import type { TransportConfig } from "../../src/services/contracts";
+import type {
+  MemoryScope,
+  MemoryTurn
+} from "../../src/shared/memory-control";
 import type { CadenceEvent } from "../../src/shared/voice-events";
+import { MemoryClient } from "./MemoryClient";
 import { getSettingsService } from "./SettingsService";
 
 const DEFAULT_CONFIG: TransportConfig = {
@@ -24,6 +29,10 @@ export class OpenAIRealtimeSocket {
   private config: TransportConfig = DEFAULT_CONFIG;
   private currentResponseId: string | null = null;
   private audioSequenceByTurn = new Map<string, number>();
+  private readonly memoryClient = new MemoryClient();
+  private conversationId = randomUUID();
+  private conversationTurns: MemoryTurn[] = [];
+  private assistantTextByTurn = new Map<string, string>();
 
   constructor(private readonly getWindow: () => BrowserWindow | null) {}
 
@@ -64,6 +73,11 @@ export class OpenAIRealtimeSocket {
       ...DEFAULT_CONFIG,
       ...config
     };
+    this.conversationId = randomUUID();
+    this.conversationTurns = [];
+    this.assistantTextByTurn.clear();
+    this.currentResponseId = null;
+    this.audioSequenceByTurn.clear();
 
     this.emit({
       type: "session.status",
@@ -129,8 +143,11 @@ export class OpenAIRealtimeSocket {
 
   async disconnect(): Promise<void> {
     if (!this.socket) {
+      await this.closeMemorySession();
       return;
     }
+
+    await this.closeMemorySession();
 
     await new Promise<void>((resolve) => {
       const socket = this.socket;
@@ -152,6 +169,11 @@ export class OpenAIRealtimeSocket {
       return;
     }
 
+    this.appendConversationTurn({
+      role: "user",
+      text
+    });
+
     this.send({
       type: "conversation.item.create",
       item: {
@@ -172,7 +194,7 @@ export class OpenAIRealtimeSocket {
       text
     });
 
-    this.sendCreateResponse();
+    await this.sendCreateResponse(text);
   }
 
   async sendUserAudio(audio: ArrayBuffer): Promise<void> {
@@ -184,7 +206,6 @@ export class OpenAIRealtimeSocket {
     this.send({
       type: "input_audio_buffer.commit"
     });
-    this.sendCreateResponse();
   }
 
   async interruptAssistant(
@@ -197,16 +218,18 @@ export class OpenAIRealtimeSocket {
     });
   }
 
-  private sendCreateResponse(): void {
+  private async sendCreateResponse(userText?: string): Promise<void> {
     this.emit({
       type: "session.status",
       provider: "openai-realtime",
       status: "thinking"
     });
 
+    const memoryContext = await this.recallMemory(userText);
     this.send({
       type: "response.create",
       response: {
+        instructions: this.buildResponseInstructions(memoryContext),
         output_modalities: this.config.modalities,
         audio: {
           output: {
@@ -269,11 +292,16 @@ export class OpenAIRealtimeSocket {
         const transcript = this.readNestedString(event, ["transcript"]);
         const itemId = this.readNestedString(event, ["item_id"]) ?? randomUUID();
         if (transcript) {
+          this.appendConversationTurn({
+            role: "user",
+            text: transcript
+          });
           this.emit({
             type: "transcript.final",
             turnId: itemId,
             text: transcript
           });
+          void this.sendCreateResponse(transcript);
         }
         return;
       }
@@ -335,21 +363,36 @@ export class OpenAIRealtimeSocket {
           this.readNestedString(event, ["transcript"]) ??
           this.readNestedString(event, ["text"]) ??
           "";
+        const turnId = this.getResponseTurnId(event);
+        if (text) {
+          this.assistantTextByTurn.set(turnId, text);
+        }
 
         this.emit({
           type: "assistant.response.completed",
-          turnId: this.getResponseTurnId(event),
+          turnId,
           text
         });
         return;
       }
-      case "response.done":
+      case "response.done": {
+        const turnId = this.getResponseTurnId(event);
+        const assistantText = this.assistantTextByTurn.get(turnId);
+        if (assistantText) {
+          this.appendConversationTurn({
+            role: "assistant",
+            text: assistantText
+          });
+          this.assistantTextByTurn.delete(turnId);
+          void this.ingestMemory();
+        }
         this.emit({
           type: "session.status",
           provider: "openai-realtime",
           status: "ready"
         });
         return;
+      }
       case "error":
         this.emit({
           type: "transport.error",
@@ -406,5 +449,107 @@ export class OpenAIRealtimeSocket {
     }
 
     window.webContents.send("realtime:event", event);
+  }
+
+  private getMemoryScope(): MemoryScope {
+    return {
+      profileId: "default",
+      conversationId: this.conversationId,
+      backend: "openai-realtime"
+    };
+  }
+
+  private buildRecentTurns(userText?: string): MemoryTurn[] {
+    const recentTurns = this.conversationTurns.slice(-6);
+    const lastTurn = recentTurns.length > 0 ? recentTurns[recentTurns.length - 1] : null;
+    if (userText && lastTurn?.text !== userText) {
+      recentTurns.push({
+        role: "user",
+        text: userText
+      });
+    }
+
+    return recentTurns;
+  }
+
+  private buildResponseInstructions(memoryContext?: string): string {
+    const parts = [
+      this.config.instructions.trim(),
+      memoryContext?.trim() ?? ""
+    ].filter(Boolean);
+
+    return parts.join("\n\n");
+  }
+
+  private async recallMemory(userText?: string): Promise<string | undefined> {
+    if (!this.memoryClient.isAvailable()) {
+      return undefined;
+    }
+
+    try {
+      const result = await this.memoryClient.recall({
+        scope: this.getMemoryScope(),
+        recentTurns: this.buildRecentTurns(userText)
+      });
+
+      const contextBlock = result.contextBlock.trim();
+      return contextBlock ? contextBlock : undefined;
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: "openai-realtime",
+        message:
+          error instanceof Error ? error.message : "Memory recall failed.",
+        recoverable: true
+      });
+      return undefined;
+    }
+  }
+
+  private async ingestMemory(): Promise<void> {
+    if (!this.memoryClient.isAvailable()) {
+      return;
+    }
+
+    try {
+      await this.memoryClient.ingest({
+        scope: this.getMemoryScope(),
+        turns: this.conversationTurns.slice(-8),
+        reason: "turn"
+      });
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: "openai-realtime",
+        message:
+          error instanceof Error ? error.message : "Memory ingest failed.",
+        recoverable: true
+      });
+    }
+  }
+
+  private async closeMemorySession(): Promise<void> {
+    if (!this.memoryClient.isAvailable()) {
+      return;
+    }
+
+    try {
+      await this.memoryClient.closeSession(this.getMemoryScope());
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: "openai-realtime",
+        message:
+          error instanceof Error ? error.message : "Memory session close failed.",
+        recoverable: true
+      });
+    }
+  }
+
+  private appendConversationTurn(turn: MemoryTurn): void {
+    this.conversationTurns.push(turn);
+    if (this.conversationTurns.length > 24) {
+      this.conversationTurns = this.conversationTurns.slice(-24);
+    }
   }
 }

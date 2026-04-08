@@ -11,8 +11,13 @@ export class OpenAIRealtimeIpcTransport implements LiveConversationTransport {
   readonly id = "openai-realtime";
   readonly label = "OpenAI Realtime";
 
-  connect(_config: TransportConfig): Promise<void> {
-    return getCadenceBridge().realtime.connect();
+  connect(config: TransportConfig): Promise<void> {
+    return getCadenceBridge().realtime.connect({
+      model: config.model,
+      voice: config.voice,
+      instructions: config.instructions,
+      modalities: config.modalities
+    });
   }
 
   disconnect(): Promise<void> {

@@ -29,6 +29,7 @@ export type SettingsSnapshot = {
   preferences: SettingsPreferences;
   openAiTtsVoice: string;
   openAiTtsInstructions: string;
+  memoryBaseUrl: string;
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;
@@ -51,6 +52,7 @@ export type SettingsUpdate = {
   preferences: SettingsPreferences;
   openAiTtsVoice: string;
   openAiTtsInstructions: string;
+  memoryBaseUrl: string;
   elevenLabsVoiceId: string;
   kindroidAiId: string;
   kindroidBaseUrl: string;

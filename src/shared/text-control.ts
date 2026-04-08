@@ -4,10 +4,16 @@ export type TextControlState = {
   model: string | null;
 };
 
+export type TextResponseOptions = {
+  instructions?: string;
+  model?: string;
+  memoryContext?: string;
+};
+
 export type TextBridge = {
   getState: () => Promise<TextControlState>;
   createResponse: (
     input: string,
-    options?: { instructions?: string; model?: string }
+    options?: TextResponseOptions
   ) => Promise<{ text: string; model: string }>;
 };

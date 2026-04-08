@@ -1995,6 +1995,7 @@ export function useCadenceController() {
     await saveSettings({
       openAiTtsVoice: settingsSnapshot.openAiTtsVoice,
       openAiTtsInstructions: settingsSnapshot.openAiTtsInstructions,
+      memoryBaseUrl: settingsSnapshot.memoryBaseUrl,
       elevenLabsVoiceId: settingsSnapshot.elevenLabsVoiceId,
       kindroidAiId: settingsSnapshot.kindroidAiId,
       kindroidBaseUrl: settingsSnapshot.kindroidBaseUrl,

@@ -85,6 +85,7 @@ export function SettingsPanel({
   const [clearOpenAiApiKey, setClearOpenAiApiKey] = useState(false);
   const [openAiTtsVoice, setOpenAiTtsVoice] = useState("");
   const [openAiTtsInstructions, setOpenAiTtsInstructions] = useState("");
+  const [memoryBaseUrl, setMemoryBaseUrl] = useState("");
   const [elevenLabsApiKey, setElevenLabsApiKey] = useState("");
   const [clearElevenLabsApiKey, setClearElevenLabsApiKey] = useState(false);
   const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState("");
@@ -102,6 +103,7 @@ export function SettingsPanel({
     setClearOpenAiApiKey(false);
     setOpenAiTtsVoice(settingsSnapshot.openAiTtsVoice);
     setOpenAiTtsInstructions(settingsSnapshot.openAiTtsInstructions);
+    setMemoryBaseUrl(settingsSnapshot.memoryBaseUrl);
     setElevenLabsApiKey("");
     setClearElevenLabsApiKey(false);
     setElevenLabsVoiceId(settingsSnapshot.elevenLabsVoiceId);
@@ -128,6 +130,7 @@ export function SettingsPanel({
       clearOpenAiApiKey ||
       normalizeValue(openAiTtsVoice) !== settingsSnapshot.openAiTtsVoice ||
       normalizeValue(openAiTtsInstructions) !== settingsSnapshot.openAiTtsInstructions ||
+      normalizeValue(memoryBaseUrl) !== settingsSnapshot.memoryBaseUrl ||
       elevenLabsApiKey.trim().length > 0 ||
       clearElevenLabsApiKey ||
       normalizeValue(elevenLabsVoiceId) !== settingsSnapshot.elevenLabsVoiceId ||
@@ -145,6 +148,7 @@ export function SettingsPanel({
     kindroidApiKey,
     kindroidBaseUrl,
     kindroidGreeting,
+    memoryBaseUrl,
     mode,
     openAiApiKey,
     openAiTtsInstructions,
@@ -523,6 +527,20 @@ export function SettingsPanel({
                 accent, or affect.
               </p>
             </div>
+            <div className="settings-field">
+              <label htmlFor="memory-base-url">Memory backend URL</label>
+              <input
+                id="memory-base-url"
+                className="settings-input"
+                type="text"
+                value={memoryBaseUrl}
+                onChange={(event) => setMemoryBaseUrl(event.target.value)}
+                placeholder="http://127.0.0.1:8787"
+              />
+              <p className="field-status">
+                Optional sidecar endpoint for shared long-term memory across OpenAI paths.
+              </p>
+            </div>
           </article>
 
           <article className="setting-card">
@@ -702,6 +720,7 @@ export function SettingsPanel({
               openAiApiKey: openAiApiKey.trim() || undefined,
               openAiTtsVoice,
               openAiTtsInstructions,
+              memoryBaseUrl,
               elevenLabsApiKey: elevenLabsApiKey.trim() || undefined,
               elevenLabsVoiceId,
               kindroidAiId: settingsSnapshot?.kindroidAiId ?? "",

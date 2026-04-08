@@ -1,5 +1,10 @@
 import { getCadenceBridge } from "../../bridge";
 import type {
+  MemoryRecallResult,
+  MemoryScope,
+  MemoryTurn
+} from "../../../shared/memory-control";
+import type {
   LiveConversationTransport,
   TextTurnInput,
   TransportConfig,
@@ -13,9 +18,11 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
 
   private readonly listeners = new Set<(event: CadenceEvent) => void>();
   private config: TransportConfig | null = null;
+  private conversationId = crypto.randomUUID();
 
   async connect(config: TransportConfig): Promise<void> {
     this.config = config;
+    this.conversationId = crypto.randomUUID();
     const state = await getCadenceBridge().text.getState();
 
     if (!state.configured) {
@@ -36,6 +43,7 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
   }
 
   async disconnect(): Promise<void> {
+    await this.closeMemorySession();
     this.emit({
       type: "session.status",
       provider: this.id,
@@ -43,7 +51,7 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
     });
   }
 
-  async sendUserText(text: string, _turns?: TextTurnInput[]): Promise<void> {
+  async sendUserText(text: string, turns: TextTurnInput[] = []): Promise<void> {
     if (!text.trim()) {
       return;
     }
@@ -60,9 +68,11 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
       status: "thinking"
     });
 
+    const memoryContext = await this.recallMemory(text, turns);
     const response = await getCadenceBridge().text.createResponse(text, {
       instructions: this.config?.instructions,
-      model: this.config?.model
+      model: this.config?.model,
+      memoryContext
     });
 
     const assistantTurnId = crypto.randomUUID();
@@ -76,6 +86,7 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
       turnId: assistantTurnId,
       text: response.text
     });
+    await this.ingestMemory(turns, text, response.text);
     this.emit({
       type: "session.status",
       provider: this.id,
@@ -112,5 +123,102 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
     for (const listener of this.listeners) {
       listener(event);
     }
+  }
+
+  private getMemoryScope(): MemoryScope {
+    return {
+      profileId: "default",
+      conversationId: this.conversationId,
+      backend: "openai-responses"
+    };
+  }
+
+  private async recallMemory(
+    text: string,
+    turns: TextTurnInput[]
+  ): Promise<string | undefined> {
+    try {
+      const result = await getCadenceBridge().memory.recall({
+        scope: this.getMemoryScope(),
+        recentTurns: this.buildRecentTurns(turns, text)
+      });
+
+      return this.extractContextBlock(result);
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        message:
+          error instanceof Error ? error.message : "Memory recall failed.",
+        recoverable: true
+      });
+      return undefined;
+    }
+  }
+
+  private async ingestMemory(
+    turns: TextTurnInput[],
+    userText: string,
+    assistantText: string
+  ): Promise<void> {
+    try {
+      await getCadenceBridge().memory.ingest({
+        scope: this.getMemoryScope(),
+        turns: this.buildRecentTurns(turns, userText, assistantText),
+        reason: "turn"
+      });
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        message:
+          error instanceof Error ? error.message : "Memory ingest failed.",
+        recoverable: true
+      });
+    }
+  }
+
+  private async closeMemorySession(): Promise<void> {
+    try {
+      await getCadenceBridge().memory.closeSession(this.getMemoryScope());
+    } catch (error) {
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        message:
+          error instanceof Error ? error.message : "Memory session close failed.",
+        recoverable: true
+      });
+    }
+  }
+
+  private buildRecentTurns(
+    turns: TextTurnInput[],
+    userText: string,
+    assistantText?: string
+  ): MemoryTurn[] {
+    const recentTurns = turns.slice(-6).map((turn) => ({
+      role: turn.speaker,
+      text: turn.text
+    } satisfies MemoryTurn));
+
+    recentTurns.push({
+      role: "user",
+      text: userText
+    });
+
+    if (assistantText) {
+      recentTurns.push({
+        role: "assistant",
+        text: assistantText
+      });
+    }
+
+    return recentTurns;
+  }
+
+  private extractContextBlock(result: MemoryRecallResult): string | undefined {
+    const contextBlock = result.contextBlock.trim();
+    return contextBlock ? contextBlock : undefined;
   }
 }

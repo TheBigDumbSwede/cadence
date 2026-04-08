@@ -1,12 +1,13 @@
 import { ipcMain } from "electron";
 import type { BrowserWindow } from "electron";
+import type { RealtimeSessionConfig } from "../../src/shared/realtime-control";
 import { OpenAIRealtimeSocket } from "../services/OpenAIRealtimeSocket";
 
 export function registerRealtimeIpc(getWindow: () => BrowserWindow | null): void {
   const realtime = new OpenAIRealtimeSocket(getWindow);
 
-  ipcMain.handle("realtime:connect", async () => {
-    await realtime.connect();
+  ipcMain.handle("realtime:connect", async (_event, config?: RealtimeSessionConfig) => {
+    await realtime.connect(config);
   });
 
   ipcMain.handle("realtime:disconnect", async () => {

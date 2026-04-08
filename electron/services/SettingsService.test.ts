@@ -37,6 +37,7 @@ function createSettingsUpdate() {
     },
     openAiTtsVoice: "nova",
     openAiTtsInstructions: "",
+    memoryBaseUrl: "",
     elevenLabsVoiceId: "",
     kindroidAiId: "",
     kindroidBaseUrl: "https://api.kindroid.ai/v1",
