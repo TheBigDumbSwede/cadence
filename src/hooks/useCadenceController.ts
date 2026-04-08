@@ -9,7 +9,7 @@ import type { BackendConfigSummary } from "../shared/backend-config";
 import type { TextBackendProvider } from "../shared/backend-provider";
 import type { SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
 import type { InteractionMode } from "../shared/interaction-mode";
-import type { PresenceDirective, PresenceSnapshot } from "../shared/performance-directive";
+import type { PresenceSnapshot } from "../shared/performance-directive";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
@@ -23,10 +23,7 @@ import {
   getOutputPlaybackSnapshot,
   subscribeToOutputPlayback
 } from "../services/audio/outputPlaybackStore";
-import {
-  createPerformanceDirective,
-  inferPerformanceDirective
-} from "../services/stage/performanceHeuristics";
+import { createPerformanceDirective } from "../services/stage/performanceHeuristics";
 import { getCadenceBridge } from "../services/bridge";
 import { snapshotFromDirective } from "./cadence/performance";
 import { useCadenceInputOrchestrator } from "./cadence/useCadenceInputOrchestrator";
@@ -36,13 +33,9 @@ import {
   type TurnCaptionTrack,
   type TurnEffectCaptionTrack
 } from "./cadence/sessionEvents";
+import { useCadenceStageOrchestrator } from "./cadence/useCadenceStageOrchestrator";
 import { buildPreparingStatusCopy } from "./cadence/statusCopy";
-import {
-  estimateAssistantDeliveryMs,
-  estimateAssistantReadMs,
-  estimateUserReadMs,
-  timestampNow
-} from "./cadence/timing";
+import { timestampNow } from "./cadence/timing";
 import {
   createKindroidGroupSession,
   createKindroidGroupVoiceSession,
@@ -60,7 +53,6 @@ import {
   defaultTextTransportConfig,
   defaultVoiceTransportConfig
 } from "../services/transportOptions";
-import { stripKindroidNarrationForSpeech } from "../services/transports/kindroid/speechText";
 
 export function useCadenceController() {
   const [voiceSession] = useState(() => createVoiceSession());
@@ -127,11 +119,6 @@ export function useCadenceController() {
   const hotMicRecorderRef = useRef<HotMicRecorder | null>(null);
   const hotMicMutedRef = useRef(false);
   const settingsFeedbackTimerRef = useRef<number | null>(null);
-  const assistantSpeakingRef = useRef(false);
-  const playbackSuppressionTimerRef = useRef<number | null>(null);
-  const poseHoldTimerRef = useRef<number | null>(null);
-  const stagePhaseTimerRef = useRef<number | null>(null);
-  const stageTimelineManagedRef = useRef(false);
   const assistantTurnParticipantIdsRef = useRef(new Map<string, string>());
   const assistantTurnCaptionCuesRef = useRef(new Map<string, TurnCaptionTrack>());
   const assistantTurnEffectCaptionsRef = useRef(new Map<string, TurnEffectCaptionTrack>());
@@ -296,6 +283,36 @@ export function useCadenceController() {
         (voiceBackend === "openai-batch" && ttsProvider === "none")));
   const requiresLiveConnection = mode === "voice" && voiceBackend === "openai";
   const interactionReady = configured && (!requiresLiveConnection || connectionReady);
+  const {
+    assistantSpeakingRef,
+    poseHoldTimerRef,
+    stageTimelineManagedRef,
+    updatePerformance,
+    clearPoseHold,
+    clearStageTimeline,
+    clearPlaybackSuppressionTimer,
+    suppressHotMicPlayback,
+    releaseHotMicSuppression,
+    scheduleHotMicPlaybackRelease,
+    beginVisualReplyPrelude,
+    beginVisualReplyDelivery
+  } = useCadenceStageOrchestrator({
+    mode,
+    voiceBackend,
+    voiceInputMode,
+    ttsProvider,
+    effectiveKindroidTtsProvider,
+    connectionReady,
+    stagedTextReplyMode,
+    activeKindroidParticipant,
+    usesKindroidGroupConversation,
+    kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
+    hotMicRecorderRef,
+    hotMicMutedRef,
+    setStatusCopy,
+    setActiveStateId,
+    setPresenceSnapshot
+  });
   const topology = useMemo(() => activeSession.describeTopology(), [activeSession]);
 
   function getAssistantTurnMetadata(): {
@@ -322,42 +339,8 @@ export function useCadenceController() {
     };
   }
 
-  function shouldSpeakAssistantTurn(kindroidParticipantId?: string): boolean {
-    if (mode !== "voice") {
-      return false;
-    }
-
-    if (voiceBackend === "openai") {
-      return true;
-    }
-
-    if (voiceBackend === "openai-batch") {
-      return ttsProvider !== "none";
-    }
-
-    if (usesKindroidGroupConversation) {
-      const speakingParticipant =
-        settingsSnapshot?.kindroidParticipants.find(
-          (participant) => participant.id === kindroidParticipantId
-        ) ?? null;
-
-      return (speakingParticipant?.ttsProvider ?? "none") !== "none";
-    }
-
-    return effectiveKindroidTtsProvider !== "none";
-  }
-
   useEffect(
     () => () => {
-      if (poseHoldTimerRef.current !== null) {
-        window.clearTimeout(poseHoldTimerRef.current);
-      }
-      if (stagePhaseTimerRef.current !== null) {
-        window.clearTimeout(stagePhaseTimerRef.current);
-      }
-      if (playbackSuppressionTimerRef.current !== null) {
-        window.clearTimeout(playbackSuppressionTimerRef.current);
-      }
       if (settingsFeedbackTimerRef.current !== null) {
         window.clearTimeout(settingsFeedbackTimerRef.current);
       }
@@ -498,113 +481,6 @@ export function useCadenceController() {
     turns
   ]);
 
-  const clearStagePhaseTimer = useCallback((): void => {
-    if (stagePhaseTimerRef.current !== null) {
-      window.clearTimeout(stagePhaseTimerRef.current);
-      stagePhaseTimerRef.current = null;
-    }
-  }, []);
-
-  const clearPoseHold = useCallback((): void => {
-    if (poseHoldTimerRef.current !== null) {
-      window.clearTimeout(poseHoldTimerRef.current);
-      poseHoldTimerRef.current = null;
-    }
-  }, []);
-
-  const clearStageTimeline = useCallback((): void => {
-    clearPoseHold();
-    clearStagePhaseTimer();
-    stageTimelineManagedRef.current = false;
-  }, [clearPoseHold, clearStagePhaseTimer]);
-
-  function clearPlaybackSuppressionTimer(): void {
-    if (playbackSuppressionTimerRef.current !== null) {
-      window.clearTimeout(playbackSuppressionTimerRef.current);
-      playbackSuppressionTimerRef.current = null;
-    }
-  }
-
-  function releaseHotMicSuppression(): void {
-    assistantSpeakingRef.current = false;
-    hotMicRecorderRef.current?.setSuppressed(hotMicMutedRef.current);
-  }
-
-  function suppressHotMicPlayback(): void {
-    assistantSpeakingRef.current = true;
-    hotMicRecorderRef.current?.setSuppressed(true);
-  }
-
-  function scheduleHotMicPlaybackRelease(text: string, kindroidParticipantId?: string): void {
-    const speakingParticipant =
-      voiceBackend === "kindroid"
-        ? usesKindroidGroupConversation
-          ? (settingsSnapshot?.kindroidParticipants.find(
-              (participant) => participant.id === kindroidParticipantId
-            ) ?? null)
-          : activeKindroidParticipant
-        : null;
-    const speechText =
-      voiceBackend === "kindroid"
-        ? stripKindroidNarrationForSpeech(text, {
-            enabled: speakingParticipant?.filterNarrationForTts ?? true,
-            delimiter: speakingParticipant?.narrationDelimiter || "*"
-          })
-        : text.trim();
-
-    if (
-      mode !== "voice" ||
-      voiceInputMode !== "hot_mic" ||
-      !speechText ||
-      !shouldSpeakAssistantTurn(kindroidParticipantId)
-    ) {
-      return;
-    }
-
-    clearPlaybackSuppressionTimer();
-    const directive = inferPerformanceDirective(speechText);
-    const releaseInMs = estimateAssistantDeliveryMs(speechText, directive.pace) + 450;
-    suppressHotMicPlayback();
-    playbackSuppressionTimerRef.current = window.setTimeout(() => {
-      playbackSuppressionTimerRef.current = null;
-      releaseHotMicSuppression();
-      if (connectionReady) {
-        setStatusCopy("Hot mic is armed.");
-      }
-    }, releaseInMs);
-  }
-
-  const updatePerformance = useCallback(
-    (
-      directive: PresenceDirective,
-      options?: {
-        retriggerGesture?: boolean;
-      }
-    ): void => {
-      setPresenceSnapshot((previous) => snapshotFromDirective(directive, previous, options));
-    },
-    []
-  );
-
-  function holdPoseState(state: PreviewAssistantStateId, durationMs = 1100): void {
-    clearPoseHold();
-    setActiveStateId(state);
-    poseHoldTimerRef.current = window.setTimeout(() => {
-      poseHoldTimerRef.current = null;
-      stageTimelineManagedRef.current = false;
-      updatePerformance(
-        createPerformanceDirective({
-          mood: "neutral",
-          gesture: "none",
-          intensity: 0.26,
-          pace: "steady",
-          cue: "ready"
-        })
-      );
-      setActiveStateId("idle");
-    }, durationMs);
-  }
-
   const insertPendingUserTurn = useCallback((): void => {
     pendingUserTurnIdRef.current = `pending-user-${crypto.randomUUID()}`;
   }, []);
@@ -618,55 +494,6 @@ export function useCadenceController() {
     pendingUserTurnIdRef.current = null;
     setTurns((previous) => previous.filter((turn) => turn.id !== pendingId));
   }, []);
-
-  const beginVisualReplyPrelude = useCallback(
-    (text: string): void => {
-      clearStageTimeline();
-      stageTimelineManagedRef.current = true;
-      setActiveStateId("listening");
-      updatePerformance(
-        createPerformanceDirective({
-          mood: "focused",
-          gesture: "none",
-          intensity: 0.3,
-          pace: "steady",
-          cue: "user-turn"
-        })
-      );
-
-      stagePhaseTimerRef.current = window.setTimeout(() => {
-        stagePhaseTimerRef.current = null;
-        if (!stageTimelineManagedRef.current) {
-          return;
-        }
-
-        setActiveStateId("thinking");
-        updatePerformance(
-          createPerformanceDirective({
-            mood: "focused",
-            gesture: "thinking_touch",
-            intensity: 0.32,
-            pace: "calm",
-            cue: "thinking"
-          })
-        );
-      }, estimateUserReadMs(text));
-    },
-    [clearStageTimeline, updatePerformance]
-  );
-
-  function beginVisualReplyDelivery(text: string): void {
-    const directive = inferPerformanceDirective(text);
-    clearStagePhaseTimer();
-    stageTimelineManagedRef.current = true;
-    updatePerformance(directive, { retriggerGesture: true });
-    holdPoseState(
-      "speaking",
-      stagedTextReplyMode
-        ? estimateAssistantReadMs(text)
-        : estimateAssistantDeliveryMs(text, directive.pace)
-    );
-  }
 
   const clearPendingConversationHint = useCallback((): void => {
     setPendingConversationHint(null);
@@ -1413,14 +1240,7 @@ export function useCadenceController() {
           text: nextGreeting
         }
       ]);
-      if (stagedTextReplyMode) {
-        beginVisualReplyDelivery(nextGreeting);
-      } else {
-        const directive = inferPerformanceDirective(nextGreeting);
-        setActiveStateId("speaking");
-        updatePerformance(directive, { retriggerGesture: true });
-        holdPoseState("speaking", estimateAssistantDeliveryMs(nextGreeting, directive.pace));
-      }
+      beginVisualReplyDelivery(nextGreeting);
 
       try {
         await playKindroidGreeting(assistantTurnId, nextGreeting);
