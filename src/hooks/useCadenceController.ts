@@ -1077,7 +1077,9 @@ export function useCadenceController() {
                 }
               : ttsProvider === "openai"
                 ? {
-                    ...defaultOpenAiBatchVoiceOpenAiTtsConfig
+                    ...defaultOpenAiBatchVoiceOpenAiTtsConfig,
+                    voice: settingsSnapshot?.openAiTtsVoice ?? "",
+                    speechInstructions: settingsSnapshot?.openAiTtsInstructions || undefined
                   }
                 : {
                     ...defaultOpenAiBatchVoiceTransportConfig

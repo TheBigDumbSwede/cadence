@@ -175,31 +175,41 @@ The main code hotspot is:
 
 - `src/hooks/useCadenceController.ts`
 
-It is still the orchestration root and intentionally so, but it has accumulated multiple responsibilities:
+It is still the orchestration root and intentionally so, but it no longer directly owns every behavioral cluster.
+
+Recent extractions now carry real responsibility:
+
+- `src/hooks/cadence/useCadenceInputOrchestrator.ts`
+  push-to-talk, hot mic, submit flow, and action-error handling
+- `src/hooks/cadence/sessionEvents.ts`
+  session event interpretation and turn/status reactions
+- `src/hooks/cadence/useCadenceStageOrchestrator.ts`
+  stage timeline, presence updates, and hot-mic playback suppression
+
+The controller still coordinates:
 
 - session lifecycle
-- voice input flow
-- turn reconciliation
-- presence/stage timing
+- active session/config selection
+- remaining playback/caption synchronization
 - settings refresh
 - status copy
 
-Recent cleanup extracted pure helpers into:
+Older pure helpers still live in:
 
 - `src/hooks/cadence/timing.ts`
 - `src/hooks/cadence/performance.ts`
 - `src/hooks/cadence/turns.ts`
 - `src/hooks/cadence/statusCopy.ts`
 
-That was a first-level cleanup, not a full decomposition.
+That means cleanup is now in a middle state: materially better, but not finished.
 
 If continuing cleanup, split by responsibility, not by file length.
 
 Good next seams:
 
-- input orchestration
-- turn reconciliation
-- stage/presence orchestration
+- playback/caption synchronization if it can be separated cleanly
+- remaining settings/session bootstrap logic only if it clarifies real behavior
+- targeted tests before further decomposition
 
 Avoid:
 
