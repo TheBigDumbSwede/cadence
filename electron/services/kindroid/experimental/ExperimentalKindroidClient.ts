@@ -18,6 +18,7 @@ import type {
   UpdateUserProfileOptions
 } from "../../../../src/shared/kindroid-experimental-control";
 import { getSettingsService } from "../../SettingsService";
+import { missingKindroidApiKeyError } from "../../appErrorUtils";
 import { KindroidHttpClient, kindroidTimeouts } from "../core/KindroidHttpClient";
 
 export class ExperimentalKindroidClient {
@@ -326,7 +327,7 @@ export class ExperimentalKindroidClient {
     const apiKey = settings.getKindroidApiKey();
 
     if (!apiKey) {
-      throw new Error("Kindroid is not configured. Add KINDROID_API_KEY.");
+      throw missingKindroidApiKeyError("kindroid-experimental");
     }
 
     return new KindroidHttpClient(apiKey, settings.getKindroidBaseUrl());

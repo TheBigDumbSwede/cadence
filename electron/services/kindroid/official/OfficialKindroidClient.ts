@@ -1,6 +1,8 @@
 import "dotenv/config";
 
+import { AppError } from "../../../../src/shared/app-error";
 import { getSettingsService } from "../../SettingsService";
+import { missingKindroidAiIdError, missingKindroidApiKeyError } from "../../appErrorUtils";
 import { KindroidHttpClient, kindroidTimeouts } from "../core/KindroidHttpClient";
 
 type KindroidResponse = {
@@ -55,11 +57,21 @@ export class OfficialKindroidClient {
     }
 
     if (payload?.error) {
-      throw new Error(payload.error);
+      throw new AppError({
+        code: "provider.kindroid_http_error",
+        message: payload.error,
+        retryable: false,
+        provider: "kindroid"
+      });
     }
 
     if (!rawBody.trim()) {
-      throw new Error("Kindroid response did not contain a reply.");
+      throw new AppError({
+        code: "provider.kindroid_http_error",
+        message: "Kindroid response did not contain a reply.",
+        retryable: true,
+        provider: "kindroid"
+      });
     }
 
     return {
@@ -89,8 +101,12 @@ export class OfficialKindroidClient {
     const apiKey = settings.getKindroidApiKey();
     const aiId = settings.getKindroidAiId();
 
-    if (!apiKey || !aiId) {
-      throw new Error("Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.");
+    if (!apiKey) {
+      throw missingKindroidApiKeyError("kindroid");
+    }
+
+    if (!aiId) {
+      throw missingKindroidAiIdError("kindroid");
     }
 
     return new KindroidHttpClient(apiKey, settings.getKindroidBaseUrl());

@@ -1,4 +1,5 @@
 import type { SpeechCaptionCue, SpeechCaptionMode } from "./speech-captions";
+import type { AppErrorCode } from "./app-error";
 
 export type SessionStatus =
   | "idle"
@@ -80,6 +81,7 @@ export type CadenceEvent =
   | {
       type: "transport.error";
       provider: string;
+      code?: AppErrorCode;
       message: string;
       recoverable: boolean;
     }

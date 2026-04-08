@@ -1,4 +1,5 @@
 import { getCadenceBridge } from "../../bridge";
+import { toAppError } from "../../../shared/app-error";
 import type {
   LiveConversationTransport,
   TextTurnInput,
@@ -36,20 +37,35 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.openai_transcription_missing",
         message: "OpenAI transcription is not configured.",
         recoverable: false
       });
-      throw new Error("OpenAI transcription is not configured.");
+      throw toAppError(new Error("OpenAI transcription is not configured."), {
+        code: "config.openai_transcription_missing",
+        message: "OpenAI transcription is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     if (!kindroidState.configured) {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.kindroid_api_key_missing",
         message: "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.",
         recoverable: false
       });
-      throw new Error("Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.");
+      throw toAppError(
+        new Error("Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID."),
+        {
+          code: "config.kindroid_api_key_missing",
+          message: "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.",
+          retryable: false,
+          provider: this.id
+        }
+      );
     }
 
     const usesElevenLabs = this.config?.model.includes("elevenlabs") ?? true;
@@ -62,6 +78,7 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.elevenlabs_missing",
         message:
           "ElevenLabs is not configured. Add ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID.",
         recoverable: false
@@ -75,10 +92,16 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.openai_speech_missing",
         message: "OpenAI speech is not configured.",
         recoverable: false
       });
-      throw new Error("OpenAI speech is not configured.");
+      throw toAppError(new Error("OpenAI speech is not configured."), {
+        code: "config.openai_speech_missing",
+        message: "OpenAI speech is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     if (usesNarrationFx && !elevenLabsState.apiKeyPresent) {
@@ -155,6 +178,7 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "transport.unsupported_mode",
         message: "Transcription was empty.",
         recoverable: true
       });
@@ -168,7 +192,25 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       status: "thinking"
     });
 
-    const kindroidResponse = await bridge.kindroid.createResponse(transcript);
+    let kindroidResponse;
+    try {
+      kindroidResponse = await bridge.kindroid.createResponse(transcript);
+    } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.kindroid_http_error",
+        message: "Kindroid request failed.",
+        retryable: true,
+        provider: this.id
+      });
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
+      });
+      throw appError;
+    }
     const assistantTurnId = crypto.randomUUID();
     const activeParticipant = this.config?.kindroidActiveParticipant ?? null;
 
@@ -215,14 +257,32 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       status: "speaking"
     });
 
-    const synthesis = this.config?.model.includes("openai-tts")
-      ? await bridge.openaiSpeech.synthesize(speechText, {
-          voice: this.config?.voice || undefined,
-          instructions: this.config?.speechInstructions || undefined
-        })
-      : await bridge.elevenlabs.synthesize(speechText, {
-          voiceId: this.config?.voice || undefined
-        });
+    let synthesis;
+    try {
+      synthesis = this.config?.model.includes("openai-tts")
+        ? await bridge.openaiSpeech.synthesize(speechText, {
+            voice: this.config?.voice || undefined,
+            instructions: this.config?.speechInstructions || undefined
+          })
+        : await bridge.elevenlabs.synthesize(speechText, {
+            voiceId: this.config?.voice || undefined
+          });
+    } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.openai_http_error",
+        message: "Speech synthesis failed.",
+        retryable: true,
+        provider: this.id
+      });
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
+      });
+      throw appError;
+    }
 
     const narrationTiming = await this.queueNarrationEffect(assistantTurnId, narrationEffect);
     this.emit({
@@ -249,6 +309,22 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
     for (const listener of this.listeners) {
       listener(event);
     }
+  }
+
+  private emitRecoverableError(error: unknown, fallbackMessage: string): void {
+    const appError = toAppError(error, {
+      code: "provider.kindroid_http_error",
+      message: fallbackMessage,
+      retryable: true,
+      provider: this.id
+    });
+    this.emit({
+      type: "transport.error",
+      provider: this.id,
+      code: appError.code,
+      message: appError.message,
+      recoverable: appError.retryable
+    });
   }
 
   private async selectNarrationEffect(
@@ -393,6 +469,9 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
           });
         }
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        this.emitRecoverableError(error, "Narration effect synthesis failed.");
+        return undefined;
+      });
   }
 }

@@ -1,4 +1,5 @@
 import { getCadenceBridge } from "../../bridge";
+import { toAppError } from "../../../shared/app-error";
 import type {
   MemoryRecallResult,
   MemoryScope,
@@ -46,20 +47,32 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.openai_transcription_missing",
         message: "OpenAI transcription is not configured.",
         recoverable: false
       });
-      throw new Error("OpenAI transcription is not configured.");
+      throw toAppError(new Error("OpenAI transcription is not configured."), {
+        code: "config.openai_transcription_missing",
+        message: "OpenAI transcription is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     if (!textState.configured) {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.openai_responses_missing",
         message: "OpenAI Responses is not configured.",
         recoverable: false
       });
-      throw new Error("OpenAI Responses is not configured.");
+      throw toAppError(new Error("OpenAI Responses is not configured."), {
+        code: "config.openai_responses_missing",
+        message: "OpenAI Responses is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     const usesElevenLabs = this.config?.model.includes("elevenlabs") ?? true;
@@ -70,6 +83,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.elevenlabs_missing",
         message:
           "ElevenLabs is not configured. Add ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID.",
         recoverable: false
@@ -83,10 +97,16 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.openai_speech_missing",
         message: "OpenAI speech is not configured.",
         recoverable: false
       });
-      throw new Error("OpenAI speech is not configured.");
+      throw toAppError(new Error("OpenAI speech is not configured."), {
+        code: "config.openai_speech_missing",
+        message: "OpenAI speech is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     this.emit({
@@ -156,6 +176,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "transport.unsupported_mode",
         message: "Transcription was empty.",
         recoverable: true
       });
@@ -170,11 +191,29 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
     });
 
     const memoryContext = await this.recallMemory(input, turns);
-    const response = await bridge.text.createResponse(input, {
-      instructions: this.config?.instructions,
-      model: this.getResponsesModel(),
-      memoryContext
-    });
+    let response;
+    try {
+      response = await bridge.text.createResponse(input, {
+        instructions: this.config?.instructions,
+        model: this.getResponsesModel(),
+        memoryContext
+      });
+    } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.openai_http_error",
+        message: "OpenAI Responses request failed.",
+        retryable: true,
+        provider: this.id
+      });
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
+      });
+      throw appError;
+    }
 
     const assistantTurnId = crypto.randomUUID();
     this.emit({
@@ -204,14 +243,32 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       status: "speaking"
     });
 
-    const synthesis = this.config?.model.includes("openai-tts")
-      ? await bridge.openaiSpeech.synthesize(response.text, {
-          voice: this.config?.voice || undefined,
-          instructions: this.config?.speechInstructions || undefined
-        })
-      : await bridge.elevenlabs.synthesize(response.text, {
-          voiceId: this.config?.voice || undefined
-        });
+    let synthesis;
+    try {
+      synthesis = this.config?.model.includes("openai-tts")
+        ? await bridge.openaiSpeech.synthesize(response.text, {
+            voice: this.config?.voice || undefined,
+            instructions: this.config?.speechInstructions || undefined
+          })
+        : await bridge.elevenlabs.synthesize(response.text, {
+            voiceId: this.config?.voice || undefined
+          });
+    } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.openai_http_error",
+        message: "Speech synthesis failed.",
+        retryable: true,
+        provider: this.id
+      });
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
+      });
+      throw appError;
+    }
 
     this.emit({
       type: "assistant.audio.chunk",
@@ -261,11 +318,18 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       });
       return contextBlock;
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory recall failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message: error instanceof Error ? error.message : "Memory recall failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
       return undefined;
     }
@@ -290,11 +354,18 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
         ignored: result.ignored
       });
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory ingest failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message: error instanceof Error ? error.message : "Memory ingest failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
     }
   }
@@ -303,11 +374,18 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
     try {
       await getCadenceBridge().memory.closeSession(this.getMemoryScope());
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory session close failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message: error instanceof Error ? error.message : "Memory session close failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
     }
   }

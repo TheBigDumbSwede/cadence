@@ -1,5 +1,6 @@
 import "dotenv/config";
 
+import { isAppError } from "../../src/shared/app-error";
 import type {
   MemoryControlState,
   MemoryIngestRequest,
@@ -11,6 +12,11 @@ import type {
   MemoryStoredSession
 } from "../../src/shared/memory-control";
 import { getSettingsService } from "./SettingsService";
+import {
+  buildHttpError,
+  missingMemoryBackendError,
+  normalizeNetworkError
+} from "./appErrorUtils";
 
 const DEFAULT_RECALL_RESULT: MemoryRecallResult = {
   items: [],
@@ -24,11 +30,15 @@ const DEFAULT_INGEST_RESULT: MemoryIngestResult = {
 };
 
 function isNetworkUnavailableError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
+  if (isAppError(error)) {
+    return (
+      error.code === "network.connection_refused" ||
+      error.code === "network.timeout" ||
+      error.code === "network.unavailable"
+    );
   }
 
-  if (error.name !== "TypeError") {
+  if (!(error instanceof Error) || error.name !== "TypeError") {
     return false;
   }
 
@@ -230,20 +240,34 @@ export class MemoryClient {
   private async post<TResponse = void>(pathname: string, body: unknown): Promise<TResponse> {
     const baseUrl = this.getBaseUrl();
     if (!baseUrl) {
-      throw new Error("CADENCE_MEMORY_BASE_URL is not configured.");
+      throw missingMemoryBackendError();
     }
 
-    const response = await fetch(`${baseUrl}${pathname}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}${pathname}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+    } catch (error) {
+      throw normalizeNetworkError({
+        error,
+        provider: "memory",
+        fallbackMessage: "Memory backend request",
+        fallbackCode: "provider.memory_backend_error"
+      });
+    }
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Memory backend failed: ${response.status} ${errorBody}`);
+      throw await buildHttpError({
+        response,
+        provider: "memory",
+        code: "provider.memory_backend_error",
+        fallbackMessage: "Memory backend request failed"
+      });
     }
 
     if (response.status === 204) {
@@ -256,16 +280,30 @@ export class MemoryClient {
   private async get<TResponse>(pathname: string): Promise<TResponse> {
     const baseUrl = this.getBaseUrl();
     if (!baseUrl) {
-      throw new Error("CADENCE_MEMORY_BASE_URL is not configured.");
+      throw missingMemoryBackendError();
     }
 
-    const response = await fetch(`${baseUrl}${pathname}`, {
-      method: "GET"
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}${pathname}`, {
+        method: "GET"
+      });
+    } catch (error) {
+      throw normalizeNetworkError({
+        error,
+        provider: "memory",
+        fallbackMessage: "Memory backend request",
+        fallbackCode: "provider.memory_backend_error"
+      });
+    }
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Memory backend failed: ${response.status} ${errorBody}`);
+      throw await buildHttpError({
+        response,
+        provider: "memory",
+        code: "provider.memory_backend_error",
+        fallbackMessage: "Memory backend request failed"
+      });
     }
 
     return (await response.json()) as TResponse;

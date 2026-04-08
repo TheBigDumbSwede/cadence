@@ -1,4 +1,5 @@
 import { getCadenceBridge } from "../../bridge";
+import { toAppError } from "../../../shared/app-error";
 import type { LiveConversationTransport, TransportConfig, Unsubscribe } from "../../contracts";
 import type { CadenceEvent } from "../../../shared/voice-events";
 
@@ -17,10 +18,19 @@ export class KindroidIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.kindroid_api_key_missing",
         message: "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.",
         recoverable: false
       });
-      throw new Error("Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.");
+      throw toAppError(
+        new Error("Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID."),
+        {
+          code: "config.kindroid_api_key_missing",
+          message: "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.",
+          retryable: false,
+          provider: this.id
+        }
+      );
     }
 
     this.emit({
@@ -55,7 +65,25 @@ export class KindroidIpcTransport implements LiveConversationTransport {
       status: "thinking"
     });
 
-    const response = await getCadenceBridge().kindroid.createResponse(text);
+    let response;
+    try {
+      response = await getCadenceBridge().kindroid.createResponse(text);
+    } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.kindroid_http_error",
+        message: "Kindroid request failed.",
+        retryable: true,
+        provider: this.id
+      });
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
+      });
+      throw appError;
+    }
 
     const assistantTurnId = crypto.randomUUID();
     this.emit({
@@ -79,6 +107,7 @@ export class KindroidIpcTransport implements LiveConversationTransport {
     this.emit({
       type: "transport.error",
       provider: this.id,
+      code: "transport.unsupported_mode",
       message: "Kindroid transport is text-only for now.",
       recoverable: true
     });

@@ -1,6 +1,11 @@
 import "dotenv/config";
 
 import { getSettingsService } from "./SettingsService";
+import {
+  buildHttpError,
+  missingOpenAiApiKeyError,
+  normalizeNetworkError
+} from "./appErrorUtils";
 
 const DEFAULT_MODEL = "gpt-4o-transcribe";
 const DEFAULT_LANGUAGE = "en";
@@ -53,7 +58,7 @@ export class OpenAIAudioClient {
 
   async transcribe(audio: ArrayBuffer): Promise<{ text: string; model: string }> {
     if (!this.isConfigured()) {
-      throw new Error("OPENAI_API_KEY is not configured.");
+      throw missingOpenAiApiKeyError("openai-audio");
     }
     const apiKey = getSettingsService().getOpenAiApiKey();
 
@@ -66,17 +71,31 @@ export class OpenAIAudioClient {
     form.append("temperature", "0");
     form.append("file", new Blob([wav], { type: "audio/wav" }), "cadence.wav");
 
-    const response = await fetch(TRANSCRIPTIONS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: form
-    });
+    let response: Response;
+    try {
+      response = await fetch(TRANSCRIPTIONS_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: form
+      });
+    } catch (error) {
+      throw normalizeNetworkError({
+        error,
+        provider: "openai-audio",
+        fallbackMessage: "OpenAI transcription request",
+        fallbackCode: "provider.openai_http_error"
+      });
+    }
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`OpenAI transcription failed: ${response.status} ${errorBody}`);
+      throw await buildHttpError({
+        response,
+        provider: "openai-audio",
+        code: "provider.openai_http_error",
+        fallbackMessage: "OpenAI transcription request failed"
+      });
     }
 
     const transcript = await response.text();

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toAppError } from "../shared/app-error";
 import {
   buildAssistantSnapshot,
   type AssistantStateSnapshot,
@@ -647,6 +648,18 @@ export function useCadenceController() {
 
     pendingUserTurnIdRef.current = null;
     setTurns((previous) => previous.filter((turn) => turn.id !== pendingId));
+  }
+
+  function handleSessionActionError(error: unknown, fallbackMessage: string): void {
+    const appError = toAppError(error, {
+      code: "unknown",
+      message: fallbackMessage,
+      retryable: true
+    });
+    setStatusCopy(appError.message);
+    if (appError.code.startsWith("config.")) {
+      setConfigured(false);
+    }
   }
 
   function beginVisualReplyPrelude(text: string): void {
@@ -1539,7 +1552,7 @@ export function useCadenceController() {
             { retriggerGesture: true }
           );
           setConnectionReady(false);
-          setConfigured(event.message !== "OPENAI_API_KEY is not configured.");
+          setConfigured(!(event.code?.startsWith("config.") && !event.recoverable));
           setStatusCopy(event.message);
           break;
         case "memory.recall":
@@ -1769,14 +1782,18 @@ export function useCadenceController() {
 
     clearPendingConversationHint();
     responseClock.current.interruptionStartedAt = performance.now();
-    if (assistantSpeakingRef.current) {
-      await activeSession.interrupt();
+    try {
+      if (assistantSpeakingRef.current) {
+        await activeSession.interrupt();
+      }
+      await recorderRef.current.start();
+      setIsRecording(true);
+      clearStageTimeline();
+      setActiveStateId("listening");
+      setStatusCopy("Listening...");
+    } catch (error) {
+      handleSessionActionError(error, "Failed to start recording.");
     }
-    await recorderRef.current.start();
-    setIsRecording(true);
-    clearStageTimeline();
-    setActiveStateId("listening");
-    setStatusCopy("Listening...");
   }, [activeSession, clearStageTimeline, interactionReady, isRecording, mode, voiceInputMode]);
 
   const stopRecording = useCallback(async (): Promise<void> => {
@@ -1789,29 +1806,34 @@ export function useCadenceController() {
       return;
     }
 
-    const stoppedAt = performance.now();
-    const audio = await recorderRef.current.stop();
-    setIsRecording(false);
-    if (audio.byteLength === 0) {
-      clearPendingUserTurn();
-      setStatusCopy("No audio captured.");
-      return;
+    try {
+      const stoppedAt = performance.now();
+      const audio = await recorderRef.current.stop();
+      setIsRecording(false);
+      if (audio.byteLength === 0) {
+        clearPendingUserTurn();
+        setStatusCopy("No audio captured.");
+        return;
+      }
+
+      insertPendingUserTurn();
+      responseClock.current.startedAt = stoppedAt;
+      responseClock.current.firstAudioAt = null;
+      setMetrics((previous) => ({
+        ...previous,
+        timeToListeningMs: previous.timeToListeningMs || 180,
+        interruptRecoveryMs: Math.round(
+          stoppedAt - (responseClock.current.interruptionStartedAt ?? stoppedAt)
+        )
+      }));
+
+      setActiveStateId("transcribing");
+      setStatusCopy("Uploading captured audio...");
+      await activeSession.sendUserAudio(audio);
+    } catch (error) {
+      setIsRecording(false);
+      handleSessionActionError(error, "Failed to stop recording.");
     }
-
-    insertPendingUserTurn();
-    responseClock.current.startedAt = stoppedAt;
-    responseClock.current.firstAudioAt = null;
-    setMetrics((previous) => ({
-      ...previous,
-      timeToListeningMs: previous.timeToListeningMs || 180,
-      interruptRecoveryMs: Math.round(
-        stoppedAt - (responseClock.current.interruptionStartedAt ?? stoppedAt)
-      )
-    }));
-
-    setActiveStateId("transcribing");
-    setStatusCopy("Uploading captured audio...");
-    await activeSession.sendUserAudio(audio);
   }, [activeSession, isRecording, mode, voiceInputMode]);
 
   useEffect(() => {
@@ -1872,13 +1894,17 @@ export function useCadenceController() {
         ttsProvider: effectiveTtsProvider
       })
     );
-    await activeSession.sendUserText(
-      text,
-      turns.map((turn) => ({
-        speaker: turn.speaker,
-        text: turn.text
-      }))
-    );
+    try {
+      await activeSession.sendUserText(
+        text,
+        turns.map((turn) => ({
+          speaker: turn.speaker,
+          text: turn.text
+        }))
+      );
+    } catch (error) {
+      handleSessionActionError(error, "Failed to submit text.");
+    }
   }
 
   async function playKindroidGreeting(turnId: string, text: string): Promise<void> {

@@ -2,6 +2,11 @@ import "dotenv/config";
 
 import { getSettingsService } from "./SettingsService";
 import type { TextResponseOptions } from "../../src/shared/text-control";
+import {
+  buildHttpError,
+  missingOpenAiApiKeyError,
+  normalizeNetworkError
+} from "./appErrorUtils";
 
 const DEFAULT_MODEL = "gpt-5-mini";
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -54,26 +59,40 @@ export class OpenAIResponsesClient {
 
   async createResponse(input: string, options?: TextResponseOptions) {
     if (!this.isConfigured()) {
-      throw new Error("OPENAI_API_KEY is not configured.");
+      throw missingOpenAiApiKeyError("openai-responses");
     }
     const apiKey = getSettingsService().getOpenAiApiKey();
 
-    const response = await fetch(RESPONSES_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: options?.model ?? DEFAULT_MODEL,
-        input,
-        instructions: buildInstructions(options?.instructions, options?.memoryContext)
-      })
-    });
+    let response: Response;
+    try {
+      response = await fetch(RESPONSES_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: options?.model ?? DEFAULT_MODEL,
+          input,
+          instructions: buildInstructions(options?.instructions, options?.memoryContext)
+        })
+      });
+    } catch (error) {
+      throw normalizeNetworkError({
+        error,
+        provider: "openai-responses",
+        fallbackMessage: "OpenAI Responses request",
+        fallbackCode: "provider.openai_http_error"
+      });
+    }
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Responses API failed: ${response.status} ${errorBody}`);
+      throw await buildHttpError({
+        response,
+        provider: "openai-responses",
+        code: "provider.openai_http_error",
+        fallbackMessage: "OpenAI Responses request failed"
+      });
     }
 
     const result = (await response.json()) as ResponsesApiResult;

@@ -1,4 +1,5 @@
 import { getCadenceBridge } from "../../bridge";
+import { toAppError } from "../../../shared/app-error";
 import type {
   LiveConversationTransport,
   TextTurnInput,
@@ -39,40 +40,64 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.openai_transcription_missing",
         message: "OpenAI transcription is not configured.",
         recoverable: false
       });
-      throw new Error("OpenAI transcription is not configured.");
+      throw toAppError(new Error("OpenAI transcription is not configured."), {
+        code: "config.openai_transcription_missing",
+        message: "OpenAI transcription is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     if (!experimentalState.enabled) {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.kindroid_experimental_disabled",
         message: "Kindroid experimental endpoints are disabled.",
         recoverable: false
       });
-      throw new Error("Kindroid experimental endpoints are disabled.");
+      throw toAppError(new Error("Kindroid experimental endpoints are disabled."), {
+        code: "config.kindroid_experimental_disabled",
+        message: "Kindroid experimental endpoints are disabled.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     if (!experimentalState.configured) {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.kindroid_experimental_missing",
         message: "Kindroid experimental group chat is not configured.",
         recoverable: false
       });
-      throw new Error("Kindroid experimental group chat is not configured.");
+      throw toAppError(new Error("Kindroid experimental group chat is not configured."), {
+        code: "config.kindroid_experimental_missing",
+        message: "Kindroid experimental group chat is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     if (!this.config?.kindroidGroupMirror?.groupId) {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.kindroid_group_missing",
         message: "No active Kindroid group mirror is selected.",
         recoverable: false
       });
-      throw new Error("No active Kindroid group mirror is selected.");
+      throw toAppError(new Error("No active Kindroid group mirror is selected."), {
+        code: "config.kindroid_group_missing",
+        message: "No active Kindroid group mirror is selected.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     const groupParticipants = (this.config?.kindroidParticipants ?? []).filter((participant) =>
@@ -82,10 +107,19 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.kindroid_group_participants_missing",
         message: "The active Kindroid group mirror has no valid local participants.",
         recoverable: false
       });
-      throw new Error("The active Kindroid group mirror has no valid local participants.");
+      throw toAppError(
+        new Error("The active Kindroid group mirror has no valid local participants."),
+        {
+          code: "config.kindroid_group_participants_missing",
+          message: "The active Kindroid group mirror has no valid local participants.",
+          retryable: false,
+          provider: this.id
+        }
+      );
     }
     const usesOpenAiSpeech = groupParticipants.some(
       (participant) => participant.ttsProvider === "openai"
@@ -104,6 +138,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.elevenlabs_missing",
         message:
           "ElevenLabs is not configured. Add ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID.",
         recoverable: false
@@ -117,10 +152,16 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.openai_speech_missing",
         message: "OpenAI speech is not configured.",
         recoverable: false
       });
-      throw new Error("OpenAI speech is not configured.");
+      throw toAppError(new Error("OpenAI speech is not configured."), {
+        code: "config.openai_speech_missing",
+        message: "OpenAI speech is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     this.canPlayNarrationFx = usesNarrationFx && elevenLabsState.apiKeyPresent;
@@ -230,6 +271,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "transport.unsupported_mode",
         message: "Transcription was empty.",
         recoverable: true
       });
@@ -324,10 +366,28 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         kindroidParticipantId: respondingParticipant.id,
         message: `${respondingParticipant.bubbleName} is thinking...`
       });
-      const response = await bridge.kindroidExperimental.groupChats.aiResponse({
-        ai_id: respondingParticipant.aiId,
-        group_id: groupMirror.groupId
-      });
+      let response;
+      try {
+        response = await bridge.kindroidExperimental.groupChats.aiResponse({
+          ai_id: respondingParticipant.aiId,
+          group_id: groupMirror.groupId
+        });
+      } catch (error) {
+        const appError = toAppError(error, {
+          code: "provider.kindroid_http_error",
+          message: "Kindroid group turn failed.",
+          retryable: true,
+          provider: this.id
+        });
+        this.emit({
+          type: "transport.error",
+          provider: this.id,
+          code: appError.code,
+          message: appError.message,
+          recoverable: appError.retryable
+        });
+        throw appError;
+      }
 
       if (this.isCycleInterrupted(cycleToken)) {
         return;
@@ -371,15 +431,33 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         status: "speaking"
       });
 
-      const synthesis =
-        respondingParticipant.ttsProvider === "openai"
-          ? await bridge.openaiSpeech.synthesize(speechText, {
-              voice: respondingParticipant.openAiVoice || undefined,
-              instructions: respondingParticipant.openAiInstructions || undefined
-            })
-          : await bridge.elevenlabs.synthesize(speechText, {
-              voiceId: respondingParticipant.elevenLabsVoiceId || undefined
-            });
+      let synthesis;
+      try {
+        synthesis =
+          respondingParticipant.ttsProvider === "openai"
+            ? await bridge.openaiSpeech.synthesize(speechText, {
+                voice: respondingParticipant.openAiVoice || undefined,
+                instructions: respondingParticipant.openAiInstructions || undefined
+              })
+            : await bridge.elevenlabs.synthesize(speechText, {
+                voiceId: respondingParticipant.elevenLabsVoiceId || undefined
+              });
+      } catch (error) {
+        const appError = toAppError(error, {
+          code: "provider.openai_http_error",
+          message: "Speech synthesis failed.",
+          retryable: true,
+          provider: this.id
+        });
+        this.emit({
+          type: "transport.error",
+          provider: this.id,
+          code: appError.code,
+          message: appError.message,
+          recoverable: appError.retryable
+        });
+        throw appError;
+      }
 
       if (this.isCycleInterrupted(cycleToken)) {
         return;
@@ -434,11 +512,18 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
   }
 
   private handleRecoverableError(error: unknown, fallbackMessage: string): void {
+    const appError = toAppError(error, {
+      code: "provider.kindroid_http_error",
+      message: "Kindroid group turn failed.",
+      retryable: true,
+      provider: this.id
+    });
     this.emit({
       type: "transport.error",
       provider: this.id,
-      message: error instanceof Error ? error.message : "Kindroid group turn failed.",
-      recoverable: true
+      code: appError.code,
+      message: appError.message,
+      recoverable: appError.retryable
     });
     this.emit({
       type: "session.status",

@@ -3,6 +3,7 @@ import "dotenv/config";
 import { app, safeStorage } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { settingsSecretError, settingsStoreError } from "./appErrorUtils";
 import type {
   SettingsPreferences,
   SettingsSnapshot,
@@ -390,8 +391,12 @@ export class SettingsService {
 
   private writeStore(settings: StoredSettings): void {
     const settingsPath = this.getSettingsPath();
-    mkdirSync(path.dirname(settingsPath), { recursive: true });
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), "utf8");
+    try {
+      mkdirSync(path.dirname(settingsPath), { recursive: true });
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2), "utf8");
+    } catch (error) {
+      throw settingsStoreError("Failed to write settings.", error);
+    }
     this.cache = settings;
   }
 
@@ -607,7 +612,11 @@ export class SettingsService {
 
   private encodeSecret(value: string): string {
     if (safeStorage.isEncryptionAvailable()) {
-      return `enc:${safeStorage.encryptString(value).toString("base64")}`;
+      try {
+        return `enc:${safeStorage.encryptString(value).toString("base64")}`;
+      } catch (error) {
+        throw settingsSecretError("Failed to encrypt secret for settings storage.", error);
+      }
     }
 
     return value;
@@ -629,7 +638,7 @@ export class SettingsService {
     try {
       return safeStorage.decryptString(Buffer.from(value.slice(4), "base64"));
     } catch {
-      return null;
+      throw settingsSecretError("Failed to decrypt secret from settings storage.");
     }
   }
 }

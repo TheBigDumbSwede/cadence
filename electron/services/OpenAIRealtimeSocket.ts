@@ -4,9 +4,15 @@ import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
 import type { BrowserWindow } from "electron";
 import type { TransportConfig } from "../../src/services/contracts";
+import { toAppError } from "../../src/shared/app-error";
 import type { MemoryScope, MemoryTurn } from "../../src/shared/memory-control";
 import type { CadenceEvent } from "../../src/shared/voice-events";
 import { MemoryClient } from "./MemoryClient";
+import {
+  missingOpenAiApiKeyError,
+  normalizeNetworkError,
+  notConnectedTransportError
+} from "./appErrorUtils";
 import { getSettingsService } from "./SettingsService";
 
 const DEFAULT_CONFIG: TransportConfig = {
@@ -54,13 +60,15 @@ export class OpenAIRealtimeSocket {
 
   async connect(config?: Partial<TransportConfig>): Promise<void> {
     if (!this.isConfigured()) {
+      const error = missingOpenAiApiKeyError("openai-realtime");
       this.emit({
         type: "transport.error",
         provider: "openai-realtime",
-        message: "OPENAI_API_KEY is not configured.",
-        recoverable: false
+        code: error.code,
+        message: error.message,
+        recoverable: error.retryable
       });
-      throw new Error("OPENAI_API_KEY is not configured.");
+      throw error;
     }
 
     if (this.socket?.readyState === WebSocket.OPEN) {
@@ -94,13 +102,20 @@ export class OpenAIRealtimeSocket {
       });
 
       const handleError = (error: Error) => {
+        const appError = normalizeNetworkError({
+          error,
+          provider: "openai-realtime",
+          fallbackMessage: "OpenAI Realtime connection",
+          fallbackCode: "provider.openai_realtime_error"
+        });
         this.emit({
           type: "transport.error",
           provider: "openai-realtime",
-          message: error.message,
-          recoverable: true
+          code: appError.code,
+          message: appError.message,
+          recoverable: appError.retryable
         });
-        reject(error);
+        reject(appError);
       };
 
       socket.once("open", () => {
@@ -242,11 +257,18 @@ export class OpenAIRealtimeSocket {
     });
 
     socket.on("error", (error) => {
+      const appError = normalizeNetworkError({
+        error,
+        provider: "openai-realtime",
+        fallbackMessage: "OpenAI Realtime connection",
+        fallbackCode: "provider.openai_realtime_error"
+      });
       this.emit({
         type: "transport.error",
         provider: "openai-realtime",
-        message: error.message,
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
     });
   }
@@ -372,15 +394,27 @@ export class OpenAIRealtimeSocket {
         });
         return;
       }
-      case "error":
+      case "error": {
+        const appError = toAppError(
+          new Error(
+            this.readNestedString(event, ["error", "message"]) ?? "Realtime transport error."
+          ),
+          {
+            code: "provider.openai_realtime_error",
+            message: "Realtime transport error.",
+            retryable: true,
+            provider: "openai-realtime"
+          }
+        );
         this.emit({
           type: "transport.error",
           provider: "openai-realtime",
-          message:
-            this.readNestedString(event, ["error", "message"]) ?? "Realtime transport error.",
-          recoverable: true
+          code: appError.code,
+          message: appError.message,
+          recoverable: appError.retryable
         });
         return;
+      }
       default:
         return;
     }
@@ -411,7 +445,7 @@ export class OpenAIRealtimeSocket {
 
   private send(payload: Record<string, unknown>): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      throw new Error("Realtime socket is not connected.");
+      throw notConnectedTransportError("openai-realtime");
     }
 
     this.socket.send(JSON.stringify(payload));
@@ -509,11 +543,18 @@ export class OpenAIRealtimeSocket {
       });
       return contextBlock ? contextBlock : undefined;
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory recall failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: "openai-realtime",
-        message: error instanceof Error ? error.message : "Memory recall failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
       return undefined;
     }
@@ -545,11 +586,18 @@ export class OpenAIRealtimeSocket {
         ignored: result.ignored
       });
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory ingest failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: "openai-realtime",
-        message: error instanceof Error ? error.message : "Memory ingest failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
     }
   }
@@ -562,11 +610,18 @@ export class OpenAIRealtimeSocket {
     try {
       await this.memoryClient.closeSession(this.getMemoryScope());
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory session close failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: "openai-realtime",
-        message: error instanceof Error ? error.message : "Memory session close failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
     }
   }

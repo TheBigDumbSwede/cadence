@@ -1,3 +1,6 @@
+import { buildHttpError, normalizeNetworkError } from "../../appErrorUtils";
+import type { AppErrorCode } from "../../../../src/shared/app-error";
+
 type ResponseFormat = "json" | "text" | "void";
 
 const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
@@ -9,7 +12,8 @@ const BASE_DELAY_MS = 1_000;
 export class KindroidApiError extends Error {
   constructor(
     public readonly statusCode: number,
-    message: string
+    message: string,
+    public readonly code: AppErrorCode = "provider.kindroid_http_error"
   ) {
     super(message);
     this.name = "KindroidApiError";
@@ -67,22 +71,34 @@ export class KindroidHttpClient {
     format: ResponseFormat,
     timeoutMs = DEFAULT_TIMEOUT_MS
   ): Promise<T | string | void> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs)
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+    } catch (error) {
+      throw normalizeNetworkError({
+        error,
+        provider: "kindroid",
+        fallbackMessage: "Kindroid request",
+        fallbackCode: "provider.kindroid_http_error"
+      });
+    }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new KindroidApiError(
-        response.status,
-        `Kindroid API error (${response.status}): ${errorText || response.statusText}`
-      );
+      const appError = await buildHttpError({
+        response,
+        provider: "kindroid",
+        code: "provider.kindroid_http_error",
+        fallbackMessage: "Kindroid request failed"
+      });
+      throw new KindroidApiError(response.status, appError.message, appError.code);
     }
 
     switch (format) {

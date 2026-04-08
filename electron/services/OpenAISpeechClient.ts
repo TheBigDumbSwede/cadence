@@ -2,6 +2,11 @@ import "dotenv/config";
 
 import { getSettingsService } from "./SettingsService";
 import {
+  buildHttpError,
+  missingOpenAiApiKeyError,
+  normalizeNetworkError
+} from "./appErrorUtils";
+import {
   estimateSpeechCaptionCues,
   type SpeechCaptionCue,
   type SpeechCaptionMode
@@ -46,30 +51,44 @@ export class OpenAISpeechClient {
     captionsMode: SpeechCaptionMode;
   }> {
     if (!this.isConfigured()) {
-      throw new Error("OPENAI_API_KEY is not configured.");
+      throw missingOpenAiApiKeyError("openai-speech");
     }
     const apiKey = getSettingsService().getOpenAiApiKey();
 
     const voice = options?.voice || this.getVoice();
     const instructions = options?.instructions ?? this.getInstructions();
-    const response = await fetch(SPEECH_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        voice,
-        input: text,
-        format: "mp3",
-        ...(instructions ? { instructions } : {})
-      })
-    });
+    let response: Response;
+    try {
+      response = await fetch(SPEECH_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: DEFAULT_MODEL,
+          voice,
+          input: text,
+          format: "mp3",
+          ...(instructions ? { instructions } : {})
+        })
+      });
+    } catch (error) {
+      throw normalizeNetworkError({
+        error,
+        provider: "openai-speech",
+        fallbackMessage: "OpenAI speech request",
+        fallbackCode: "provider.openai_http_error"
+      });
+    }
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`OpenAI speech failed: ${response.status} ${errorBody}`);
+      throw await buildHttpError({
+        response,
+        provider: "openai-speech",
+        code: "provider.openai_http_error",
+        fallbackMessage: "OpenAI speech request failed"
+      });
     }
 
     return {

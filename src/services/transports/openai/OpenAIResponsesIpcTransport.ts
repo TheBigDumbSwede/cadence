@@ -1,4 +1,5 @@
 import { getCadenceBridge } from "../../bridge";
+import { toAppError } from "../../../shared/app-error";
 import type {
   MemoryRecallResult,
   MemoryScope,
@@ -29,10 +30,16 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
+        code: "config.openai_api_key_missing",
         message: "OPENAI_API_KEY is not configured.",
         recoverable: false
       });
-      throw new Error("OPENAI_API_KEY is not configured.");
+      throw toAppError(new Error("OPENAI_API_KEY is not configured."), {
+        code: "config.openai_api_key_missing",
+        message: "OPENAI_API_KEY is not configured.",
+        retryable: false,
+        provider: this.id
+      });
     }
 
     this.emit({
@@ -69,11 +76,29 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
     });
 
     const memoryContext = await this.recallMemory(text, turns);
-    const response = await getCadenceBridge().text.createResponse(text, {
-      instructions: this.config?.instructions,
-      model: this.config?.model,
-      memoryContext
-    });
+    let response;
+    try {
+      response = await getCadenceBridge().text.createResponse(text, {
+        instructions: this.config?.instructions,
+        model: this.config?.model,
+        memoryContext
+      });
+    } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.openai_http_error",
+        message: "OpenAI Responses request failed.",
+        retryable: true,
+        provider: this.id
+      });
+      this.emit({
+        type: "transport.error",
+        provider: this.id,
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
+      });
+      throw appError;
+    }
 
     const assistantTurnId = crypto.randomUUID();
     this.emit({
@@ -98,6 +123,7 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
     this.emit({
       type: "transport.error",
       provider: this.id,
+      code: "transport.unsupported_mode",
       message: "Audio capture is not available in text-only mode.",
       recoverable: true
     });
@@ -151,11 +177,18 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
       });
       return contextBlock;
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory recall failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message: error instanceof Error ? error.message : "Memory recall failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
       return undefined;
     }
@@ -180,11 +213,18 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
         ignored: result.ignored
       });
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory ingest failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message: error instanceof Error ? error.message : "Memory ingest failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
     }
   }
@@ -193,11 +233,18 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
     try {
       await getCadenceBridge().memory.closeSession(this.getMemoryScope());
     } catch (error) {
+      const appError = toAppError(error, {
+        code: "provider.memory_backend_error",
+        message: "Memory session close failed.",
+        retryable: true,
+        provider: "memory"
+      });
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message: error instanceof Error ? error.message : "Memory session close failed.",
-        recoverable: true
+        code: appError.code,
+        message: appError.message,
+        recoverable: appError.retryable
       });
     }
   }
