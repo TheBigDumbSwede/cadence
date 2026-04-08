@@ -227,10 +227,7 @@ export class MemoryClient {
     return normalizeBaseUrl(getSettingsService().getMemoryBaseUrl());
   }
 
-  private async post<TResponse = void>(
-    pathname: string,
-    body: unknown
-  ): Promise<TResponse> {
+  private async post<TResponse = void>(pathname: string, body: unknown): Promise<TResponse> {
     const baseUrl = this.getBaseUrl();
     if (!baseUrl) {
       throw new Error("CADENCE_MEMORY_BASE_URL is not configured.");

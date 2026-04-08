@@ -1,11 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type {
-  MemoryItem,
-  MemoryScope,
-  MemoryTurn
-} from "../src/shared/memory-control";
+import type { MemoryItem, MemoryScope, MemoryTurn } from "../src/shared/memory-control";
 
 export type StoredMemory = MemoryItem & {
   profileId: string;
@@ -154,8 +150,7 @@ export class MemoryStore {
 
     const existingIndex = store.sessions.findIndex(
       (session) =>
-        session.profileId === scope.profileId &&
-        session.conversationId === scope.conversationId
+        session.profileId === scope.profileId && session.conversationId === scope.conversationId
     );
 
     if (existingIndex >= 0) {
@@ -172,8 +167,7 @@ export class MemoryStore {
     const store = this.readStore();
     const sessionIndex = store.sessions.findIndex(
       (session) =>
-        session.profileId === scope.profileId &&
-        session.conversationId === scope.conversationId
+        session.profileId === scope.profileId && session.conversationId === scope.conversationId
     );
 
     if (sessionIndex < 0) {
@@ -203,8 +197,7 @@ export class MemoryStore {
       const key = canonicalKey(item.type, normalizedText);
       const existing = store.memories.find(
         (memory) =>
-          memory.profileId === item.profileId &&
-          canonicalKey(memory.type, memory.text) === key
+          memory.profileId === item.profileId && canonicalKey(memory.type, memory.text) === key
       );
 
       if (existing) {

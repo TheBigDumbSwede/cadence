@@ -7,14 +7,8 @@ import type {
 } from "../../contracts";
 import type { KindroidParticipant } from "../../../shared/kindroid-participants";
 import type { CadenceEvent } from "../../../shared/voice-events";
-import {
-  MAX_AUTOMATIC_KINDROID_GROUP_TURNS,
-  resolveKindroidGroupTurn
-} from "./groupTurn";
-import {
-  formatNarrationEffectCaption,
-  type SelectedNarrationEffect
-} from "./narrationEffects";
+import { MAX_AUTOMATIC_KINDROID_GROUP_TURNS, resolveKindroidGroupTurn } from "./groupTurn";
+import { formatNarrationEffectCaption, type SelectedNarrationEffect } from "./narrationEffects";
 import {
   selectNarrationEffectFromDelimitersWithModel,
   selectNarrationEffectWithModel
@@ -277,9 +271,7 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
     await this.runGroupTurnCycle();
   }
 
-  private async runGroupTurnCycle(options?: {
-    forcedParticipantId?: string;
-  }): Promise<void> {
+  private async runGroupTurnCycle(options?: { forcedParticipantId?: string }): Promise<void> {
     const groupMirror = this.config?.kindroidGroupMirror;
     if (!groupMirror?.groupId) {
       throw new Error("No active Kindroid group mirror is selected.");
@@ -379,14 +371,15 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
         status: "speaking"
       });
 
-      const synthesis = respondingParticipant.ttsProvider === "openai"
-        ? await bridge.openaiSpeech.synthesize(speechText, {
-            voice: respondingParticipant.openAiVoice || undefined,
-            instructions: respondingParticipant.openAiInstructions || undefined
-          })
-        : await bridge.elevenlabs.synthesize(speechText, {
-            voiceId: respondingParticipant.elevenLabsVoiceId || undefined
-          });
+      const synthesis =
+        respondingParticipant.ttsProvider === "openai"
+          ? await bridge.openaiSpeech.synthesize(speechText, {
+              voice: respondingParticipant.openAiVoice || undefined,
+              instructions: respondingParticipant.openAiInstructions || undefined
+            })
+          : await bridge.elevenlabs.synthesize(speechText, {
+              voiceId: respondingParticipant.elevenLabsVoiceId || undefined
+            });
 
       if (this.isCycleInterrupted(cycleToken)) {
         return;
@@ -579,14 +572,13 @@ export class KindroidGroupVoiceIpcTransport implements LiveConversationTransport
             captionText
           });
         }
-        const captionOffsetMs =
-          results.reduce(
-            (sum, result, index) =>
-              sum +
-              Math.round(result.beat.durationSeconds * 1000) +
-              (index === results.length - 1 ? 120 : 80),
-            0
-          );
+        const captionOffsetMs = results.reduce(
+          (sum, result, index) =>
+            sum +
+            Math.round(result.beat.durationSeconds * 1000) +
+            (index === results.length - 1 ? 120 : 80),
+          0
+        );
         return {
           startDelayMs: 0,
           captionOffsetMs,

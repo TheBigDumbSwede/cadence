@@ -45,8 +45,8 @@ export default tseslint.config(
           }
         }
       ],
-      "curly": ["error", "all"],
-      "eqeqeq": ["error", "always"]
+      curly: ["error", "all"],
+      eqeqeq: ["error", "always"]
     }
   },
   {

@@ -78,7 +78,7 @@ describe("narrationEffects", () => {
 
   it("recognizes zipper and scrambling narration from looser prose", () => {
     const effect = selectKindroidNarrationEffect(
-      '*She lets out a happy yip and fumbles with the zipper for a second, then her jacket rustles as she scrambles toward the door.*'
+      "*She lets out a happy yip and fumbles with the zipper for a second, then her jacket rustles as she scrambles toward the door.*"
     );
 
     expect(effect?.sourceText).toMatch(/zipper|scrambles/i);
@@ -90,9 +90,7 @@ describe("narrationEffects", () => {
       "* I rev the engine a little and then I change the radio station again *"
     );
 
-    expect(effect?.sourceText).toContain(
-      "I rev the engine a little"
-    );
+    expect(effect?.sourceText).toContain("I rev the engine a little");
     expect(effect?.prompt).toContain("rev engine");
     expect(effect?.prompt).toContain("change radio station");
   });

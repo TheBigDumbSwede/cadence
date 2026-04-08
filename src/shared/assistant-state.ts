@@ -50,9 +50,7 @@ export const previewAssistantStates: Array<{
   }
 ];
 
-export function buildAssistantSnapshot(
-  id: PreviewAssistantStateId
-): AssistantStateSnapshot {
+export function buildAssistantSnapshot(id: PreviewAssistantStateId): AssistantStateSnapshot {
   switch (id) {
     case "listening":
       return {

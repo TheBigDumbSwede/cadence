@@ -1,7 +1,4 @@
-export type MemoryBackend =
-  | "openai-realtime"
-  | "openai-responses"
-  | "openai-batch";
+export type MemoryBackend = "openai-realtime" | "openai-responses" | "openai-batch";
 
 export type MemoryTurn = {
   role: "user" | "assistant" | "system";
@@ -26,13 +23,7 @@ export type MemoryRecallRequest = {
 
 export type MemoryItem = {
   id: string;
-  type:
-    | "preference"
-    | "fact"
-    | "relationship"
-    | "project"
-    | "thread"
-    | "session";
+  type: "preference" | "fact" | "relationship" | "project" | "thread" | "session";
   text: string;
   score?: number;
   lastUpdatedAt?: string;

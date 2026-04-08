@@ -64,10 +64,17 @@ export function ChatBreakDialog({
         <div className="settings-toolbar chat-break-toolbar">
           <div className="settings-feedback">
             <strong>Kindroid reset</strong>
-            <span>The current short-term conversation will be replaced with this greeting.</span>
+            <span>
+              The current short-term conversation will be replaced with this greeting.
+            </span>
           </div>
           <div className="settings-inline-actions">
-            <button type="button" className="secondary-button" onClick={onClose} disabled={pending}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onClose}
+              disabled={pending}
+            >
               Cancel
             </button>
             <button

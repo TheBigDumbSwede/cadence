@@ -32,9 +32,7 @@ export class OpenAIRealtimeIpcTransport implements LiveConversationTransport {
     return getCadenceBridge().realtime.sendUserAudio(audio);
   }
 
-  interruptAssistant(
-    reason?: "user_barge_in" | "operator_stop"
-  ): Promise<void> {
+  interruptAssistant(reason?: "user_barge_in" | "operator_stop"): Promise<void> {
     return getCadenceBridge().realtime.interruptAssistant(reason);
   }
 

@@ -85,7 +85,10 @@ function cleanPromptText(value: string): string {
   return normalizeText(
     value
       .replace(/^[\s,.;:!?-]+/, "")
-      .replace(/\b(?:then|again|just|really|very|slightly|softly|practically|suddenly)\b/gi, " ")
+      .replace(
+        /\b(?:then|again|just|really|very|slightly|softly|practically|suddenly)\b/gi,
+        " "
+      )
       .replace(/^(?:she|he|they|we|i|you|it)\s+/i, "")
       .replace(/\b(?:the|a|an)\b/gi, " ")
       .replace(/\s*,\s*/g, ", ")

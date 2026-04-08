@@ -132,6 +132,6 @@ describe("SettingsService", () => {
       bubbleName: "Kindroid",
       waveformAccent: "halo"
     });
-    expect(readFileSync(settingsPath, "utf8")).toContain("\"kindroidAiId\": \"legacy-ai-id\"");
+    expect(readFileSync(settingsPath, "utf8")).toContain('"kindroidAiId": "legacy-ai-id"');
   });
 });

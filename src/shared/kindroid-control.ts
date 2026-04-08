@@ -7,8 +7,6 @@ export type KindroidControlState = {
 
 export type KindroidBridge = {
   getState: () => Promise<KindroidControlState>;
-  createResponse: (
-    input: string
-  ) => Promise<{ text: string; provider: "kindroid" }>;
+  createResponse: (input: string) => Promise<{ text: string; provider: "kindroid" }>;
   chatBreak: (greeting: string) => Promise<void>;
 };

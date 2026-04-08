@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { ElevenLabsBridge, ElevenLabsControlState } from "../src/shared/elevenlabs-control";
+import type {
+  ElevenLabsBridge,
+  ElevenLabsControlState
+} from "../src/shared/elevenlabs-control";
 import type {
   CreateGroupChatOptions,
   CreateJournalEntryOptions,
@@ -30,8 +33,14 @@ import type {
   MemoryStoredItem,
   MemoryStoredSession
 } from "../src/shared/memory-control";
-import type { OpenAiAudioBridge, OpenAiAudioControlState } from "../src/shared/openai-audio-control";
-import type { OpenAiSpeechBridge, OpenAiSpeechControlState } from "../src/shared/openai-speech-control";
+import type {
+  OpenAiAudioBridge,
+  OpenAiAudioControlState
+} from "../src/shared/openai-audio-control";
+import type {
+  OpenAiSpeechBridge,
+  OpenAiSpeechControlState
+} from "../src/shared/openai-speech-control";
 import type {
   RealtimeBridge,
   RealtimeControlState,
@@ -45,10 +54,7 @@ import type {
   TextResponseOptions
 } from "../src/shared/text-control";
 import type { RuntimeInfo } from "../src/shared/runtime-info";
-import type {
-  SpeechCaptionCue,
-  SpeechCaptionMode
-} from "../src/shared/speech-captions";
+import type { SpeechCaptionCue, SpeechCaptionMode } from "../src/shared/speech-captions";
 import type { CadenceEvent } from "../src/shared/voice-events";
 
 const cadenceBridge = {
@@ -76,8 +82,7 @@ const cadenceBridge = {
   } satisfies ElevenLabsBridge,
   getRuntimeInfo: () => ipcRenderer.invoke("app:get-runtime-info") as Promise<RuntimeInfo>,
   kindroid: {
-    getState: () =>
-      ipcRenderer.invoke("kindroid:get-state") as Promise<KindroidControlState>,
+    getState: () => ipcRenderer.invoke("kindroid:get-state") as Promise<KindroidControlState>,
     createResponse: (input: string) =>
       ipcRenderer.invoke("kindroid:create-response", input) as Promise<{
         text: string;
@@ -88,14 +93,21 @@ const cadenceBridge = {
   } satisfies KindroidBridge,
   kindroidExperimental: {
     getState: () =>
-      ipcRenderer.invoke("kindroid-experimental:get-state") as Promise<KindroidExperimentalControlState>,
+      ipcRenderer.invoke(
+        "kindroid-experimental:get-state"
+      ) as Promise<KindroidExperimentalControlState>,
     account: {
       checkSubscription: () =>
-        ipcRenderer.invoke("kindroid-experimental:account:check-subscription") as Promise<SubscriptionInfo>
+        ipcRenderer.invoke(
+          "kindroid-experimental:account:check-subscription"
+        ) as Promise<SubscriptionInfo>
     },
     profile: {
       updateUserProfile: (options: UpdateUserProfileOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:profile:update-user-profile", options) as Promise<void>
+        ipcRenderer.invoke(
+          "kindroid-experimental:profile:update-user-profile",
+          options
+        ) as Promise<void>
     },
     kin: {
       create: (options: CreateKinOptions) =>
@@ -103,36 +115,65 @@ const cadenceBridge = {
       update: (options: UpdateKinOptions) =>
         ipcRenderer.invoke("kindroid-experimental:kin:update", options) as Promise<void>,
       createJournalEntry: (options: CreateJournalEntryOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:kin:create-journal-entry", options) as Promise<void>
+        ipcRenderer.invoke(
+          "kindroid-experimental:kin:create-journal-entry",
+          options
+        ) as Promise<void>
     },
     media: {
       requestSelfie: (options: RequestSelfieOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:media:request-selfie", options) as Promise<void>,
+        ipcRenderer.invoke(
+          "kindroid-experimental:media:request-selfie",
+          options
+        ) as Promise<void>,
       requestGroupSelfie: (options: RequestGroupSelfieOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:media:request-group-selfie", options) as Promise<void>
+        ipcRenderer.invoke(
+          "kindroid-experimental:media:request-group-selfie",
+          options
+        ) as Promise<void>
     },
     groupChats: {
       create: (options: CreateGroupChatOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:group-chats:create", options) as Promise<string>,
+        ipcRenderer.invoke(
+          "kindroid-experimental:group-chats:create",
+          options
+        ) as Promise<string>,
       update: (options: UpdateGroupChatOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:group-chats:update", options) as Promise<void>,
+        ipcRenderer.invoke(
+          "kindroid-experimental:group-chats:update",
+          options
+        ) as Promise<void>,
       sendMessage: (options: SendGroupChatMessageOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:group-chats:send-message", options) as Promise<string>,
+        ipcRenderer.invoke(
+          "kindroid-experimental:group-chats:send-message",
+          options
+        ) as Promise<string>,
       getTurn: (options: GroupChatGetTurnOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:group-chats:get-turn", options) as Promise<string>,
+        ipcRenderer.invoke(
+          "kindroid-experimental:group-chats:get-turn",
+          options
+        ) as Promise<string>,
       aiResponse: (options: GroupChatAiResponseOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:group-chats:ai-response", options) as Promise<string>
+        ipcRenderer.invoke(
+          "kindroid-experimental:group-chats:ai-response",
+          options
+        ) as Promise<string>
     },
     suggestions: {
       userMessage: (options: SuggestUserMessageOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:suggestions:user-message", options) as Promise<string>,
+        ipcRenderer.invoke(
+          "kindroid-experimental:suggestions:user-message",
+          options
+        ) as Promise<string>,
       userGroupMessage: (options: SuggestUserGroupMessageOptions) =>
-        ipcRenderer.invoke("kindroid-experimental:suggestions:user-group-message", options) as Promise<string>
+        ipcRenderer.invoke(
+          "kindroid-experimental:suggestions:user-group-message",
+          options
+        ) as Promise<string>
     }
   } satisfies KindroidExperimentalBridge,
   memory: {
-    getState: () =>
-      ipcRenderer.invoke("memory:get-state") as Promise<MemoryControlState>,
+    getState: () => ipcRenderer.invoke("memory:get-state") as Promise<MemoryControlState>,
     list: (profileId?: string) =>
       ipcRenderer.invoke("memory:list", profileId) as Promise<MemoryStoredItem[]>,
     listSessions: (profileId?: string) =>
@@ -193,8 +234,7 @@ const cadenceBridge = {
       ipcRenderer.invoke("realtime:send-user-audio", audio) as Promise<void>,
     interruptAssistant: (reason?: "user_barge_in" | "operator_stop") =>
       ipcRenderer.invoke("realtime:interrupt-assistant", reason) as Promise<void>,
-    getState: () =>
-      ipcRenderer.invoke("realtime:get-state") as Promise<RealtimeControlState>,
+    getState: () => ipcRenderer.invoke("realtime:get-state") as Promise<RealtimeControlState>,
     onEvent: (listener: (event: CadenceEvent) => void) => {
       const handler = (_event: unknown, payload: CadenceEvent) => {
         listener(payload);
@@ -207,12 +247,8 @@ const cadenceBridge = {
     }
   } satisfies RealtimeBridge,
   text: {
-    getState: () =>
-      ipcRenderer.invoke("text:get-state") as Promise<TextControlState>,
-    createResponse: (
-      input: string,
-      options?: TextResponseOptions
-    ) =>
+    getState: () => ipcRenderer.invoke("text:get-state") as Promise<TextControlState>,
+    createResponse: (input: string, options?: TextResponseOptions) =>
       ipcRenderer.invoke("text:create-response", input, options) as Promise<{
         text: string;
         model: string;

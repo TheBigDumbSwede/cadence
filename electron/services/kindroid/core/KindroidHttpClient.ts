@@ -23,7 +23,7 @@ export class KindroidApiError extends Error {
 function parseTextResponse(raw: string): string {
   const trimmed = raw.trim();
 
-  if (trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
     try {
       const parsed = JSON.parse(trimmed);
       if (typeof parsed === "string") {

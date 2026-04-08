@@ -1,9 +1,5 @@
 import { getCadenceBridge } from "../../bridge";
-import type {
-  LiveConversationTransport,
-  TransportConfig,
-  Unsubscribe
-} from "../../contracts";
+import type { LiveConversationTransport, TransportConfig, Unsubscribe } from "../../contracts";
 import type { CadenceEvent } from "../../../shared/voice-events";
 
 export class KindroidIpcTransport implements LiveConversationTransport {
@@ -21,13 +17,10 @@ export class KindroidIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message:
-          "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.",
+        message: "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.",
         recoverable: false
       });
-      throw new Error(
-        "Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID."
-      );
+      throw new Error("Kindroid is not configured. Add KINDROID_API_KEY and KINDROID_AI_ID.");
     }
 
     this.emit({

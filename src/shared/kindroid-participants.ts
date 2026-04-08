@@ -8,8 +8,7 @@ export const KINDROID_WAVEFORM_ACCENT_OPTIONS = [
   "none"
 ] as const;
 
-export type KindroidWaveformAccent =
-  (typeof KINDROID_WAVEFORM_ACCENT_OPTIONS)[number];
+export type KindroidWaveformAccent = (typeof KINDROID_WAVEFORM_ACCENT_OPTIONS)[number];
 
 export const KINDROID_WAVEFORM_COLOR_PALETTE = [
   "#d7955b",

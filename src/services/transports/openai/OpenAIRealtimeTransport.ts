@@ -1,8 +1,4 @@
-import type {
-  LiveConversationTransport,
-  TransportConfig,
-  Unsubscribe
-} from "../../contracts";
+import type { LiveConversationTransport, TransportConfig, Unsubscribe } from "../../contracts";
 import type { CadenceEvent } from "../../../shared/voice-events";
 
 export class OpenAIRealtimeTransport implements LiveConversationTransport {

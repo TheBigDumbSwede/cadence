@@ -142,7 +142,9 @@ export function SettingsPanel({
     voiceInputMode
   ]);
   const openAiTtsVoiceOptions = openAiTtsVoice
-    ? OPENAI_TTS_VOICE_OPTIONS.includes(openAiTtsVoice as (typeof OPENAI_TTS_VOICE_OPTIONS)[number])
+    ? OPENAI_TTS_VOICE_OPTIONS.includes(
+        openAiTtsVoice as (typeof OPENAI_TTS_VOICE_OPTIONS)[number]
+      )
       ? OPENAI_TTS_VOICE_OPTIONS
       : [openAiTtsVoice, ...OPENAI_TTS_VOICE_OPTIONS]
     : OPENAI_TTS_VOICE_OPTIONS;
@@ -150,426 +152,428 @@ export function SettingsPanel({
   return (
     <div className="menu-pane">
       <div className="menu-pane-scroll menu-stack">
-      <section className="menu-section">
-        <div className="menu-section-header">
-          <div>
-            <p className="eyebrow">Interaction</p>
-            <h3 className="panel-title">Interaction mode</h3>
-          </div>
-        </div>
-        <div className="mode-switch">
-          <button
-            type="button"
-            className={`preview-button ${mode === "voice" ? "active" : ""}`}
-            onClick={() => setMode("voice")}
-          >
-            <strong>Voice</strong>
-            <span>Voice turns with spoken or text replies.</span>
-          </button>
-          <button
-            type="button"
-            className={`preview-button ${mode === "text" ? "active" : ""}`}
-            onClick={() => setMode("text")}
-          >
-            <strong>Text-only</strong>
-            <span>Typed turns only.</span>
-          </button>
-        </div>
-      </section>
-
-      {mode === "voice" ? (
         <section className="menu-section">
           <div className="menu-section-header">
             <div>
-              <p className="eyebrow">Voice Input</p>
-              <h3 className="panel-title">Voice capture</h3>
+              <p className="eyebrow">Interaction</p>
+              <h3 className="panel-title">Interaction mode</h3>
             </div>
           </div>
           <div className="mode-switch">
             <button
               type="button"
-              className={`preview-button ${voiceInputMode === "push_to_talk" ? "active" : ""}`}
-              onClick={() => setVoiceInputMode("push_to_talk")}
+              className={`preview-button ${mode === "voice" ? "active" : ""}`}
+              onClick={() => setMode("voice")}
             >
-              <strong>Push To Talk</strong>
-              <span>Button or Space starts and stops capture.</span>
+              <strong>Voice</strong>
+              <span>Voice turns with spoken or text replies.</span>
             </button>
             <button
               type="button"
-              className={`preview-button ${voiceInputMode === "hot_mic" ? "active" : ""}`}
-              onClick={() => setVoiceInputMode("hot_mic")}
+              className={`preview-button ${mode === "text" ? "active" : ""}`}
+              onClick={() => setMode("text")}
             >
-              <strong>Hot Mic</strong>
-              <span>Open mic with speech and pause detection.</span>
+              <strong>Text-only</strong>
+              <span>Typed turns only.</span>
             </button>
           </div>
         </section>
-      ) : null}
 
-      {mode === "voice" ? (
-        <section className="menu-section">
-          <div className="menu-section-header">
-            <div>
-              <p className="eyebrow">Voice Backend</p>
-              <h3 className="panel-title">Voice backend</h3>
-            </div>
-          </div>
-          <div className="mode-switch">
-            <button
-              type="button"
-              className={`preview-button ${voiceBackend === "openai" ? "active" : ""}`}
-              onClick={() => setVoiceBackend("openai")}
-            >
-              <strong>OpenAI Realtime</strong>
-              <span>Native low-latency speech.</span>
-            </button>
-            <button
-              type="button"
-              className={`preview-button ${voiceBackend === "openai-batch" ? "active" : ""}`}
-              onClick={() => setVoiceBackend("openai-batch")}
-            >
-              <strong>OpenAI Voice</strong>
-              <span>STT plus Responses with shared output options.</span>
-            </button>
-            <button
-              type="button"
-              className={`preview-button ${voiceBackend === "kindroid" ? "active" : ""}`}
-              onClick={() => setVoiceBackend("kindroid")}
-            >
-              <strong>Kindroid Voice</strong>
-              <span>OpenAI STT, Kindroid reply, participant-routed output.</span>
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {mode === "voice" && voiceBackend === "openai-batch" ? (
-        <section className="menu-section">
-          <div className="menu-section-header">
-            <div>
-              <p className="eyebrow">Output Layer</p>
-              <h3 className="panel-title">Output</h3>
-            </div>
-          </div>
-          <div className="mode-switch mode-switch-triple">
-            <button
-              type="button"
-              className={`preview-button ${ttsProvider === "none" ? "active" : ""}`}
-              onClick={() => setTtsProvider("none")}
-            >
-              <strong>Text Reply</strong>
-              <span>Return text only.</span>
-            </button>
-            <button
-              type="button"
-              className={`preview-button ${ttsProvider === "elevenlabs" ? "active" : ""}`}
-              onClick={() => setTtsProvider("elevenlabs")}
-            >
-              <strong>ElevenLabs Voice</strong>
-              <span>Character-forward speech.</span>
-            </button>
-            <button
-              type="button"
-              className={`preview-button ${ttsProvider === "openai" ? "active" : ""}`}
-              onClick={() => setTtsProvider("openai")}
-            >
-              <strong>OpenAI Voice</strong>
-              <span>Single-vendor speech path.</span>
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {mode === "text" ? (
-        <section className="menu-section">
-          <div className="menu-section-header">
-            <div>
-              <p className="eyebrow">Text Backend</p>
-              <h3 className="panel-title">Text backend</h3>
-            </div>
-          </div>
-          <div className="mode-switch">
-            <button
-              type="button"
-              className={`preview-button ${textBackend === "openai" ? "active" : ""}`}
-              onClick={() => setTextBackend("openai")}
-            >
-              <strong>OpenAI Text</strong>
-              <span>General-purpose typed chat.</span>
-            </button>
-            <button
-              type="button"
-              className={`preview-button ${textBackend === "kindroid" ? "active" : ""}`}
-              onClick={() => setTextBackend("kindroid")}
-            >
-              <strong>Kindroid</strong>
-              <span>Character backend via your participant roster.</span>
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="menu-section">
-        <div className="menu-section-header">
-          <div>
-            <p className="eyebrow">Credentials</p>
-            <h3 className="panel-title">Local keys and IDs</h3>
-          </div>
-        </div>
-
-        <div className="settings-form-grid">
-          <article className="setting-card">
-            <strong>OpenAI</strong>
-            <div className="settings-field">
-              <label htmlFor="openai-api-key">API key</label>
-              <div className="secret-row">
-                <input
-                  id="openai-api-key"
-                  className="settings-input"
-                  type="password"
-                  autoComplete="off"
-                  value={openAiApiKey}
-                  placeholder={
-                    clearOpenAiApiKey
-                      ? "Key will be cleared on save"
-                      : settingsSnapshot?.hasOpenAiApiKey
-                        ? "Stored locally"
-                        : "Paste a new key"
-                  }
-                  onChange={(event) => {
-                    setOpenAiApiKey(event.target.value);
-                    setClearOpenAiApiKey(false);
-                  }}
-                />
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={!settingsSnapshot?.hasOpenAiApiKey && !clearOpenAiApiKey}
-                  onClick={() => {
-                    setOpenAiApiKey("");
-                    setClearOpenAiApiKey(true);
-                  }}
-                >
-                  Clear
-                </button>
+        {mode === "voice" ? (
+          <section className="menu-section">
+            <div className="menu-section-header">
+              <div>
+                <p className="eyebrow">Voice Input</p>
+                <h3 className="panel-title">Voice capture</h3>
               </div>
-              <p className="field-status">
-                {clearOpenAiApiKey
-                  ? "Saved OpenAI key will be removed."
-                  : settingsSnapshot?.hasOpenAiApiKey
-                    ? "OpenAI key is stored locally."
-                    : "No OpenAI key is stored."}
-              </p>
             </div>
-            <div className="settings-field">
-              <label htmlFor="openai-tts-voice">TTS voice</label>
-              <select
-                id="openai-tts-voice"
-                className="settings-input"
-                value={openAiTtsVoice}
-                onChange={(event) => setOpenAiTtsVoice(event.target.value)}
+            <div className="mode-switch">
+              <button
+                type="button"
+                className={`preview-button ${voiceInputMode === "push_to_talk" ? "active" : ""}`}
+                onClick={() => setVoiceInputMode("push_to_talk")}
               >
-                <option value="">Default (alloy)</option>
-                {openAiTtsVoiceOptions.map((voice) => (
-                  <option key={voice} value={voice}>
-                    {voice === openAiTtsVoice &&
-                    !OPENAI_TTS_VOICE_OPTIONS.includes(
-                      voice as (typeof OPENAI_TTS_VOICE_OPTIONS)[number]
-                    )
-                      ? `Custom: ${voice}`
-                      : voice}
-                  </option>
-                ))}
-              </select>
+                <strong>Push To Talk</strong>
+                <span>Button or Space starts and stops capture.</span>
+              </button>
+              <button
+                type="button"
+                className={`preview-button ${voiceInputMode === "hot_mic" ? "active" : ""}`}
+                onClick={() => setVoiceInputMode("hot_mic")}
+              >
+                <strong>Hot Mic</strong>
+                <span>Open mic with speech and pause detection.</span>
+              </button>
             </div>
-            <div className="settings-field">
-              <label htmlFor="openai-tts-instructions">TTS instructions</label>
-              <textarea
-                id="openai-tts-instructions"
-                className="settings-input"
-                rows={4}
-                value={openAiTtsInstructions}
-                onChange={(event) => setOpenAiTtsInstructions(event.target.value)}
-                placeholder="Speak in a calm, warm, lightly accented tone."
-              />
-              <p className="field-status">
-                Optional delivery guidance for OpenAI batch speech output, such as tone, pacing,
-                accent, or affect.
-              </p>
-            </div>
-            <div className="settings-field">
-              <label htmlFor="memory-base-url">Memory backend URL</label>
-              <input
-                id="memory-base-url"
-                className="settings-input"
-                type="text"
-                value={memoryBaseUrl}
-                onChange={(event) => setMemoryBaseUrl(event.target.value)}
-                placeholder="http://127.0.0.1:8787"
-              />
-              <p className="field-status">
-                Optional sidecar endpoint for shared long-term memory across OpenAI paths.
-              </p>
-            </div>
-          </article>
+          </section>
+        ) : null}
 
-          <article className="setting-card">
-            <strong>ElevenLabs</strong>
-            <div className="settings-field">
-              <label htmlFor="elevenlabs-api-key">API key</label>
-              <div className="secret-row">
-                <input
-                  id="elevenlabs-api-key"
-                  className="settings-input"
-                  type="password"
-                  autoComplete="off"
-                  value={elevenLabsApiKey}
-                  placeholder={
-                    clearElevenLabsApiKey
-                      ? "Key will be cleared on save"
-                      : settingsSnapshot?.hasElevenLabsApiKey
-                        ? "Stored locally"
-                        : "Paste a new key"
-                  }
-                  onChange={(event) => {
-                    setElevenLabsApiKey(event.target.value);
-                    setClearElevenLabsApiKey(false);
-                  }}
-                />
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={!settingsSnapshot?.hasElevenLabsApiKey && !clearElevenLabsApiKey}
-                  onClick={() => {
-                    setElevenLabsApiKey("");
-                    setClearElevenLabsApiKey(true);
-                  }}
-                >
-                  Clear
-                </button>
+        {mode === "voice" ? (
+          <section className="menu-section">
+            <div className="menu-section-header">
+              <div>
+                <p className="eyebrow">Voice Backend</p>
+                <h3 className="panel-title">Voice backend</h3>
               </div>
-              <p className="field-status">
-                {clearElevenLabsApiKey
-                  ? "Saved ElevenLabs key will be removed."
-                  : settingsSnapshot?.hasElevenLabsApiKey
-                    ? "ElevenLabs key is stored locally."
-                    : "No ElevenLabs key is stored."}
-              </p>
             </div>
-            <div className="settings-field">
-              <label htmlFor="elevenlabs-voice-id">Voice ID</label>
-              <input
-                id="elevenlabs-voice-id"
-                className="settings-input"
-                type="text"
-                value={elevenLabsVoiceId}
-                onChange={(event) => setElevenLabsVoiceId(event.target.value)}
-                placeholder="Voice ID"
-              />
+            <div className="mode-switch">
+              <button
+                type="button"
+                className={`preview-button ${voiceBackend === "openai" ? "active" : ""}`}
+                onClick={() => setVoiceBackend("openai")}
+              >
+                <strong>OpenAI Realtime</strong>
+                <span>Native low-latency speech.</span>
+              </button>
+              <button
+                type="button"
+                className={`preview-button ${voiceBackend === "openai-batch" ? "active" : ""}`}
+                onClick={() => setVoiceBackend("openai-batch")}
+              >
+                <strong>OpenAI Voice</strong>
+                <span>STT plus Responses with shared output options.</span>
+              </button>
+              <button
+                type="button"
+                className={`preview-button ${voiceBackend === "kindroid" ? "active" : ""}`}
+                onClick={() => setVoiceBackend("kindroid")}
+              >
+                <strong>Kindroid Voice</strong>
+                <span>OpenAI STT, Kindroid reply, participant-routed output.</span>
+              </button>
             </div>
-          </article>
+          </section>
+        ) : null}
 
-          <article className="setting-card">
-            <strong>Kindroid</strong>
-            <div className="settings-field">
-              <label htmlFor="kindroid-api-key">API key</label>
-              <div className="secret-row">
-                <input
-                  id="kindroid-api-key"
-                  className="settings-input"
-                  type="password"
-                  autoComplete="off"
-                  value={kindroidApiKey}
-                  placeholder={
-                    clearKindroidApiKey
-                      ? "Key will be cleared on save"
-                      : settingsSnapshot?.hasKindroidApiKey
-                        ? "Stored locally"
-                        : "Paste a new key"
-                  }
-                  onChange={(event) => {
-                    setKindroidApiKey(event.target.value);
-                    setClearKindroidApiKey(false);
-                  }}
-                />
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={!settingsSnapshot?.hasKindroidApiKey && !clearKindroidApiKey}
-                  onClick={() => {
-                    setKindroidApiKey("");
-                    setClearKindroidApiKey(true);
-                  }}
-                >
-                  Clear
-                </button>
+        {mode === "voice" && voiceBackend === "openai-batch" ? (
+          <section className="menu-section">
+            <div className="menu-section-header">
+              <div>
+                <p className="eyebrow">Output Layer</p>
+                <h3 className="panel-title">Output</h3>
               </div>
-              <p className="field-status">
-                {clearKindroidApiKey
-                  ? "Saved Kindroid key will be removed."
-                  : settingsSnapshot?.hasKindroidApiKey
-                    ? "Kindroid key is stored locally."
-                    : "No Kindroid key is stored."}
-              </p>
             </div>
-            <div className="settings-field">
-              <label htmlFor="kindroid-base-url">Base URL</label>
-              <input
-                id="kindroid-base-url"
-                className="settings-input"
-                type="text"
-                value={kindroidBaseUrl}
-                onChange={(event) => setKindroidBaseUrl(event.target.value)}
-                placeholder="https://api.kindroid.ai/v1"
-              />
+            <div className="mode-switch mode-switch-triple">
+              <button
+                type="button"
+                className={`preview-button ${ttsProvider === "none" ? "active" : ""}`}
+                onClick={() => setTtsProvider("none")}
+              >
+                <strong>Text Reply</strong>
+                <span>Return text only.</span>
+              </button>
+              <button
+                type="button"
+                className={`preview-button ${ttsProvider === "elevenlabs" ? "active" : ""}`}
+                onClick={() => setTtsProvider("elevenlabs")}
+              >
+                <strong>ElevenLabs Voice</strong>
+                <span>Character-forward speech.</span>
+              </button>
+              <button
+                type="button"
+                className={`preview-button ${ttsProvider === "openai" ? "active" : ""}`}
+                onClick={() => setTtsProvider("openai")}
+              >
+                <strong>OpenAI Voice</strong>
+                <span>Single-vendor speech path.</span>
+              </button>
             </div>
-            <div className="settings-field">
-              <label htmlFor="kindroid-greeting">Default chat-break greeting</label>
-              <textarea
-                id="kindroid-greeting"
-                className="settings-input"
-                rows={3}
-                value={kindroidGreeting}
-                onChange={(event) => setKindroidGreeting(event.target.value)}
-                placeholder="Hello."
-              />
-              <p className="field-status">
-                Used to prefill the Chat Break dialog. Kindroid uses this greeting as the first
-                assistant message in a new conversation.
-              </p>
-            </div>
-            <p className="field-status">
-              Kindroid participants and per-character output routing now live in the Kindroid
-              menu.
-            </p>
-          </article>
-        </div>
-      </section>
+          </section>
+        ) : null}
 
-      <section className="menu-section">
-        <div className="menu-section-header">
-          <div>
-            <p className="eyebrow">Configuration</p>
-            <h3 className="panel-title">Current backend</h3>
+        {mode === "text" ? (
+          <section className="menu-section">
+            <div className="menu-section-header">
+              <div>
+                <p className="eyebrow">Text Backend</p>
+                <h3 className="panel-title">Text backend</h3>
+              </div>
+            </div>
+            <div className="mode-switch">
+              <button
+                type="button"
+                className={`preview-button ${textBackend === "openai" ? "active" : ""}`}
+                onClick={() => setTextBackend("openai")}
+              >
+                <strong>OpenAI Text</strong>
+                <span>General-purpose typed chat.</span>
+              </button>
+              <button
+                type="button"
+                className={`preview-button ${textBackend === "kindroid" ? "active" : ""}`}
+                onClick={() => setTextBackend("kindroid")}
+              >
+                <strong>Kindroid</strong>
+                <span>Character backend via your participant roster.</span>
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className="menu-section">
+          <div className="menu-section-header">
+            <div>
+              <p className="eyebrow">Credentials</p>
+              <h3 className="panel-title">Local keys and IDs</h3>
+            </div>
           </div>
-        </div>
-        <div className="settings-grid">
-          <article className="setting-card">
-            <strong>Active config</strong>
-            <p className="setting-copy">
-              {backendConfig.configured
-                ? "Required configuration appears present."
-                : "Configuration is incomplete for the active backend."}
-            </p>
-          </article>
-          {backendConfig.items.map((item) => (
-            <article key={item.label} className="setting-card">
-              <strong>{item.label}</strong>
-              <p className="setting-copy">{item.present ? item.value ?? "Present" : "Missing"}</p>
+
+          <div className="settings-form-grid">
+            <article className="setting-card">
+              <strong>OpenAI</strong>
+              <div className="settings-field">
+                <label htmlFor="openai-api-key">API key</label>
+                <div className="secret-row">
+                  <input
+                    id="openai-api-key"
+                    className="settings-input"
+                    type="password"
+                    autoComplete="off"
+                    value={openAiApiKey}
+                    placeholder={
+                      clearOpenAiApiKey
+                        ? "Key will be cleared on save"
+                        : settingsSnapshot?.hasOpenAiApiKey
+                          ? "Stored locally"
+                          : "Paste a new key"
+                    }
+                    onChange={(event) => {
+                      setOpenAiApiKey(event.target.value);
+                      setClearOpenAiApiKey(false);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={!settingsSnapshot?.hasOpenAiApiKey && !clearOpenAiApiKey}
+                    onClick={() => {
+                      setOpenAiApiKey("");
+                      setClearOpenAiApiKey(true);
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <p className="field-status">
+                  {clearOpenAiApiKey
+                    ? "Saved OpenAI key will be removed."
+                    : settingsSnapshot?.hasOpenAiApiKey
+                      ? "OpenAI key is stored locally."
+                      : "No OpenAI key is stored."}
+                </p>
+              </div>
+              <div className="settings-field">
+                <label htmlFor="openai-tts-voice">TTS voice</label>
+                <select
+                  id="openai-tts-voice"
+                  className="settings-input"
+                  value={openAiTtsVoice}
+                  onChange={(event) => setOpenAiTtsVoice(event.target.value)}
+                >
+                  <option value="">Default (alloy)</option>
+                  {openAiTtsVoiceOptions.map((voice) => (
+                    <option key={voice} value={voice}>
+                      {voice === openAiTtsVoice &&
+                      !OPENAI_TTS_VOICE_OPTIONS.includes(
+                        voice as (typeof OPENAI_TTS_VOICE_OPTIONS)[number]
+                      )
+                        ? `Custom: ${voice}`
+                        : voice}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="settings-field">
+                <label htmlFor="openai-tts-instructions">TTS instructions</label>
+                <textarea
+                  id="openai-tts-instructions"
+                  className="settings-input"
+                  rows={4}
+                  value={openAiTtsInstructions}
+                  onChange={(event) => setOpenAiTtsInstructions(event.target.value)}
+                  placeholder="Speak in a calm, warm, lightly accented tone."
+                />
+                <p className="field-status">
+                  Optional delivery guidance for OpenAI batch speech output, such as tone,
+                  pacing, accent, or affect.
+                </p>
+              </div>
+              <div className="settings-field">
+                <label htmlFor="memory-base-url">Memory backend URL</label>
+                <input
+                  id="memory-base-url"
+                  className="settings-input"
+                  type="text"
+                  value={memoryBaseUrl}
+                  onChange={(event) => setMemoryBaseUrl(event.target.value)}
+                  placeholder="http://127.0.0.1:8787"
+                />
+                <p className="field-status">
+                  Optional sidecar endpoint for shared long-term memory across OpenAI paths.
+                </p>
+              </div>
             </article>
-          ))}
-        </div>
-      </section>
+
+            <article className="setting-card">
+              <strong>ElevenLabs</strong>
+              <div className="settings-field">
+                <label htmlFor="elevenlabs-api-key">API key</label>
+                <div className="secret-row">
+                  <input
+                    id="elevenlabs-api-key"
+                    className="settings-input"
+                    type="password"
+                    autoComplete="off"
+                    value={elevenLabsApiKey}
+                    placeholder={
+                      clearElevenLabsApiKey
+                        ? "Key will be cleared on save"
+                        : settingsSnapshot?.hasElevenLabsApiKey
+                          ? "Stored locally"
+                          : "Paste a new key"
+                    }
+                    onChange={(event) => {
+                      setElevenLabsApiKey(event.target.value);
+                      setClearElevenLabsApiKey(false);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={!settingsSnapshot?.hasElevenLabsApiKey && !clearElevenLabsApiKey}
+                    onClick={() => {
+                      setElevenLabsApiKey("");
+                      setClearElevenLabsApiKey(true);
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <p className="field-status">
+                  {clearElevenLabsApiKey
+                    ? "Saved ElevenLabs key will be removed."
+                    : settingsSnapshot?.hasElevenLabsApiKey
+                      ? "ElevenLabs key is stored locally."
+                      : "No ElevenLabs key is stored."}
+                </p>
+              </div>
+              <div className="settings-field">
+                <label htmlFor="elevenlabs-voice-id">Voice ID</label>
+                <input
+                  id="elevenlabs-voice-id"
+                  className="settings-input"
+                  type="text"
+                  value={elevenLabsVoiceId}
+                  onChange={(event) => setElevenLabsVoiceId(event.target.value)}
+                  placeholder="Voice ID"
+                />
+              </div>
+            </article>
+
+            <article className="setting-card">
+              <strong>Kindroid</strong>
+              <div className="settings-field">
+                <label htmlFor="kindroid-api-key">API key</label>
+                <div className="secret-row">
+                  <input
+                    id="kindroid-api-key"
+                    className="settings-input"
+                    type="password"
+                    autoComplete="off"
+                    value={kindroidApiKey}
+                    placeholder={
+                      clearKindroidApiKey
+                        ? "Key will be cleared on save"
+                        : settingsSnapshot?.hasKindroidApiKey
+                          ? "Stored locally"
+                          : "Paste a new key"
+                    }
+                    onChange={(event) => {
+                      setKindroidApiKey(event.target.value);
+                      setClearKindroidApiKey(false);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={!settingsSnapshot?.hasKindroidApiKey && !clearKindroidApiKey}
+                    onClick={() => {
+                      setKindroidApiKey("");
+                      setClearKindroidApiKey(true);
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <p className="field-status">
+                  {clearKindroidApiKey
+                    ? "Saved Kindroid key will be removed."
+                    : settingsSnapshot?.hasKindroidApiKey
+                      ? "Kindroid key is stored locally."
+                      : "No Kindroid key is stored."}
+                </p>
+              </div>
+              <div className="settings-field">
+                <label htmlFor="kindroid-base-url">Base URL</label>
+                <input
+                  id="kindroid-base-url"
+                  className="settings-input"
+                  type="text"
+                  value={kindroidBaseUrl}
+                  onChange={(event) => setKindroidBaseUrl(event.target.value)}
+                  placeholder="https://api.kindroid.ai/v1"
+                />
+              </div>
+              <div className="settings-field">
+                <label htmlFor="kindroid-greeting">Default chat-break greeting</label>
+                <textarea
+                  id="kindroid-greeting"
+                  className="settings-input"
+                  rows={3}
+                  value={kindroidGreeting}
+                  onChange={(event) => setKindroidGreeting(event.target.value)}
+                  placeholder="Hello."
+                />
+                <p className="field-status">
+                  Used to prefill the Chat Break dialog. Kindroid uses this greeting as the
+                  first assistant message in a new conversation.
+                </p>
+              </div>
+              <p className="field-status">
+                Kindroid participants and per-character output routing now live in the Kindroid
+                menu.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section className="menu-section">
+          <div className="menu-section-header">
+            <div>
+              <p className="eyebrow">Configuration</p>
+              <h3 className="panel-title">Current backend</h3>
+            </div>
+          </div>
+          <div className="settings-grid">
+            <article className="setting-card">
+              <strong>Active config</strong>
+              <p className="setting-copy">
+                {backendConfig.configured
+                  ? "Required configuration appears present."
+                  : "Configuration is incomplete for the active backend."}
+              </p>
+            </article>
+            {backendConfig.items.map((item) => (
+              <article key={item.label} className="setting-card">
+                <strong>{item.label}</strong>
+                <p className="setting-copy">
+                  {item.present ? (item.value ?? "Present") : "Missing"}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
       <div className="settings-toolbar menu-pane-footer">
         <div className="settings-feedback">
@@ -597,8 +601,7 @@ export function SettingsPanel({
               kindroidApiKey: kindroidApiKey.trim() || undefined,
               kindroidBaseUrl,
               kindroidGreeting,
-              kindroidConversationMode:
-                settingsSnapshot?.kindroidConversationMode ?? "solo",
+              kindroidConversationMode: settingsSnapshot?.kindroidConversationMode ?? "solo",
               kindroidParticipants: settingsSnapshot?.kindroidParticipants ?? [],
               activeKindroidParticipantId:
                 settingsSnapshot?.activeKindroidParticipantId ?? null,

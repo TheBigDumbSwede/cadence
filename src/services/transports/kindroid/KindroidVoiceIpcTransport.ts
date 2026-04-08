@@ -7,10 +7,7 @@ import type {
 } from "../../contracts";
 import type { CadenceEvent } from "../../../shared/voice-events";
 import type { KindroidParticipant } from "../../../shared/kindroid-participants";
-import {
-  formatNarrationEffectCaption,
-  type SelectedNarrationEffect
-} from "./narrationEffects";
+import { formatNarrationEffectCaption, type SelectedNarrationEffect } from "./narrationEffects";
 import {
   selectNarrationEffectFromDelimitersWithModel,
   selectNarrationEffectWithModel
@@ -227,10 +224,7 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
           voiceId: this.config?.voice || undefined
         });
 
-    const narrationTiming = await this.queueNarrationEffect(
-      assistantTurnId,
-      narrationEffect,
-    );
+    const narrationTiming = await this.queueNarrationEffect(assistantTurnId, narrationEffect);
     this.emit({
       type: "assistant.audio.chunk",
       turnId: assistantTurnId,
@@ -293,7 +287,10 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
       0
     );
 
-    if (!this.config?.kindroidActiveParticipant?.narrationFxEnabled || !this.canPlayNarrationFx) {
+    if (
+      !this.config?.kindroidActiveParticipant?.narrationFxEnabled ||
+      !this.canPlayNarrationFx
+    ) {
       return Promise.resolve({
         startDelayMs: 0,
         captionOffsetMs: 0,
@@ -329,14 +326,13 @@ export class KindroidVoiceIpcTransport implements LiveConversationTransport {
             captionText
           });
         }
-        const captionOffsetMs =
-          results.reduce(
-            (sum, result, index) =>
-              sum +
-              Math.round(result.beat.durationSeconds * 1000) +
-              (index === results.length - 1 ? 120 : 80),
-            0
-          );
+        const captionOffsetMs = results.reduce(
+          (sum, result, index) =>
+            sum +
+            Math.round(result.beat.durationSeconds * 1000) +
+            (index === results.length - 1 ? 120 : 80),
+          0
+        );
         return {
           startDelayMs: 0,
           captionOffsetMs,

@@ -9,10 +9,7 @@ export function registerTextIpc(): void {
 
   ipcMain.handle(
     "text:create-response",
-    async (
-      _event,
-      input: string,
-      options?: TextResponseOptions
-    ) => client.createResponse(input, options)
+    async (_event, input: string, options?: TextResponseOptions) =>
+      client.createResponse(input, options)
   );
 }

@@ -63,9 +63,7 @@ export function StagePanel({
         ) : null}
         {speechCaption ? (
           <div className="stage-caption" aria-live="polite">
-            {speechCaption.speakerLabel ? (
-              <strong>{speechCaption.speakerLabel}</strong>
-            ) : null}
+            {speechCaption.speakerLabel ? <strong>{speechCaption.speakerLabel}</strong> : null}
             <span>{speechCaption.text}</span>
           </div>
         ) : null}

@@ -1,7 +1,4 @@
-import type {
-  PresenceDirective,
-  PresenceSnapshot
-} from "../../shared/performance-directive";
+import type { PresenceDirective, PresenceSnapshot } from "../../shared/performance-directive";
 
 export function snapshotFromDirective(
   directive: PresenceDirective,
@@ -18,6 +15,6 @@ export function snapshotFromDirective(
     ...directive,
     gestureRevision: shouldRetrigger
       ? (previous?.gestureRevision ?? 0) + 1
-      : previous?.gestureRevision ?? 0
+      : (previous?.gestureRevision ?? 0)
   };
 }

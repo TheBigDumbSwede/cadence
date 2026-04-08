@@ -9,17 +9,11 @@ import type { BackendConfigSummary } from "../shared/backend-config";
 import type { TextBackendProvider } from "../shared/backend-provider";
 import type { SettingsSnapshot, SettingsUpdate } from "../shared/app-settings";
 import type { InteractionMode } from "../shared/interaction-mode";
-import type {
-  PresenceDirective,
-  PresenceSnapshot
-} from "../shared/performance-directive";
+import type { PresenceDirective, PresenceSnapshot } from "../shared/performance-directive";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
-import type {
-  SpeechCaptionCue,
-  SpeechCaptionMode
-} from "../shared/speech-captions";
+import type { SpeechCaptionCue, SpeechCaptionMode } from "../shared/speech-captions";
 import {
   findActiveSpeechCaptionCue,
   offsetSpeechCaptionCues,
@@ -112,9 +106,9 @@ export function useCadenceController() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsRevision, setSettingsRevision] = useState(0);
   const [settingsSnapshot, setSettingsSnapshot] = useState<SettingsSnapshot | null>(null);
-  const [settingsSaveState, setSettingsSaveState] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle"
-  );
+  const [settingsSaveState, setSettingsSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const [settingsFeedback, setSettingsFeedback] = useState("");
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [activeStateId, setActiveStateId] = useState<PreviewAssistantStateId>("idle");
@@ -219,8 +213,7 @@ export function useCadenceController() {
       null
     );
   }, [kindroidGroupMirrors, settingsSnapshot?.activeKindroidGroupMirrorId]);
-  const kindroidConversationMode =
-    settingsSnapshot?.kindroidConversationMode ?? "solo";
+  const kindroidConversationMode = settingsSnapshot?.kindroidConversationMode ?? "solo";
   const usesKindroidGroupConversation =
     kindroidConversationMode === "group" && Boolean(activeKindroidGroupMirror);
   const activeKindroidGroupParticipants = useMemo(
@@ -254,7 +247,7 @@ export function useCadenceController() {
     }
 
     const activePlaybackParticipantId = outputPlayback.activeTurnId
-      ? assistantTurnParticipantIdsRef.current.get(outputPlayback.activeTurnId) ?? null
+      ? (assistantTurnParticipantIdsRef.current.get(outputPlayback.activeTurnId) ?? null)
       : null;
 
     if (activePlaybackParticipantId) {
@@ -271,16 +264,16 @@ export function useCadenceController() {
     ) {
       return (
         settingsSnapshot?.kindroidParticipants.find(
-          (participant) =>
-            participant.id === pendingConversationHint.kindroidParticipantId
+          (participant) => participant.id === pendingConversationHint.kindroidParticipantId
         ) ?? null
       );
     }
 
     const lastAssistantParticipantId = [...turns]
       .reverse()
-      .find((turn) => turn.speaker === "assistant" && turn.kindroidParticipantId)
-      ?.kindroidParticipantId;
+      .find(
+        (turn) => turn.speaker === "assistant" && turn.kindroidParticipantId
+      )?.kindroidParticipantId;
 
     if (!lastAssistantParticipantId) {
       return null;
@@ -431,17 +424,21 @@ export function useCadenceController() {
     }
 
     if (outputPlayback.activeTurnId) {
-      const activePlaybackParticipantId =
-        assistantTurnParticipantIdsRef.current.get(outputPlayback.activeTurnId);
+      const activePlaybackParticipantId = assistantTurnParticipantIdsRef.current.get(
+        outputPlayback.activeTurnId
+      );
       if (activePlaybackParticipantId) {
         nextEntries.set(outputPlayback.activeTurnId, activePlaybackParticipantId);
       }
-      const activeCaptionTrack = assistantTurnCaptionCuesRef.current.get(outputPlayback.activeTurnId);
+      const activeCaptionTrack = assistantTurnCaptionCuesRef.current.get(
+        outputPlayback.activeTurnId
+      );
       if (activeCaptionTrack) {
         nextCaptionEntries.set(outputPlayback.activeTurnId, activeCaptionTrack);
       }
-      const activeEffectCaption =
-        assistantTurnEffectCaptionsRef.current.get(outputPlayback.activeTurnId);
+      const activeEffectCaption = assistantTurnEffectCaptionsRef.current.get(
+        outputPlayback.activeTurnId
+      );
       if (activeEffectCaption) {
         nextEffectCaptionEntries.set(outputPlayback.activeTurnId, activeEffectCaption);
       }
@@ -483,8 +480,9 @@ export function useCadenceController() {
             )
           : offsetSpeechCaptionCues(captionTrack?.cues ?? [], captionOffsetMs);
       const activeCue = findActiveSpeechCaptionCue(captionCues, elapsedMs);
-      const speakerLabel =
-        turns.find((turn) => turn.id === outputPlayback.activeTurnId)?.speakerLabel;
+      const speakerLabel = turns.find(
+        (turn) => turn.id === outputPlayback.activeTurnId
+      )?.speakerLabel;
 
       setActiveSpeechCaption((previous) => {
         const nextCaption = activeCue
@@ -510,7 +508,7 @@ export function useCadenceController() {
       const speechOffsetMs =
         outputPlayback.speechOffsetMs && outputPlayback.speechOffsetMs > 0
           ? outputPlayback.speechOffsetMs
-          : effectCaption?.durationMs ?? 0;
+          : (effectCaption?.durationMs ?? 0);
       const nextEffectCaption =
         effectCaption && speechOffsetMs > 0 && elapsedMs < speechOffsetMs
           ? effectCaption.text
@@ -569,16 +567,13 @@ export function useCadenceController() {
     hotMicRecorderRef.current?.setSuppressed(hotMicMutedRef.current);
   }
 
-  function scheduleHotMicPlaybackRelease(
-    text: string,
-    kindroidParticipantId?: string
-  ): void {
+  function scheduleHotMicPlaybackRelease(text: string, kindroidParticipantId?: string): void {
     const speakingParticipant =
       voiceBackend === "kindroid"
         ? usesKindroidGroupConversation
-          ? settingsSnapshot?.kindroidParticipants.find(
+          ? (settingsSnapshot?.kindroidParticipants.find(
               (participant) => participant.id === kindroidParticipantId
-            ) ?? null
+            ) ?? null)
           : activeKindroidParticipant
         : null;
     const speechText =
@@ -694,7 +689,9 @@ export function useCadenceController() {
     updatePerformance(directive, { retriggerGesture: true });
     holdPoseState(
       "speaking",
-      stagedTextReplyMode ? estimateAssistantReadMs(text) : estimateAssistantDeliveryMs(text, directive.pace)
+      stagedTextReplyMode
+        ? estimateAssistantReadMs(text)
+        : estimateAssistantDeliveryMs(text, directive.pace)
     );
   }
 
@@ -873,114 +870,118 @@ export function useCadenceController() {
           ]
         });
       });
-    } else if (mode === "voice" && voiceBackend === "kindroid" && usesKindroidGroupConversation) {
+    } else if (
+      mode === "voice" &&
+      voiceBackend === "kindroid" &&
+      usesKindroidGroupConversation
+    ) {
       void Promise.all([
         bridge.openaiAudio.getState(),
         bridge.kindroidExperimental.getState(),
         bridge.elevenlabs.getState(),
         bridge.openaiSpeech.getState()
-      ]).then(([openAiState, kindroidExperimentalState, elevenLabsState, openAiSpeechState]) => {
-        const groupParticipantCount = activeKindroidGroupParticipants.length;
-        const ttsConfigured =
-          !groupKindroidHasAnySpeech
+      ]).then(
+        ([openAiState, kindroidExperimentalState, elevenLabsState, openAiSpeechState]) => {
+          const groupParticipantCount = activeKindroidGroupParticipants.length;
+          const ttsConfigured = !groupKindroidHasAnySpeech
             ? true
             : (!groupKindroidUsesOpenAiSpeech || openAiSpeechState.configured) &&
               (!groupKindroidUsesElevenLabsSpeech || elevenLabsState.configured);
-        const isConfigured =
-          openAiState.configured &&
-          kindroidExperimentalState.enabled &&
-          kindroidExperimentalState.configured &&
-          Boolean(activeKindroidGroupMirror?.groupId) &&
-          groupParticipantCount > 0 &&
-          ttsConfigured;
+          const isConfigured =
+            openAiState.configured &&
+            kindroidExperimentalState.enabled &&
+            kindroidExperimentalState.configured &&
+            Boolean(activeKindroidGroupMirror?.groupId) &&
+            groupParticipantCount > 0 &&
+            ttsConfigured;
 
-        setConfigured(isConfigured);
-        setBackendConfig({
-          mode,
-          providerLabel:
-            !groupKindroidHasAnySpeech
+          setConfigured(isConfigured);
+          setBackendConfig({
+            mode,
+            providerLabel: !groupKindroidHasAnySpeech
               ? "Kindroid Group Voice + Text Reply"
               : "Kindroid Group Voice + Participant TTS",
-          configured: isConfigured,
-          items: [
-            {
-              label: "Group",
-              present: Boolean(activeKindroidGroupMirror),
-              value: activeKindroidGroupMirror?.displayName ?? undefined
-            },
-            {
-              label: "GROUP_ID",
-              present: Boolean(activeKindroidGroupMirror?.groupId),
-              value: activeKindroidGroupMirror?.groupId ?? undefined
-            },
-            {
-              label: "Turn-taking",
-              present: Boolean(activeKindroidGroupMirror),
-              value: activeKindroidGroupMirror?.manualTurnTaking ? "Manual" : "Automatic"
-            },
-            {
-              label: "Manual speaker",
-              present: Boolean(activeKindroidGroupMirror),
-              value: activeKindroidGroupMirror?.manualTurnTaking
-                ? "In-chat roster buttons"
-                : "Not required"
-            },
-            {
-              label: "OPENAI_API_KEY",
-              present: openAiState.apiKeyPresent
-            },
-            {
-              label: "STT model",
-              present: Boolean(openAiState.model),
-              value: openAiState.model ?? undefined
-            },
-            {
-              label: "KINDROID_EXPERIMENTAL",
-              present: kindroidExperimentalState.enabled
-            },
-            {
-              label: "KINDROID_API_KEY",
-              present: kindroidExperimentalState.apiKeyPresent
-            },
-            ...(!groupKindroidHasAnySpeech
-              ? [
-                  {
-                    label: "Speech output",
-                    present: true,
-                    value: "Disabled"
-                  }
-                ]
-              : [
-                  ...(groupKindroidUsesOpenAiSpeech
-                    ? [
+            configured: isConfigured,
+            items: [
+              {
+                label: "Group",
+                present: Boolean(activeKindroidGroupMirror),
+                value: activeKindroidGroupMirror?.displayName ?? undefined
+              },
+              {
+                label: "GROUP_ID",
+                present: Boolean(activeKindroidGroupMirror?.groupId),
+                value: activeKindroidGroupMirror?.groupId ?? undefined
+              },
+              {
+                label: "Turn-taking",
+                present: Boolean(activeKindroidGroupMirror),
+                value: activeKindroidGroupMirror?.manualTurnTaking ? "Manual" : "Automatic"
+              },
+              {
+                label: "Manual speaker",
+                present: Boolean(activeKindroidGroupMirror),
+                value: activeKindroidGroupMirror?.manualTurnTaking
+                  ? "In-chat roster buttons"
+                  : "Not required"
+              },
+              {
+                label: "OPENAI_API_KEY",
+                present: openAiState.apiKeyPresent
+              },
+              {
+                label: "STT model",
+                present: Boolean(openAiState.model),
+                value: openAiState.model ?? undefined
+              },
+              {
+                label: "KINDROID_EXPERIMENTAL",
+                present: kindroidExperimentalState.enabled
+              },
+              {
+                label: "KINDROID_API_KEY",
+                present: kindroidExperimentalState.apiKeyPresent
+              },
+              ...(!groupKindroidHasAnySpeech
+                ? [
                     {
-                      label: "OPENAI_API_KEY (TTS)",
-                      present: openAiSpeechState.apiKeyPresent
-                    },
-                    {
-                      label: "TTS model",
-                      present: Boolean(openAiSpeechState.model),
-                      value: openAiSpeechState.model ?? undefined
+                      label: "Speech output",
+                      present: true,
+                      value: "Disabled"
                     }
-                    ]
-                    : []),
-                  ...(groupKindroidUsesElevenLabsSpeech
-                    ? [
-                    {
-                      label: "ELEVENLABS_API_KEY",
-                      present: elevenLabsState.apiKeyPresent
-                    },
-                    {
-                      label: "TTS model",
-                      present: Boolean(elevenLabsState.model),
-                      value: elevenLabsState.model
-                    }
-                    ]
-                    : [])
-                ])
-          ]
-        });
-      });
+                  ]
+                : [
+                    ...(groupKindroidUsesOpenAiSpeech
+                      ? [
+                          {
+                            label: "OPENAI_API_KEY (TTS)",
+                            present: openAiSpeechState.apiKeyPresent
+                          },
+                          {
+                            label: "TTS model",
+                            present: Boolean(openAiSpeechState.model),
+                            value: openAiSpeechState.model ?? undefined
+                          }
+                        ]
+                      : []),
+                    ...(groupKindroidUsesElevenLabsSpeech
+                      ? [
+                          {
+                            label: "ELEVENLABS_API_KEY",
+                            present: elevenLabsState.apiKeyPresent
+                          },
+                          {
+                            label: "TTS model",
+                            present: Boolean(elevenLabsState.model),
+                            value: elevenLabsState.model
+                          }
+                        ]
+                      : [])
+                  ])
+            ]
+          });
+        }
+      );
     } else if (mode === "voice" && voiceBackend === "kindroid") {
       void Promise.all([
         bridge.openaiAudio.getState(),
@@ -1039,57 +1040,59 @@ export function useCadenceController() {
                   }
                 ]
               : effectiveKindroidTtsProvider === "openai"
-              ? [
-                  {
-                    label: "OPENAI_API_KEY (TTS)",
-                    present: openAiSpeechState.apiKeyPresent
-                  },
-                  {
-                    label: "OPENAI_TTS_VOICE",
-                    present: Boolean(activeKindroidParticipant?.openAiVoice || openAiSpeechState.voice),
-                    value:
-                      activeKindroidParticipant?.openAiVoice ||
-                      openAiSpeechState.voice ||
-                      undefined
-                  },
-                  {
-                    label: "OPENAI_TTS_INSTRUCTIONS",
-                    present: Boolean(
-                      activeKindroidParticipant?.openAiInstructions ||
+                ? [
+                    {
+                      label: "OPENAI_API_KEY (TTS)",
+                      present: openAiSpeechState.apiKeyPresent
+                    },
+                    {
+                      label: "OPENAI_TTS_VOICE",
+                      present: Boolean(
+                        activeKindroidParticipant?.openAiVoice || openAiSpeechState.voice
+                      ),
+                      value:
+                        activeKindroidParticipant?.openAiVoice ||
+                        openAiSpeechState.voice ||
+                        undefined
+                    },
+                    {
+                      label: "OPENAI_TTS_INSTRUCTIONS",
+                      present: Boolean(
+                        activeKindroidParticipant?.openAiInstructions ||
                         openAiSpeechState.instructions
-                    ),
-                    value:
-                      activeKindroidParticipant?.openAiInstructions ||
-                      openAiSpeechState.instructions ||
-                      undefined
-                  },
-                  {
-                    label: "TTS model",
-                    present: Boolean(openAiSpeechState.model),
-                    value: openAiSpeechState.model
-                  }
-                ]
-              : [
-                  {
-                    label: "ELEVENLABS_API_KEY",
-                    present: elevenLabsState.apiKeyPresent
-                  },
-                  {
-                    label: "ELEVENLABS_VOICE_ID",
-                    present: Boolean(
-                      activeKindroidParticipant?.elevenLabsVoiceId || elevenLabsState.voiceId
-                    ),
-                    value:
-                      activeKindroidParticipant?.elevenLabsVoiceId ||
-                      elevenLabsState.voiceId ||
-                      undefined
-                  },
-                  {
-                    label: "TTS model",
-                    present: Boolean(elevenLabsState.model),
-                    value: elevenLabsState.model
-                  }
-                ])
+                      ),
+                      value:
+                        activeKindroidParticipant?.openAiInstructions ||
+                        openAiSpeechState.instructions ||
+                        undefined
+                    },
+                    {
+                      label: "TTS model",
+                      present: Boolean(openAiSpeechState.model),
+                      value: openAiSpeechState.model
+                    }
+                  ]
+                : [
+                    {
+                      label: "ELEVENLABS_API_KEY",
+                      present: elevenLabsState.apiKeyPresent
+                    },
+                    {
+                      label: "ELEVENLABS_VOICE_ID",
+                      present: Boolean(
+                        activeKindroidParticipant?.elevenLabsVoiceId || elevenLabsState.voiceId
+                      ),
+                      value:
+                        activeKindroidParticipant?.elevenLabsVoiceId ||
+                        elevenLabsState.voiceId ||
+                        undefined
+                    },
+                    {
+                      label: "TTS model",
+                      present: Boolean(elevenLabsState.model),
+                      value: elevenLabsState.model
+                    }
+                  ])
           ]
         });
       });
@@ -1307,14 +1310,14 @@ export function useCadenceController() {
               const existingPendingTurn = previous.find((turn) => turn.id === pendingId);
               nextTurns = existingPendingTurn
                 ? previous.map((turn) =>
-                turn.id === pendingId
-                  ? {
-                      ...turn,
-                      id: event.turnId,
-                      text: event.text
-                    }
-                  : turn
-                )
+                    turn.id === pendingId
+                      ? {
+                          ...turn,
+                          id: event.turnId,
+                          text: event.text
+                        }
+                      : turn
+                  )
                 : [
                     ...previous,
                     {
@@ -1395,7 +1398,13 @@ export function useCadenceController() {
             break;
           }
           setTurns((previous) =>
-            appendOrUpdateAssistantTurn(previous, event.turnId, event.text, "append", assistantTurnMetadata)
+            appendOrUpdateAssistantTurn(
+              previous,
+              event.turnId,
+              event.text,
+              "append",
+              assistantTurnMetadata
+            )
           );
           break;
         }
@@ -1601,9 +1610,9 @@ export function useCadenceController() {
                 : {
                     ...defaultOpenAiBatchVoiceTransportConfig
                   }
-          : {
-              ...defaultVoiceTransportConfig
-            }
+            : {
+                ...defaultVoiceTransportConfig
+              }
         : textBackend === "kindroid" && usesKindroidGroupConversation
           ? {
               ...defaultTextTransportConfig,
@@ -1695,7 +1704,9 @@ export function useCadenceController() {
         switch (hotMicState) {
           case "armed":
             if (!assistantSpeakingRef.current && interactionReady) {
-              setStatusCopy(hotMicMutedRef.current ? "Hot mic is paused." : "Hot mic is armed.");
+              setStatusCopy(
+                hotMicMutedRef.current ? "Hot mic is paused." : "Hot mic is armed."
+              );
             }
             break;
           case "waiting_for_end_silence":
@@ -1981,9 +1992,7 @@ export function useCadenceController() {
     }
   }
 
-  async function saveSettings(
-    update: Omit<SettingsUpdate, "preferences">
-  ): Promise<void> {
+  async function saveSettings(update: Omit<SettingsUpdate, "preferences">): Promise<void> {
     const bridge = getCadenceBridge();
 
     clearSettingsFeedbackTimer();
@@ -2010,9 +2019,7 @@ export function useCadenceController() {
     } catch (error) {
       clearSettingsFeedbackTimer();
       setSettingsSaveState("error");
-      setSettingsFeedback(
-        error instanceof Error ? error.message : "Failed to save settings."
-      );
+      setSettingsFeedback(error instanceof Error ? error.message : "Failed to save settings.");
     }
   }
 
@@ -2041,8 +2048,7 @@ export function useCadenceController() {
       activeKindroidParticipantId: update.activeKindroidParticipantId,
       kindroidGroupMirrors: update.kindroidGroupMirrors,
       activeKindroidGroupMirrorId: update.activeKindroidGroupMirrorId,
-      activeKindroidGroupSpeakerParticipantId:
-        update.activeKindroidGroupSpeakerParticipantId
+      activeKindroidGroupSpeakerParticipantId: update.activeKindroidGroupSpeakerParticipantId
     });
   }
 
@@ -2080,7 +2086,9 @@ export function useCadenceController() {
 
   async function takeBackKindroidGroupTurn(): Promise<void> {
     if (!usesKindroidGroupConversation || activeKindroidGroupMirror?.manualTurnTaking) {
-      throw new Error("Take Turn Back is only available during automatic Kindroid group turns.");
+      throw new Error(
+        "Take Turn Back is only available during automatic Kindroid group turns."
+      );
     }
 
     if (pendingConversationHint?.kind === "user") {
@@ -2125,9 +2133,7 @@ export function useCadenceController() {
     newChatPending,
     backendConfig,
     pendingAssistantHint:
-      pendingConversationHint?.kind === "assistant"
-        ? pendingConversationHint
-        : null,
+      pendingConversationHint?.kind === "assistant" ? pendingConversationHint : null,
     pendingSceneBreakLabel:
       usesKindroidGroupConversation && pendingConversationHint?.kind === "user"
         ? pendingConversationHint.message

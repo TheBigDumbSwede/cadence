@@ -33,12 +33,14 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
     this.config = config;
     this.conversationId = crypto.randomUUID();
     const bridge = getCadenceBridge();
-    const [openAiAudioState, textState, elevenLabsState, openAiSpeechState] = await Promise.all([
-      bridge.openaiAudio.getState(),
-      bridge.text.getState(),
-      bridge.elevenlabs.getState(),
-      bridge.openaiSpeech.getState()
-    ]);
+    const [openAiAudioState, textState, elevenLabsState, openAiSpeechState] = await Promise.all(
+      [
+        bridge.openaiAudio.getState(),
+        bridge.text.getState(),
+        bridge.elevenlabs.getState(),
+        bridge.openaiSpeech.getState()
+      ]
+    );
 
     if (!openAiAudioState.configured) {
       this.emit({
@@ -149,10 +151,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
     };
   }
 
-  private async respondFromText(
-    input: string,
-    turns: TextTurnInput[] = []
-  ): Promise<void> {
+  private async respondFromText(input: string, turns: TextTurnInput[] = []): Promise<void> {
     if (!input.trim()) {
       this.emit({
         type: "transport.error",
@@ -265,8 +264,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message:
-          error instanceof Error ? error.message : "Memory recall failed.",
+        message: error instanceof Error ? error.message : "Memory recall failed.",
         recoverable: true
       });
       return undefined;
@@ -295,8 +293,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message:
-          error instanceof Error ? error.message : "Memory ingest failed.",
+        message: error instanceof Error ? error.message : "Memory ingest failed.",
         recoverable: true
       });
     }
@@ -309,8 +306,7 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message:
-          error instanceof Error ? error.message : "Memory session close failed.",
+        message: error instanceof Error ? error.message : "Memory session close failed.",
         recoverable: true
       });
     }
@@ -321,10 +317,13 @@ export class OpenAIBatchVoiceIpcTransport implements LiveConversationTransport {
     userText: string,
     assistantText?: string
   ): MemoryTurn[] {
-    const recentTurns = turns.slice(-6).map((turn) => ({
-      role: turn.speaker,
-      text: turn.text
-    } satisfies MemoryTurn));
+    const recentTurns = turns.slice(-6).map(
+      (turn) =>
+        ({
+          role: turn.speaker,
+          text: turn.text
+        }) satisfies MemoryTurn
+    );
 
     recentTurns.push({
       role: "user",

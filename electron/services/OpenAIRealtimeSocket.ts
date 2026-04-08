@@ -4,10 +4,7 @@ import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
 import type { BrowserWindow } from "electron";
 import type { TransportConfig } from "../../src/services/contracts";
-import type {
-  MemoryScope,
-  MemoryTurn
-} from "../../src/shared/memory-control";
+import type { MemoryScope, MemoryTurn } from "../../src/shared/memory-control";
 import type { CadenceEvent } from "../../src/shared/voice-events";
 import { MemoryClient } from "./MemoryClient";
 import { getSettingsService } from "./SettingsService";
@@ -321,10 +318,7 @@ export class OpenAIRealtimeSocket {
           turnId,
           sequence,
           format: "pcm16",
-          data: data.buffer.slice(
-            data.byteOffset,
-            data.byteOffset + data.byteLength
-          )
+          data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
         });
         return;
       }
@@ -383,8 +377,7 @@ export class OpenAIRealtimeSocket {
           type: "transport.error",
           provider: "openai-realtime",
           message:
-            this.readNestedString(event, ["error", "message"]) ??
-            "Realtime transport error.",
+            this.readNestedString(event, ["error", "message"]) ?? "Realtime transport error.",
           recoverable: true
         });
         return;
@@ -402,10 +395,7 @@ export class OpenAIRealtimeSocket {
     );
   }
 
-  private readNestedString(
-    value: Record<string, unknown>,
-    path: string[]
-  ): string | null {
+  private readNestedString(value: Record<string, unknown>, path: string[]): string | null {
     let current: unknown = value;
 
     for (const key of path) {
@@ -488,10 +478,9 @@ export class OpenAIRealtimeSocket {
   }
 
   private buildResponseInstructions(memoryContext?: string): string {
-    const parts = [
-      this.config.instructions.trim(),
-      memoryContext?.trim() ?? ""
-    ].filter(Boolean);
+    const parts = [this.config.instructions.trim(), memoryContext?.trim() ?? ""].filter(
+      Boolean
+    );
 
     return parts.join("\n\n");
   }
@@ -523,8 +512,7 @@ export class OpenAIRealtimeSocket {
       this.emit({
         type: "transport.error",
         provider: "openai-realtime",
-        message:
-          error instanceof Error ? error.message : "Memory recall failed.",
+        message: error instanceof Error ? error.message : "Memory recall failed.",
         recoverable: true
       });
       return undefined;
@@ -560,8 +548,7 @@ export class OpenAIRealtimeSocket {
       this.emit({
         type: "transport.error",
         provider: "openai-realtime",
-        message:
-          error instanceof Error ? error.message : "Memory ingest failed.",
+        message: error instanceof Error ? error.message : "Memory ingest failed.",
         recoverable: true
       });
     }
@@ -578,8 +565,7 @@ export class OpenAIRealtimeSocket {
       this.emit({
         type: "transport.error",
         provider: "openai-realtime",
-        message:
-          error instanceof Error ? error.message : "Memory session close failed.",
+        message: error instanceof Error ? error.message : "Memory session close failed.",
         recoverable: true
       });
     }

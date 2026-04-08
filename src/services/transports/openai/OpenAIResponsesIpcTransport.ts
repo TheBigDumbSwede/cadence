@@ -154,8 +154,7 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message:
-          error instanceof Error ? error.message : "Memory recall failed.",
+        message: error instanceof Error ? error.message : "Memory recall failed.",
         recoverable: true
       });
       return undefined;
@@ -184,8 +183,7 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message:
-          error instanceof Error ? error.message : "Memory ingest failed.",
+        message: error instanceof Error ? error.message : "Memory ingest failed.",
         recoverable: true
       });
     }
@@ -198,8 +196,7 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
       this.emit({
         type: "transport.error",
         provider: this.id,
-        message:
-          error instanceof Error ? error.message : "Memory session close failed.",
+        message: error instanceof Error ? error.message : "Memory session close failed.",
         recoverable: true
       });
     }
@@ -210,10 +207,13 @@ export class OpenAIResponsesIpcTransport implements LiveConversationTransport {
     userText: string,
     assistantText?: string
   ): MemoryTurn[] {
-    const recentTurns = turns.slice(-6).map((turn) => ({
-      role: turn.speaker,
-      text: turn.text
-    } satisfies MemoryTurn));
+    const recentTurns = turns.slice(-6).map(
+      (turn) =>
+        ({
+          role: turn.speaker,
+          text: turn.text
+        }) satisfies MemoryTurn
+    );
 
     recentTurns.push({
       role: "user",

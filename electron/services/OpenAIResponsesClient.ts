@@ -30,10 +30,7 @@ function extractOutputText(result: ResponsesApiResult): string {
   return fragments.join("");
 }
 
-function buildInstructions(
-  instructions?: string,
-  memoryContext?: string
-): string | undefined {
+function buildInstructions(instructions?: string, memoryContext?: string): string | undefined {
   const parts = [instructions?.trim() ?? "", memoryContext?.trim() ?? ""].filter(Boolean);
   if (parts.length === 0) {
     return undefined;

@@ -264,7 +264,11 @@ export class HotMicRecorder {
     this.speechDetectedAt = null;
     this.silenceDetectedAt = null;
 
-    if (!this.processingUtterance && this.state !== "capturing" && this.state !== "waiting_for_end_silence") {
+    if (
+      !this.processingUtterance &&
+      this.state !== "capturing" &&
+      this.state !== "waiting_for_end_silence"
+    ) {
       this.setState("armed");
     }
   }

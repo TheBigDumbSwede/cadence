@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-electron
+dist-sidecar
+release
+tmp
+coverage
+assets/avatars
+package-lock.json

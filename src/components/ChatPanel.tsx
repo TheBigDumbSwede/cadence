@@ -50,10 +50,7 @@ type MessageSegment = {
   narration: boolean;
 };
 
-function parseMessageSegmentsWithDelimiter(
-  text: string,
-  delimiter: string
-): MessageSegment[] {
+function parseMessageSegmentsWithDelimiter(text: string, delimiter: string): MessageSegment[] {
   if (!delimiter) {
     return text
       ? [
@@ -126,7 +123,10 @@ function renderMessageText(text: string, delimiter = "*") {
   });
 }
 
-function buildVoiceSummary(voiceBackend: VoiceBackendProvider, ttsProvider: TtsProvider): string {
+function buildVoiceSummary(
+  voiceBackend: VoiceBackendProvider,
+  ttsProvider: TtsProvider
+): string {
   if (voiceBackend === "openai") {
     return "OpenAI Realtime";
   }
@@ -207,7 +207,9 @@ export function ChatPanel({
     const hintSignature = pendingAssistantHint
       ? `${pendingAssistantHint.speakerLabel}:${pendingAssistantHint.message.length}`
       : "none";
-    return lastTurn ? `${lastTurn.id}:${lastTurn.text.length}:${hintSignature}` : `empty:${hintSignature}`;
+    return lastTurn
+      ? `${lastTurn.id}:${lastTurn.text.length}:${hintSignature}`
+      : `empty:${hintSignature}`;
   }, [pendingAssistantHint, turns]);
 
   useEffect(() => {
@@ -288,7 +290,9 @@ export function ChatPanel({
           turns.map((turn) => (
             <article key={turn.id} className="message-bubble" data-speaker={turn.speaker}>
               <p className="message-meta">
-                <strong>{turn.speakerLabel ?? (turn.speaker === "assistant" ? "Cadence" : "You")}</strong>
+                <strong>
+                  {turn.speakerLabel ?? (turn.speaker === "assistant" ? "Cadence" : "You")}
+                </strong>
                 <span>{turn.timestamp}</span>
               </p>
               <p className="message-text">
@@ -328,10 +332,7 @@ export function ChatPanel({
             <div className="chat-turn-button-row">
               {kindroidGroupParticipants.map((participant) => {
                 const disabled =
-                  !interactionReady ||
-                  isRecording ||
-                  newChatPending ||
-                  !canTriggerGroupTurn;
+                  !interactionReady || isRecording || newChatPending || !canTriggerGroupTurn;
 
                 return (
                   <button

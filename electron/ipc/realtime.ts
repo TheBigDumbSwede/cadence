@@ -18,12 +18,9 @@ export function registerRealtimeIpc(getWindow: () => BrowserWindow | null): void
     await realtime.sendUserText(text);
   });
 
-  ipcMain.handle(
-    "realtime:send-user-audio",
-    async (_event, audio: ArrayBuffer) => {
-      await realtime.sendUserAudio(audio);
-    }
-  );
+  ipcMain.handle("realtime:send-user-audio", async (_event, audio: ArrayBuffer) => {
+    await realtime.sendUserAudio(audio);
+  });
 
   ipcMain.handle(
     "realtime:interrupt-assistant",

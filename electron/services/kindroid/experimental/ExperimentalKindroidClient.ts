@@ -66,9 +66,7 @@ export class ExperimentalKindroidClient {
         avatar_is_anime: options.avatar_is_anime ?? false,
         ai_directive: options.ai_directive ?? "",
         ...(options.custom_greeting ? { custom_greeting: options.custom_greeting } : {}),
-        ...(options.custom_avatar_url
-          ? { custom_avatar_url: options.custom_avatar_url }
-          : {}),
+        ...(options.custom_avatar_url ? { custom_avatar_url: options.custom_avatar_url } : {}),
         ...(options.custom_avatar_description
           ? { custom_avatar_description: options.custom_avatar_description }
           : {}),
@@ -196,11 +194,7 @@ export class ExperimentalKindroidClient {
   }
 
   async checkSubscription(): Promise<SubscriptionInfo> {
-    return this.createRequestClient().requestWithRetry(
-      "/check-user-subscription",
-      {},
-      "json"
-    );
+    return this.createRequestClient().requestWithRetry("/check-user-subscription", {}, "json");
   }
 
   async createGroupChat(options: CreateGroupChatOptions): Promise<string> {
@@ -261,17 +255,11 @@ export class ExperimentalKindroidClient {
         group_id: options.group_id,
         message: options.message,
         ...(options.image_urls?.length ? { image_urls: options.image_urls } : {}),
-        ...(options.image_description
-          ? { image_description: options.image_description }
-          : {}),
+        ...(options.image_description ? { image_description: options.image_description } : {}),
         ...(options.video_url ? { video_url: options.video_url } : {}),
-        ...(options.video_description
-          ? { video_description: options.video_description }
-          : {}),
+        ...(options.video_description ? { video_description: options.video_description } : {}),
         ...(options.link_url ? { link_url: options.link_url } : {}),
-        ...(options.link_description
-          ? { link_description: options.link_description }
-          : {})
+        ...(options.link_description ? { link_description: options.link_description } : {})
       },
       "text",
       kindroidTimeouts.sendMessage

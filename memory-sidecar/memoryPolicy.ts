@@ -200,7 +200,9 @@ function extractProjectContext(text: string): MemoryCandidate | null {
 function extractOpenThread(text: string): MemoryCandidate | null {
   const normalized = normalizeText(text);
 
-  const needMatch = normalized.match(/^(?:i need to|we need to|next step is to|the next step is to) (.+)$/i);
+  const needMatch = normalized.match(
+    /^(?:i need to|we need to|next step is to|the next step is to) (.+)$/i
+  );
   if (needMatch) {
     const detail = cleanDetail(needMatch[1]);
     return {
@@ -210,7 +212,9 @@ function extractOpenThread(text: string): MemoryCandidate | null {
     };
   }
 
-  const issueMatch = normalized.match(/^(?:the issue is|the problem is|i(?:'m| am) stuck on) (.+)$/i);
+  const issueMatch = normalized.match(
+    /^(?:the issue is|the problem is|i(?:'m| am) stuck on) (.+)$/i
+  );
   if (issueMatch) {
     const detail = cleanDetail(issueMatch[1]);
     return {
@@ -220,7 +224,9 @@ function extractOpenThread(text: string): MemoryCandidate | null {
     };
   }
 
-  const continueMatch = normalized.match(/^(?:let'?s continue with|we were talking about|remind me about) (.+)$/i);
+  const continueMatch = normalized.match(
+    /^(?:let'?s continue with|we were talking about|remind me about) (.+)$/i
+  );
   if (continueMatch) {
     const detail = cleanDetail(continueMatch[1]);
     return {
@@ -271,11 +277,7 @@ export function extractMemoryCandidates(turns: MemoryTurn[]): MemoryCandidate[] 
   );
 }
 
-function scoreMemory(
-  memory: StoredMemory,
-  queryTokens: string[],
-  scope: MemoryScope
-): number {
+function scoreMemory(memory: StoredMemory, queryTokens: string[], scope: MemoryScope): number {
   const overlap = memory.keywords.filter((keyword) => queryTokens.includes(keyword)).length;
   const participantOverlap = memory.participantIds.some((id) =>
     (scope.participantIds ?? []).includes(id)
@@ -318,7 +320,10 @@ export function buildRecallResult(
       score: scoreMemory(memory, queryTokens, request.scope)
     }))
     .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score || right.memory.sourceCount - left.memory.sourceCount)
+    .sort(
+      (left, right) =>
+        right.score - left.score || right.memory.sourceCount - left.memory.sourceCount
+    )
     .slice(0, maxItems);
 
   const items = ranked.map((entry) => ({
@@ -344,9 +349,6 @@ export function buildRecallResult(
 
   return {
     items,
-    contextBlock:
-      lines.length > 0
-        ? `Relevant memory:\n${lines.join("\n")}`
-        : ""
+    contextBlock: lines.length > 0 ? `Relevant memory:\n${lines.join("\n")}` : ""
   };
 }

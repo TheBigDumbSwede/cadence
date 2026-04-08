@@ -40,9 +40,8 @@ function parseNarrationBeatSelection(value: string): NarrationBeatSelection | nu
 
     return {
       beats: parsed.beats
-        .filter(
-          (beat): beat is { id: string; prompt: string } =>
-            Boolean(beat && typeof beat.id === "string" && typeof beat.prompt === "string")
+        .filter((beat): beat is { id: string; prompt: string } =>
+          Boolean(beat && typeof beat.id === "string" && typeof beat.prompt === "string")
         )
         .map((beat) => ({
           id: beat.id,

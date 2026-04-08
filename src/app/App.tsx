@@ -206,7 +206,11 @@ export function App() {
         <div className="topbar-actions">
           <div className="menu-actions">
             {kindroidMenuVisible ? (
-              <button type="button" className="menu-button" onClick={() => setKindroidOpen(true)}>
+              <button
+                type="button"
+                className="menu-button"
+                onClick={() => setKindroidOpen(true)}
+              >
                 Kindroid
               </button>
             ) : null}
@@ -251,7 +255,7 @@ export function App() {
           isRecording={isRecording}
           kindroidManualTurnTaking={
             usesKindroidGroupConversation && kindroidBackendActive
-              ? activeKindroidGroupMirror?.manualTurnTaking ?? false
+              ? (activeKindroidGroupMirror?.manualTurnTaking ?? false)
               : false
           }
           kindroidGroupAwaitingUserTurn={
@@ -363,7 +367,9 @@ export function App() {
           <SettingsPanel
             backendConfig={backendConfig}
             mode={mode}
-            onSaveSettings={saveSettings as (update: Omit<SettingsUpdate, "preferences">) => Promise<void>}
+            onSaveSettings={
+              saveSettings as (update: Omit<SettingsUpdate, "preferences">) => Promise<void>
+            }
             settingsFeedback={settingsFeedback}
             settingsLoaded={settingsLoaded}
             settingsSaveState={settingsSaveState}

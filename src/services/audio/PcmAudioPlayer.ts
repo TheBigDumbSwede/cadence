@@ -1,11 +1,5 @@
-import {
-  publishOutputWaveform,
-  resetOutputWaveform
-} from "./outputWaveformStore";
-import {
-  publishOutputPlayback,
-  resetOutputPlayback
-} from "./outputPlaybackStore";
+import { publishOutputWaveform, resetOutputWaveform } from "./outputWaveformStore";
+import { publishOutputPlayback, resetOutputPlayback } from "./outputPlaybackStore";
 
 const TARGET_SAMPLE_RATE = 24000;
 const DEFAULT_START_LEAD_SECONDS = 0.01;
@@ -61,10 +55,7 @@ export class PcmAudioPlayer {
   private scheduledPlaybacks = new Map<AudioBufferSourceNode, ScheduledPlayback>();
   private activeTurnId: string | null = null;
 
-  async enqueue(
-    buffer: ArrayBuffer,
-    options?: EnqueuePlaybackOptions
-  ): Promise<void> {
+  async enqueue(buffer: ArrayBuffer, options?: EnqueuePlaybackOptions): Promise<void> {
     const context = this.getAudioContext();
     if (context.state === "suspended") {
       await context.resume();
@@ -91,10 +82,7 @@ export class PcmAudioPlayer {
     });
   }
 
-  async enqueueEncoded(
-    buffer: ArrayBuffer,
-    options?: EnqueuePlaybackOptions
-  ): Promise<void> {
+  async enqueueEncoded(buffer: ArrayBuffer, options?: EnqueuePlaybackOptions): Promise<void> {
     const context = this.getAudioContext();
     if (context.state === "suspended") {
       await context.resume();
@@ -139,9 +127,7 @@ export class PcmAudioPlayer {
     const channelCount = Math.max(...decodedParts.map((part) => part.buffer.numberOfChannels));
     const totalLength = decodedParts.reduce((sum, part) => {
       return (
-        sum +
-        part.buffer.length +
-        Math.round(part.silenceAfterSeconds * context.sampleRate)
+        sum + part.buffer.length + Math.round(part.silenceAfterSeconds * context.sampleRate)
       );
     }, 0);
 
@@ -221,10 +207,7 @@ export class PcmAudioPlayer {
     return this.analyser;
   }
 
-  private scheduleBuffer(
-    audioBuffer: AudioBuffer,
-    options?: EnqueuePlaybackOptions
-  ): void {
+  private scheduleBuffer(audioBuffer: AudioBuffer, options?: EnqueuePlaybackOptions): void {
     const context = this.getAudioContext();
     const source = context.createBufferSource();
     source.buffer = audioBuffer;
@@ -241,7 +224,7 @@ export class PcmAudioPlayer {
     const now = context.currentTime;
     const hasQueuedAudio =
       this.activeSources.size > 0 || this.nextStartTime > now + DEFAULT_START_LEAD_SECONDS;
-    const gapSeconds = hasQueuedAudio ? options?.boundaryGapSeconds ?? 0 : 0;
+    const gapSeconds = hasQueuedAudio ? (options?.boundaryGapSeconds ?? 0) : 0;
     const startDelaySeconds = Math.max(0, options?.startDelaySeconds ?? 0);
     const startAt = Math.max(
       now + DEFAULT_START_LEAD_SECONDS + startDelaySeconds,
@@ -418,7 +401,8 @@ export class PcmAudioPlayer {
         return;
       }
 
-      void context.resume()
+      void context
+        .resume()
         .then(() => {
           if (context.state === "running") {
             this.removeUnlockHandler();

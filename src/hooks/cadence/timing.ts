@@ -21,8 +21,7 @@ export function estimateAssistantDeliveryMs(
   pace: PresenceSnapshot["pace"]
 ): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
-  const basePerWord =
-    pace === "animated" ? 150 : pace === "calm" ? 220 : 185;
+  const basePerWord = pace === "animated" ? 150 : pace === "calm" ? 220 : 185;
 
   return clamp(1100 + words * basePerWord, 1600, 7000);
 }

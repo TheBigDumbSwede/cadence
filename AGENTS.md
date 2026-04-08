@@ -7,16 +7,19 @@ This file is the repo-local context layer for `cadence/`. It should capture the 
 Cadence is a desktop companion app, not a generic chat shell.
 
 The product center is:
+
 - fast conversational turn-taking
 - a persistent stage/presence layer
 - interchangeable backend paths behind one coherent UI
 
 The app should feel like one product across:
+
 - voice
 - text-only
 - waveform stage
 
 Do not let it drift into:
+
 - a generic dashboard
 - a pile of unrelated integrations
 - a chat client with decorative voice features
@@ -24,12 +27,14 @@ Do not let it drift into:
 ## Architectural Boundaries
 
 The important boundary is:
+
 - Cadence owns interaction, presence, and approvals
 - backends own reasoning/speech/device capabilities
 
 Cadence should be the conversational shell, not the implementation home for every integration.
 
 Current major layers:
+
 - `electron/`
   main-process providers, IPC, settings persistence
 - `src/services/transports/`
@@ -71,6 +76,7 @@ Current major layers:
 - `kindroid`
 
 Important rule:
+
 - OpenAI Realtime is its own native path
 - Kindroid and OpenAI batch voice are composed paths
 - do not try to pretend Realtime is a generic wrapper for third-party reasoning
@@ -80,6 +86,7 @@ Important rule:
 Kindroid is no longer just a single `ai_id` path.
 
 Current working model:
+
 - solo Kindroid uses a participant roster
 - group Kindroid uses a local mirror of an already-existing Kindroid group
 - Cadence stores the local participant metadata needed for:
@@ -91,11 +98,13 @@ Current working model:
   - narration Foley preferences for visual/audio staging
 
 Keep the boundary sharp:
+
 - Kindroid remains the source of truth for actual group existence and turn logic
 - Cadence owns the local mirror, orchestration, and presentation
 - do not bloat Cadence into a full Kindroid management surface
 
 Narration staging rule:
+
 - narration analysis and narration playback are separate concerns
 - visual Foley cues may still appear even when ElevenLabs sound-effect playback is unavailable or disabled
 - spoken-caption timing must not be delayed unless real pre-speech Foley audio is actually present
@@ -117,14 +126,17 @@ Do not reintroduce a second stage mode casually. The current product shape is na
 ## Settings and Persistence
 
 Settings are profile-backed in the Electron main process:
+
 - non-secret values in the app profile settings store
 - secrets stored via Electron safe storage when available
 - `.env` is fallback/dev convenience, not the preferred runtime source
 
 Key file:
+
 - `electron/services/SettingsService.ts`
 
 Settings precedence should remain:
+
 1. saved app settings
 2. `.env`
 3. built-in default
@@ -136,19 +148,23 @@ Do not move secrets into renderer storage.
 The UI has already been trimmed repeatedly. Protect that.
 
 Main window should show:
+
 - content
 - controls
 - presence
 
 Main window should not show:
+
 - duplicated runtime metadata
 - repeated status posture in multiple places
 - explanatory chrome that narrates the app to the user
 
 Runtime metadata belongs in:
+
 - `System`
 
 Mode/backend/configuration choices belong in:
+
 - `Settings`
 
 If adding a label or chip, ask whether it changes a user decision. If not, it probably does not belong in the main shell.
@@ -156,9 +172,11 @@ If adding a label or chip, ask whether it changes a user decision. If not, it pr
 ## Known Pressure Point
 
 The main code hotspot is:
+
 - `src/hooks/useCadenceController.ts`
 
 It is still the orchestration root and intentionally so, but it has accumulated multiple responsibilities:
+
 - session lifecycle
 - voice input flow
 - turn reconciliation
@@ -167,6 +185,7 @@ It is still the orchestration root and intentionally so, but it has accumulated 
 - status copy
 
 Recent cleanup extracted pure helpers into:
+
 - `src/hooks/cadence/timing.ts`
 - `src/hooks/cadence/performance.ts`
 - `src/hooks/cadence/turns.ts`
@@ -177,11 +196,13 @@ That was a first-level cleanup, not a full decomposition.
 If continuing cleanup, split by responsibility, not by file length.
 
 Good next seams:
+
 - input orchestration
 - turn reconciliation
 - stage/presence orchestration
 
 Avoid:
+
 - premature state-machine overengineering
 - reducer-abstraction for its own sake
 - “modularity” that just moves complexity without clarifying it
@@ -189,17 +210,20 @@ Avoid:
 ## Voice Input Notes
 
 Cadence supports:
+
 - push-to-talk
 - hot mic
 
 Hot mic is additional functionality, not a replacement for push-to-talk.
 
 Current behavior:
+
 - hot mic can be paused without leaving the mode
 - hot mic suppresses while Cadence is speaking
 - initial trigger timing has been tuned to feel quicker after unmute
 
 If changing hot mic behavior, preserve:
+
 - immediate manual mute/unmute
 - predictable suppression during assistant playback
 - conservative false-trigger behavior
@@ -209,6 +233,7 @@ If changing hot mic behavior, preserve:
 There is explicit logic for audio-turn ordering.
 
 Important behavior:
+
 - pending audio user turns are tracked internally
 - assistant output can be buffered until transcript-final arrives
 - avoid rendering fake placeholder bubbles unless the user explicitly wants that
@@ -218,6 +243,7 @@ If touching this area, do not “fix” ordering with superficial sorting hacks.
 ## OpenAI Speech / STT Notes
 
 Current STT path uses:
+
 - `gpt-4o-transcribe`
 
 It is explicitly biased toward English transcription to avoid spurious transliteration/translation behavior for English speech.
@@ -225,19 +251,23 @@ It is explicitly biased toward English transcription to avoid spurious translite
 OpenAI TTS voice selection is now a dropdown in Settings with supported voice values rather than a freeform textbox.
 
 If extending voice options, preserve the current split:
+
 - backend choice controls reasoning path
 - output layer choice controls speech path
 
 ## Packaging
 
 Windows packaging is already wired:
+
 - `npm run dist:win`
 
 Current packaging notes:
+
 - Windows portable build output goes to `release/`
 - app icon is now custom and generated from repo assets
 
 Icon pipeline:
+
 - source concept: `build/icon.svg`
 - generated assets:
   - `build/icon.png`
@@ -260,6 +290,7 @@ If changing the icon, update the generator or source asset rather than dropping 
 ## What "Good" Looks Like Here
 
 Good changes in this repo usually have these qualities:
+
 - they preserve the product center
 - they reduce visual noise
 - they keep the backend composition honest

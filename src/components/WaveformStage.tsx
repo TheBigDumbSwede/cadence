@@ -115,12 +115,7 @@ function renderAccent(accent: KindroidWaveformAccent, color: string) {
     default:
       return (
         <svg className="waveform-accent-overlay" viewBox="0 0 540 540" aria-hidden="true">
-          <circle
-            cx="270"
-            cy="270"
-            r="206"
-            style={{ stroke: color }}
-          />
+          <circle cx="270" cy="270" r="206" style={{ stroke: color }} />
         </svg>
       );
   }
@@ -159,8 +154,7 @@ function createProceduralSamples(
   return Array.from({ length: size }, (_, index) => {
     const t = index / Math.max(size - 1, 1);
     const basePhase = t * Math.PI * 2 * (1 + profile.travel);
-    const drift =
-      Math.sin(basePhase + phase * profile.speed) * level * profile.amplitude;
+    const drift = Math.sin(basePhase + phase * profile.speed) * level * profile.amplitude;
     const secondary =
       Math.sin(basePhase * 0.5 - phase * (profile.speed * 0.6) + 0.8) *
       level *
@@ -192,18 +186,17 @@ function buildPoints(
 ): Array<{ x: number; y: number }> {
   const midY = height / 2;
   const usableHeight = height * gain;
-  return samples
-    .map((sample, index) => {
-      const t = index / Math.max(samples.length - 1, 1);
-      const centered = t * 2 - 1;
-      const curvedX = Math.sin(centered * (Math.PI / 2));
-      const x = ((curvedX + 1) / 2) * width;
-      const centerWeight = Math.max(0, Math.cos(centered * (Math.PI / 2)));
-      const edgeTaper = Math.pow(centerWeight, 4.1);
-      const centerLift = 1 + Math.pow(centerWeight, 4.5) * 1.15;
-      const y = midY - sample * usableHeight * edgeTaper * centerLift;
-      return { x, y };
-    });
+  return samples.map((sample, index) => {
+    const t = index / Math.max(samples.length - 1, 1);
+    const centered = t * 2 - 1;
+    const curvedX = Math.sin(centered * (Math.PI / 2));
+    const x = ((curvedX + 1) / 2) * width;
+    const centerWeight = Math.max(0, Math.cos(centered * (Math.PI / 2)));
+    const edgeTaper = Math.pow(centerWeight, 4.1);
+    const centerLift = 1 + Math.pow(centerWeight, 4.5) * 1.15;
+    const y = midY - sample * usableHeight * edgeTaper * centerLift;
+    return { x, y };
+  });
 }
 
 function buildSmoothPath(
@@ -308,10 +301,7 @@ export function WaveformStage({ activeState, theme }: WaveformStageProps) {
       );
     }
 
-    return smoothSamples(
-      createProceduralSamples(displayLevel, 48, phase, activeState.type),
-      2
-    );
+    return smoothSamples(createProceduralSamples(displayLevel, 48, phase, activeState.type), 2);
   }, [activeState.type, displayLevel, phase, waveform.active, waveform.samples]);
 
   const glowPath = useMemo(() => buildSmoothPath(samples, 540, 540, 0.3), [samples]);
@@ -329,17 +319,17 @@ export function WaveformStage({ activeState, theme }: WaveformStageProps) {
     >
       <div className="waveform-grid" style={{ background: waveformColors.gridBackground }} />
       <div className={`waveform-core waveform-state-${activeState.type}`}>
-        <svg
-          className="waveform-svg waveform-glow"
-          viewBox="0 0 540 540"
-          aria-hidden="true"
-        >
+        <svg className="waveform-svg waveform-glow" viewBox="0 0 540 540" aria-hidden="true">
           <path d={glowPath} style={{ stroke: waveformColors.glow }} />
         </svg>
         <svg className="waveform-svg waveform-aura" viewBox="0 0 540 540" aria-hidden="true">
           <path d={auraPath} style={{ stroke: waveformColors.aura }} />
         </svg>
-        <svg className="waveform-svg waveform-core-line" viewBox="0 0 540 540" aria-hidden="true">
+        <svg
+          className="waveform-svg waveform-core-line"
+          viewBox="0 0 540 540"
+          aria-hidden="true"
+        >
           <path d={corePath} style={{ stroke: waveformColors.core }} />
         </svg>
         {renderAccent(theme?.accent ?? "none", waveformColors.accent)}

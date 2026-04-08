@@ -9,9 +9,7 @@ function isLocalMemoryUrl(value: string): boolean {
     const url = new URL(value);
     return (
       (url.protocol === "http:" || url.protocol === "https:") &&
-      (url.hostname === "127.0.0.1" ||
-        url.hostname === "localhost" ||
-        url.hostname === "::1")
+      (url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1")
     );
   } catch {
     return false;

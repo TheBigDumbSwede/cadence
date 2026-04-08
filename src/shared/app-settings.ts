@@ -1,9 +1,6 @@
 import type { TextBackendProvider } from "./backend-provider";
 import type { InteractionMode } from "./interaction-mode";
-import type {
-  KindroidConversationMode,
-  KindroidGroupMirror
-} from "./kindroid-group-mirrors";
+import type { KindroidConversationMode, KindroidGroupMirror } from "./kindroid-group-mirrors";
 import type { KindroidParticipant } from "./kindroid-participants";
 import type { TtsProvider } from "./tts-provider";
 import type { VoiceInputMode } from "./voice-input-mode";

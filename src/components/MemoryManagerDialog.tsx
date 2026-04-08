@@ -347,7 +347,8 @@ export function MemoryManagerDialog({
                                 {lastUserTurn?.text || "No recent user text captured."}
                               </p>
                               <p className="field-status">
-                                conversation {session.conversationId} | turns {session.recentTurns.length}
+                                conversation {session.conversationId} | turns{" "}
+                                {session.recentTurns.length}
                                 {session.participantIds.length > 0
                                   ? ` | participants ${session.participantIds.join(", ")}`
                                   : ""}

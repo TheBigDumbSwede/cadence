@@ -1,15 +1,8 @@
 import { getCadenceBridge } from "../../bridge";
-import type {
-  LiveConversationTransport,
-  TransportConfig,
-  Unsubscribe
-} from "../../contracts";
+import type { LiveConversationTransport, TransportConfig, Unsubscribe } from "../../contracts";
 import type { KindroidParticipant } from "../../../shared/kindroid-participants";
 import type { CadenceEvent } from "../../../shared/voice-events";
-import {
-  MAX_AUTOMATIC_KINDROID_GROUP_TURNS,
-  resolveKindroidGroupTurn
-} from "./groupTurn";
+import { MAX_AUTOMATIC_KINDROID_GROUP_TURNS, resolveKindroidGroupTurn } from "./groupTurn";
 
 export class KindroidGroupIpcTransport implements LiveConversationTransport {
   readonly id = "kindroid-group-text";
@@ -185,9 +178,7 @@ export class KindroidGroupIpcTransport implements LiveConversationTransport {
     await this.runGroupTurnCycle();
   }
 
-  private async runGroupTurnCycle(options?: {
-    forcedParticipantId?: string;
-  }): Promise<void> {
+  private async runGroupTurnCycle(options?: { forcedParticipantId?: string }): Promise<void> {
     const groupMirror = this.config?.kindroidGroupMirror;
     if (!groupMirror?.groupId) {
       throw new Error("No active Kindroid group mirror is selected.");

@@ -123,11 +123,7 @@ export function SystemPanel({
                 : "No memory recall yet."}
             </p>
             <div className="settings-inline-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={onOpenMemoryManager}
-              >
+              <button type="button" className="secondary-button" onClick={onOpenMemoryManager}>
                 Manage Memories
               </button>
             </div>

@@ -7,6 +7,7 @@ It is not a generic chat client with voice bolted on. The main idea is that conv
 ## Current State
 
 Cadence is public-prototype quality:
+
 - coherent enough to use and inspect
 - interesting enough to share
 - still rough around orchestration, timing, and polish
@@ -19,6 +20,7 @@ It is not pretending to be finished software.
 This repository is currently public for visibility and collaboration, but it does **not** yet include an open-source license.
 
 Until a license is added, treat the code as:
+
 - source-available for reading
 - not granted for reuse, redistribution, or commercial resale
 
@@ -57,6 +59,7 @@ That may change later, but it is not the posture today.
 ## Why It Exists
 
 Cadence is exploring a few specific ideas:
+
 - a companion surface instead of a dashboard
 - low-latency voice interaction without locking the whole app to one provider
 - a persistent waveform stage tied to real conversational state
@@ -67,6 +70,7 @@ Cadence is exploring a few specific ideas:
 ## Architecture Notes
 
 The important boundary is:
+
 - Cadence owns interaction, presence, and local UX
 - backends own reasoning, speech generation, or external integrations
 
@@ -92,6 +96,7 @@ That means Cadence should stay the conversational shell, not become a giant inte
 Cadence now prefers profile-backed settings stored through the app itself.
 
 That includes:
+
 - API keys
 - Kindroid participant rosters and active selection
 - mirrored Kindroid group ids and local group membership
@@ -154,6 +159,7 @@ Automatic Kindroid groups can chain multiple Kin replies until Kindroid yields t
 Cadence can now treat narrated Kindroid prose as a light staging layer rather than dead text.
 
 Current behavior:
+
 - narration beat analysis uses a fast OpenAI text model to extract up to 3 short audible beats
 - those beats can appear as a top-stage Foley caption during playback
 - if ElevenLabs sound effects are available and narration FX is enabled, Cadence can synthesize those beats as a stitched pre-speech Foley prelude
@@ -162,6 +168,7 @@ Current behavior:
 This is intentionally prototype territory. It is meant to add atmosphere, not become a full sound-design engine.
 
 Waveform mode is not a fallback. It is a first-class stage path:
+
 - audio-driven when speech is actually playing
 - procedural and ambient when it is not
 
@@ -196,6 +203,7 @@ npm run dist:win
 ```
 
 Output:
+
 - `release/Cadence-0.2.0-portable.exe`
 
 ### Unpacked directory build
@@ -209,6 +217,7 @@ npm run dist:dir
 The Windows icon is generated from repo assets instead of being an opaque manual binary.
 
 Files:
+
 - [`build/icon.svg`](./build/icon.svg)
 - [`build/icon.png`](./build/icon.png)
 - [`build/icon.ico`](./build/icon.ico)
@@ -230,6 +239,7 @@ npm run build:icon
 ## Repo Hygiene
 
 Local-only files that should stay untracked include:
+
 - `.env`
 - `.env.local`
 - profile settings files under Electron user data
@@ -238,6 +248,7 @@ Local-only files that should stay untracked include:
 ## Suggested Framing
 
 If you share the project, the honest framing is:
+
 - experimental desktop companion
 - voice/text presence prototype
 - OpenAI + Kindroid backend exploration

@@ -66,17 +66,13 @@ export function estimateSpeechCaptionCues(text: string): SpeechCaptionCue[] {
   });
   const totalDurationMs = Math.max(
     900,
-    Math.round(
-      weights.reduce((sum, weight) => sum + weight * 360, 0) + spans.length * 140
-    )
+    Math.round(weights.reduce((sum, weight) => sum + weight * 360, 0) + spans.length * 140)
   );
 
   let cursorMs = 0;
   return spans.map((span, index) => {
     const remainingDuration = totalDurationMs - cursorMs;
-    const remainingWeight = weights
-      .slice(index)
-      .reduce((sum, weight) => sum + weight, 0);
+    const remainingWeight = weights.slice(index).reduce((sum, weight) => sum + weight, 0);
     const durationMs =
       index === spans.length - 1
         ? remainingDuration
@@ -153,8 +149,7 @@ export function scaleSpeechCaptionCues(
   return cues.map((cue, index) => ({
     text: cue.text,
     startMs: Math.round(cue.startMs * scale),
-    endMs:
-      index === cues.length - 1 ? actualDurationMs : Math.round(cue.endMs * scale)
+    endMs: index === cues.length - 1 ? actualDurationMs : Math.round(cue.endMs * scale)
   }));
 }
 

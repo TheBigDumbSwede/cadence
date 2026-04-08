@@ -24,10 +24,7 @@ export class CadenceSession {
 
   async connect(config: TransportConfig): Promise<void> {
     this.transportSubscription = this.dependencies.transport.subscribe((event) => {
-      if (
-        event.type === "assistant.audio.chunk" &&
-        this.dependencies.speechOutputAdapter
-      ) {
+      if (event.type === "assistant.audio.chunk" && this.dependencies.speechOutputAdapter) {
         void this.dependencies.speechOutputAdapter.enqueueAudioChunk(
           event.turnId,
           event.sequence,
@@ -38,10 +35,7 @@ export class CadenceSession {
         );
       }
 
-      if (
-        event.type === "assistant.audio.effect" &&
-        this.dependencies.speechOutputAdapter
-      ) {
+      if (event.type === "assistant.audio.effect" && this.dependencies.speechOutputAdapter) {
         void this.dependencies.speechOutputAdapter.enqueueEffectChunk(
           event.turnId,
           event.format,
@@ -84,7 +78,9 @@ export class CadenceSession {
       throw new Error("The active transport does not support direct Kindroid group turns.");
     }
 
-    await this.dependencies.transport.requestKindroidGroupParticipantTurn(kindroidParticipantId);
+    await this.dependencies.transport.requestKindroidGroupParticipantTurn(
+      kindroidParticipantId
+    );
   }
 
   async playAssistantAudioChunk(

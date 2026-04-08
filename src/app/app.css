@@ -592,8 +592,12 @@ textarea {
   margin-top: 0;
   padding-top: 14px;
   border-top: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, rgba(18, 15, 13, 0), rgba(18, 15, 13, 0.76) 22%, rgba(18, 15, 13, 0.96) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(18, 15, 13, 0),
+    rgba(18, 15, 13, 0.76) 22%,
+    rgba(18, 15, 13, 0.96) 100%
+  );
 }
 
 .mode-switch {
@@ -652,7 +656,9 @@ textarea {
   background-position:
     calc(100% - 18px) calc(50% - 2px),
     calc(100% - 12px) calc(50% - 2px);
-  background-size: 6px 6px, 6px 6px;
+  background-size:
+    6px 6px,
+    6px 6px;
   background-repeat: no-repeat;
 }
 

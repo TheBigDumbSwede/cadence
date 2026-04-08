@@ -213,18 +213,22 @@ export class SettingsService {
 
   getOpenAiTtsVoice(): string {
     return (
-      this.getStoredNonSecret("openAiTtsVoice") ??
-      this.getEnv("OPENAI_TTS_VOICE") ??
-      "alloy"
+      this.getStoredNonSecret("openAiTtsVoice") ?? this.getEnv("OPENAI_TTS_VOICE") ?? "alloy"
     );
   }
 
   getOpenAiTtsInstructions(): string {
-    return this.getStoredNonSecret("openAiTtsInstructions") ?? this.getEnv("OPENAI_TTS_INSTRUCTIONS") ?? "";
+    return (
+      this.getStoredNonSecret("openAiTtsInstructions") ??
+      this.getEnv("OPENAI_TTS_INSTRUCTIONS") ??
+      ""
+    );
   }
 
   getMemoryBaseUrl(): string {
-    return this.getStoredNonSecret("memoryBaseUrl") ?? this.getEnv("CADENCE_MEMORY_BASE_URL") ?? "";
+    return (
+      this.getStoredNonSecret("memoryBaseUrl") ?? this.getEnv("CADENCE_MEMORY_BASE_URL") ?? ""
+    );
   }
 
   getElevenLabsApiKey(): string | null {
@@ -286,8 +290,7 @@ export class SettingsService {
       return storedParticipants;
     }
 
-    const legacyAiId =
-      this.getStoredNonSecret("kindroidAiId") ?? this.getEnv("KINDROID_AI_ID");
+    const legacyAiId = this.getStoredNonSecret("kindroidAiId") ?? this.getEnv("KINDROID_AI_ID");
     if (!legacyAiId) {
       return [];
     }
@@ -455,10 +458,7 @@ export class SettingsService {
           elevenLabsVoiceId: normalizeValue(participant?.elevenLabsVoiceId)
         };
       })
-      .filter(
-        (participant): participant is KindroidParticipant =>
-          Boolean(participant)
-      );
+      .filter((participant): participant is KindroidParticipant => Boolean(participant));
   }
 
   private normalizeKindroidGroupMirrors(
@@ -505,9 +505,7 @@ export class SettingsService {
           )
         };
       })
-      .filter(
-        (groupMirror): groupMirror is KindroidGroupMirror => Boolean(groupMirror)
-      );
+      .filter((groupMirror): groupMirror is KindroidGroupMirror => Boolean(groupMirror));
   }
 
   private normalizeKindroidParticipantId(
@@ -587,7 +585,8 @@ export class SettingsService {
   }
 
   private buildLegacyKindroidParticipant(aiId: string): KindroidParticipant {
-    const ttsProvider = this.readStore().preferences?.ttsProvider ?? DEFAULT_PREFERENCES.ttsProvider;
+    const ttsProvider =
+      this.readStore().preferences?.ttsProvider ?? DEFAULT_PREFERENCES.ttsProvider;
 
     return {
       id: LEGACY_KINDROID_PARTICIPANT_ID,
@@ -633,7 +632,6 @@ export class SettingsService {
       return null;
     }
   }
-
 }
 
 let settingsService: SettingsService | null = null;
