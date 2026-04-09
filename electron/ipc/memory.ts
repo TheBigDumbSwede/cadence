@@ -5,11 +5,15 @@ import type {
   MemoryScope
 } from "../../src/shared/memory-control";
 import { MemoryClient } from "../services/MemoryClient";
+import type { MemorySidecarManager } from "../services/MemorySidecarManager";
 
-export function registerMemoryIpc(): void {
+export function registerMemoryIpc(memorySidecarManager: MemorySidecarManager): void {
   const client = new MemoryClient();
 
-  ipcMain.handle("memory:get-state", () => client.getState());
+  ipcMain.handle("memory:get-state", () => ({
+    ...client.getState(),
+    manager: memorySidecarManager.getState()
+  }));
   ipcMain.handle("memory:list", (_event, profileId?: string) => client.list(profileId));
   ipcMain.handle("memory:list-sessions", (_event, profileId?: string) =>
     client.listSessions(profileId)

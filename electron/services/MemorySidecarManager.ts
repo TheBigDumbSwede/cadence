@@ -48,26 +48,43 @@ async function isHealthy(baseUrl: string): Promise<boolean> {
 export class MemorySidecarManager {
   private child: ChildProcess | null = null;
   private childBaseUrl: string | null = null;
+  private mode: "disabled" | "external" | "local-external" | "local-managed" = "disabled";
 
   async syncWithSettings(): Promise<void> {
     const baseUrl = getSettingsService().getMemoryBaseUrl().trim();
 
     if (!baseUrl || !isLocalMemoryUrl(baseUrl)) {
       this.stopManagedSidecar();
+      this.mode = baseUrl ? "external" : "disabled";
       return;
     }
 
     if (await isHealthy(baseUrl)) {
       this.stopManagedSidecar();
+      this.mode = "local-external";
       return;
     }
 
     if (this.child && this.child.exitCode === null && this.childBaseUrl === baseUrl) {
+      this.mode = "local-managed";
       return;
     }
 
     this.stopManagedSidecar();
     this.startManagedSidecar(baseUrl);
+  }
+
+  getState(): {
+    mode: "disabled" | "external" | "local-external" | "local-managed";
+    childRunning: boolean;
+    storePath: string | null;
+  } {
+    const localMode = this.mode === "local-external" || this.mode === "local-managed";
+    return {
+      mode: this.mode,
+      childRunning: Boolean(this.child && this.child.exitCode === null),
+      storePath: localMode ? resolveStorePath() : null
+    };
   }
 
   stopManagedSidecar(): void {
@@ -85,6 +102,7 @@ export class MemorySidecarManager {
   private startManagedSidecar(baseUrl: string): void {
     const entryPoint = resolveSidecarEntryPoint();
     if (!existsSync(entryPoint)) {
+      this.mode = "local-managed";
       console.warn(`[memory-sidecar] entry point not found: ${entryPoint}`);
       return;
     }
@@ -109,5 +127,6 @@ export class MemorySidecarManager {
 
     this.child = child;
     this.childBaseUrl = baseUrl;
+    this.mode = "local-managed";
   }
 }

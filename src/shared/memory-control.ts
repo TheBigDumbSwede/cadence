@@ -49,6 +49,11 @@ export type MemoryIngestResult = {
 export type MemoryControlState = {
   available: boolean;
   baseUrl: string | null;
+  manager: {
+    mode: "disabled" | "external" | "local-external" | "local-managed";
+    childRunning: boolean;
+    storePath: string | null;
+  };
 };
 
 export type MemoryStoredItem = {

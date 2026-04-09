@@ -10,12 +10,14 @@ import { StagePanel } from "../components/StagePanel";
 import { SystemPanel } from "../components/SystemPanel";
 import { useCadenceController } from "../hooks/useCadenceController";
 import type { TextBackendProvider } from "../shared/backend-provider";
+import type { MemoryControlState } from "../shared/memory-control";
 import type { RuntimeInfo } from "../shared/runtime-info";
 import type { TtsProvider } from "../shared/tts-provider";
 import type { VoiceInputMode } from "../shared/voice-input-mode";
 import type { VoiceBackendProvider } from "../shared/voice-backend";
 
 export function App() {
+  const [memoryState, setMemoryState] = useState<MemoryControlState | null>(null);
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
   const [chatBreakError, setChatBreakError] = useState("");
   const [chatBreakGreeting, setChatBreakGreeting] = useState("");
@@ -88,6 +90,14 @@ export function App() {
 
     void window.cadence.getRuntimeInfo().then(setRuntimeInfo);
   }, []);
+
+  useEffect(() => {
+    if (!window.cadence?.memory) {
+      return;
+    }
+
+    void window.cadence.memory.getState().then(setMemoryState);
+  }, [settingsSnapshot?.memoryBaseUrl]);
 
   useEffect(() => {
     if (chatBreakOpen) {
@@ -317,6 +327,7 @@ export function App() {
             onOpenMemoryManager={() => setMemoryManagerOpen(true)}
             lastMemoryIngest={lastMemoryIngest}
             lastMemoryRecall={lastMemoryRecall}
+            memoryState={memoryState}
             metrics={metrics}
             runtimeInfo={runtimeInfo}
             statusCopy={statusCopy}

@@ -70,7 +70,7 @@ void app.whenReady().then(() => {
   registerElevenLabsIpc();
   registerKindroidExperimentalIpc();
   registerKindroidIpc();
-  registerMemoryIpc();
+  registerMemoryIpc(memorySidecarManager);
   registerOpenAiAudioIpc();
   registerOpenAiSpeechIpc();
   registerRealtimeIpc(() => mainWindow);

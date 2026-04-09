@@ -1,6 +1,7 @@
 import { voiceStackNotes } from "../services/transportOptions";
 import type { BackendConfigSummary } from "../shared/backend-config";
 import type { ConversationMetrics } from "../shared/conversation-types";
+import type { MemoryControlState } from "../shared/memory-control";
 import type { RuntimeInfo } from "../shared/runtime-info";
 
 type SystemPanelProps = {
@@ -16,6 +17,7 @@ type SystemPanelProps = {
     provider: string;
     contextBlock: string;
   } | null;
+  memoryState: MemoryControlState | null;
   metrics: ConversationMetrics;
   runtimeInfo: RuntimeInfo | null;
   statusCopy: string;
@@ -32,11 +34,23 @@ export function SystemPanel({
   onOpenMemoryManager,
   lastMemoryIngest,
   lastMemoryRecall,
+  memoryState,
   metrics,
   runtimeInfo,
   statusCopy,
   topology
 }: SystemPanelProps) {
+  const memoryManagerStatus =
+    memoryState?.manager.mode === "disabled"
+      ? "Disabled"
+      : memoryState?.manager.mode === "external"
+        ? "External backend"
+        : memoryState?.manager.mode === "local-external"
+          ? "Local backend already running"
+          : memoryState?.manager.childRunning
+            ? "Managed local sidecar running"
+            : "Managed local sidecar not running";
+
   return (
     <div className="menu-stack">
       <section className="menu-section">
@@ -97,6 +111,29 @@ export function SystemPanel({
                 ? `Electron ${runtimeInfo.electronVersion} on ${runtimeInfo.platform}, Node ${runtimeInfo.nodeVersion}`
                 : "Runtime info pending"}
             </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="menu-section">
+        <div className="menu-section-header">
+          <div>
+            <p className="eyebrow">Memory Debug</p>
+            <h3 className="panel-title">Backend state</h3>
+          </div>
+        </div>
+        <div className="settings-grid">
+          <article className="setting-card">
+            <strong>Backend URL</strong>
+            <p className="setting-copy">{memoryState?.baseUrl ?? "Not configured"}</p>
+          </article>
+          <article className="setting-card">
+            <strong>Sidecar manager</strong>
+            <p className="setting-copy">{memoryManagerStatus}</p>
+          </article>
+          <article className="setting-card">
+            <strong>Store path</strong>
+            <p className="setting-copy">{memoryState?.manager.storePath ?? "Not applicable"}</p>
           </article>
         </div>
       </section>

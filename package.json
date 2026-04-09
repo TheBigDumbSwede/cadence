@@ -77,6 +77,12 @@
       "dist-sidecar/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "dist-sidecar",
+        "to": "dist-sidecar"
+      }
+    ],
     "win": {
       "icon": "build/icon.ico",
       "target": [

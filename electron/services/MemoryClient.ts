@@ -2,7 +2,6 @@ import "dotenv/config";
 
 import { isAppError } from "../../src/shared/app-error";
 import type {
-  MemoryControlState,
   MemoryIngestRequest,
   MemoryIngestResult,
   MemoryRecallRequest,
@@ -61,7 +60,7 @@ function normalizeBaseUrl(value: string | undefined): string | null {
 }
 
 export class MemoryClient {
-  getState(): MemoryControlState {
+  getState(): { available: boolean; baseUrl: string | null } {
     return {
       available: this.isAvailable(),
       baseUrl: this.getBaseUrl()
