@@ -8,7 +8,7 @@ import {
   normalizeNetworkError
 } from "./appErrorUtils";
 
-const DEFAULT_MODEL = "gpt-5-mini";
+const DEFAULT_MODEL = "gpt-5.4-mini";
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 type ResponsesApiResult = {

@@ -204,7 +204,7 @@ npm run dist:win
 
 Output:
 
-- `release/Cadence-0.2.2-portable.exe`
+- `release/Cadence-0.2.3-portable.exe`
 
 ### Unpacked directory build
 

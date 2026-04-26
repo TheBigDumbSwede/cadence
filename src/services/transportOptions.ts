@@ -10,7 +10,7 @@ import { OpenAIRealtimeIpcTransport } from "./transports/openai/OpenAIRealtimeIp
 import { OpenAIResponsesIpcTransport } from "./transports/openai/OpenAIResponsesIpcTransport";
 
 export const defaultVoiceTransportConfig: TransportConfig = {
-  model: "gpt-realtime-mini",
+  model: "gpt-realtime-1.5",
   voice: "alloy",
   instructions:
     "You are Cadence, a concise desktop voice companion optimized for smooth turn-taking.",
@@ -18,7 +18,7 @@ export const defaultVoiceTransportConfig: TransportConfig = {
 };
 
 export const defaultTextTransportConfig: TransportConfig = {
-  model: "gpt-5-mini",
+  model: "gpt-5.4-mini",
   voice: "none",
   instructions:
     "You are Cadence, a concise desktop companion. Keep answers clear and fairly short unless asked for more detail.",
@@ -26,7 +26,7 @@ export const defaultTextTransportConfig: TransportConfig = {
 };
 
 export const defaultOpenAiBatchVoiceTransportConfig: TransportConfig = {
-  model: "gpt-5-mini+elevenlabs",
+  model: "gpt-5.4-mini+elevenlabs",
   voice: "",
   instructions:
     "You are Cadence, a concise desktop voice companion. Keep answers clear and fairly short unless asked for more detail.",
@@ -35,12 +35,12 @@ export const defaultOpenAiBatchVoiceTransportConfig: TransportConfig = {
 
 export const defaultOpenAiBatchVoiceOpenAiTtsConfig: TransportConfig = {
   ...defaultOpenAiBatchVoiceTransportConfig,
-  model: "gpt-5-mini+openai-tts"
+  model: "gpt-5.4-mini+openai-tts"
 };
 
 export const defaultOpenAiBatchVoiceTextOnlyConfig: TransportConfig = {
   ...defaultOpenAiBatchVoiceTransportConfig,
-  model: "gpt-5-mini+text-only",
+  model: "gpt-5.4-mini+text-only",
   modalities: ["text"]
 };
 
@@ -112,11 +112,11 @@ export function createKindroidGroupSession(): CadenceSession {
 export const voiceStackNotes = [
   {
     title: "Default prototype path",
-    body: "Use OpenAI Realtime Mini as the first live transport so the turn loop is cheap and low-latency."
+    body: "Use gpt-realtime-1.5 as the first live transport for the highest-quality native voice loop."
   },
   {
     title: "Cheap dev mode",
-    body: "Text-only mode routes through the Responses API on gpt-5-mini so ordinary iteration does not burn audio tokens."
+    body: "Text-only mode routes through the Responses API on gpt-5.4-mini so ordinary iteration does not burn audio tokens."
   },
   {
     title: "OpenAI chained voice path",

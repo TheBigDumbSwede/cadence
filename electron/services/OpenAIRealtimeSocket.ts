@@ -16,7 +16,7 @@ import {
 import { getSettingsService } from "./SettingsService";
 
 const DEFAULT_CONFIG: TransportConfig = {
-  model: "gpt-realtime-mini",
+  model: "gpt-realtime-1.5",
   voice: "alloy",
   instructions:
     "You are Cadence, a concise desktop voice companion optimized for smooth turn-taking.",
@@ -145,6 +145,10 @@ export class OpenAIRealtimeSocket {
     await new Promise<void>((resolve) => {
       const socket = this.socket;
       this.socket = null;
+      if (!socket) {
+        resolve();
+        return;
+      }
       socket.once("close", () => {
         this.emit({
           type: "session.status",

@@ -290,7 +290,7 @@ function handleTranscriptFinal(
 
   context.setTurns((previous) => {
     const pendingId = context.pendingUserTurnIdRef.current;
-    let nextTurns = previous;
+    let nextTurns: ConversationTurn[];
     if (pendingId) {
       context.pendingUserTurnIdRef.current = null;
       const existingPendingTurn = previous.find((turn) => turn.id === pendingId);

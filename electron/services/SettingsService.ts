@@ -35,10 +35,10 @@ type StoredSettings = {
   kindroidGreeting?: string;
   kindroidConversationMode?: KindroidConversationMode;
   kindroidParticipants?: KindroidParticipant[];
-  activeKindroidParticipantId?: string;
+  activeKindroidParticipantId?: string | null;
   kindroidGroupMirrors?: KindroidGroupMirror[];
-  activeKindroidGroupMirrorId?: string;
-  activeKindroidGroupSpeakerParticipantId?: string;
+  activeKindroidGroupMirrorId?: string | null;
+  activeKindroidGroupSpeakerParticipantId?: string | null;
   secrets?: {
     openAiApiKey?: string;
     elevenLabsApiKey?: string;
